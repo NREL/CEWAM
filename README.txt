@@ -4,6 +4,7 @@ The Circular Economy Wind Agent-based Model is an agent-based model built with t
 
 Features
 
+    Based on the USWTDB
     Network configuration
     Product growth and waste generation
     Agents end-of-life decision rule
@@ -12,3 +13,4 @@ Requirements
 
     MESA
     networkx
+    ...
