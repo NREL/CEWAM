@@ -10,6 +10,13 @@
 # try to set up different random scheduler? Or create my own random scheduler
 # where agent types go one after another?
 # Use RandomActivation, you can have multiple schedulers!!!
+# Write unittests -  use: https://realpython.com/python-testing/
+# The unittest library is already there! Just need to import in a different
+# python module
+# Create the file unittest and add function as you go?
+# Commit quite often  with comments (after each function is written e.g.)
+# and do unittests before each commit! (if doesn't pass unittest mention
+# in commit comment) (add unittest file to the git repo)
 
 
 from mesa import Model
