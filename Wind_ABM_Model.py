@@ -75,9 +75,10 @@ class WindABM(Model):
             self.recycling_states = [i]
             distances_to_recyclers = []
             distances_to_recyclers = self.shortest_paths(
-                self.recycling_states, distances_to_recyclers)
+                self.states_graph, self.recycling_states,
+                distances_to_recyclers)
 
-    def shortest_paths(self, target_states, distances_to_target):
+    def shortest_paths(self, graph, target_states, distances_to_target):
         """
         Compute shortest paths between chosen origin states and targets with
         the Dijkstra algorithm.
@@ -86,7 +87,7 @@ class WindABM(Model):
             shortest_paths = []
             for j in target_states:
                 shortest_paths.append(
-                    nx.shortest_path_length(self.states_graph, source=i,
+                    nx.shortest_path_length(graph, source=i,
                                             target=j, weight='weight',
                                             method='dijkstra'))
             shortest_paths_closest_target = min(shortest_paths)
@@ -99,10 +100,11 @@ class WindABM(Model):
         """
         Advance the model by one step and collect data.
         """
-        print("Schedule1")
         self.schedule.step()
-        print("Schedule2")
         self.schedule2.step()
 
 
 WindABM().step()
+
+
+

@@ -30,10 +30,10 @@ class Consumers(Agent):
         obtainer = random.choice(neighbors_nodes)
         if self.unit > 0:
             self.unit -= 1
-            #for agent in self.model.schedule.agents:
-             #   if agent.unique_id == obtainer:
-              #      agent.unit += 1
-        print(self.unique_id)
+            # for agent in self.model.schedule.agents:
+            # if agent.unique_id == obtainer:
+            # agent.unit += 1
+        # print(self.unique_id)
 
     def step(self):
         """
