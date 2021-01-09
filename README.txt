@@ -1,6 +1,6 @@
 CEWAM
 
-The Circular Economy Wind Agent-based Model is an agent-based model built with the MESA python library. The tool enables studying various circular economy strategies by simulating actors decisions.
+The Circular Economy Wind Agent-based Model (CEWAM) is an agent-based model built with the MESA python library. The tool enables studying various circular economy strategies by simulating actors decisions.
 
 Features
 

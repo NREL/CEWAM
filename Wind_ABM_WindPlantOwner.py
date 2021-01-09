@@ -1,13 +1,17 @@
+# -*- coding:utf-8 -*-
+"""
+Created on December 31 2020
+
+@author Julien Walzberg - Julien.Walzberg@nrel.gov
+
+WindPlantOwner - Circular Economy Wind Agent-based Model (CEWAM)
+This module contains the WindPlantOwner class. Wind plant owners make several
+decisions, for instance, regarding EOL management.
+"""
+
 # Notes:
-# In the event of negative profit (loss), the wind farm owner would need to
-# subsidize (pay) to process the end-of-life material. If this is more
-# expensive than solid waste disposal, most wind farm owners will
-# (and currently do) choose the least-cost option: solid waste disposal.
-# You can use Liu et al. 2019 to include energy net impact results as a first
-# approximation for adding environmental information to the model
-# Think about using the machine learning metamodel to calibrate the ABM
-# It takes a lot of time to go through the model schedule... If possible,
-# try to avoid it!!!
+# Remove unused library imports
+
 
 from mesa import Agent
 import numpy as np
@@ -19,10 +23,14 @@ from math import *
 import time
 
 
-class Consumers(Agent):
-    def __init__(self, unique_id, model):
+class WindPlantOwner(Agent):
+    def __init__(self, unique_id, model, **kwargs):
         super().__init__(unique_id, model)
-        self.unit = 1
+        """
+        Creation of new agent
+        """
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     def give_unit(self):
         neighbors_nodes = self.model.grid.get_neighbors(self.pos,
