@@ -16,11 +16,13 @@ from Wind_ABM_Model import WindABM
 from mesa.time import RandomActivation
 from mesa.space import NetworkGrid
 from mesa import Agent
+from mesa.time import BaseScheduler
 import pandas as pd
 
 
 class TestWindABM(TestCase):
     def test_compute_all_distances(self):
+        """Test that distances are computed correctly"""
         states = ["Colorado", "Florida", "Michigan"]
         graph = WindABM().states_graph
         output_distances = WindABM().compute_all_distances(states, graph)
@@ -78,6 +80,30 @@ class TestWindABM(TestCase):
             sum_test += a.test_var["unit"] + a.test_var["unit2"]
         result = number_node * (test_param["unit"] + test_param["unit2"])
         self.assertEqual(sum_test, result)
+
+    """
+    Method is not used at the moment, consider removing it
+    
+    def test_aggregate_agent_output(self):
+        test_param = 1
+        agents = 10
+        schedule = BaseScheduler(self)
+
+        class TestAgent(Agent):
+            def __init__(self, unique_id, model, param):
+                super().__init__(unique_id, model)
+                ""
+                Creation of new agent
+                ""
+                self.param = param
+
+        for a in range(agents):
+            a = TestAgent(a, WindABM(), test_param)
+            schedule.add(a)
+        result = test_param * agents
+        test_result = WindABM().aggregate_agent_output(schedule, "param")
+        self.assertEqual(result, test_result)
+    """
 
     def test_step(self):
         """Test that the model run steps without errors"""

@@ -33,7 +33,7 @@ class WindPlantOwner(Agent):
             setattr(self, key, value)
 
     def give_unit(self):
-        neighbors_nodes = self.model.grid.get_neighbors(self.pos,
+        neighbors_nodes = self.model.grid_wpo.get_neighbors(self.pos,
                                                         include_center=False)
         obtainer = random.choice(neighbors_nodes)
         if self.unit > 0:
@@ -43,8 +43,15 @@ class WindPlantOwner(Agent):
             # agent.unit += 1
         # print(self.unique_id)
 
+    def sum_agent_variable(self):
+        """
+        Sum the value of agent variables across all agents
+        """
+        self.model.all_agents_unit += self.unit
+
     def step(self):
         """
         Evolution of agent at each step
         """
         self.give_unit()
+        self.sum_agent_variable()

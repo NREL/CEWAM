@@ -22,7 +22,12 @@ outputs.
 from mesa import Model
 from Wind_ABM_WindPlantOwner import WindPlantOwner
 from Wind_ABM_Manufacturer import Manufacturer
+from Wind_ABM_Developer import Developer
+from Wind_ABM_Recycler import Recycler
+from Wind_ABM_Landfill import Landfill
+from Wind_ABM_Regulator import Regulator
 from mesa.time import RandomActivation
+from mesa.time import BaseScheduler
 from mesa.space import NetworkGrid
 from mesa.datacollection import DataCollector
 import networkx as nx
@@ -37,29 +42,73 @@ import time
 class WindABM(Model):
     def __init__(self,
                  seed=None,
-                 wind_plant_owner=10,
-                 manufacturers=5,
-                 unit=1,
+                 wind_plant_owner=30,
+                 manufacturers=25,
+                 developers=20,
+                 recyclers=15,
+                 landfills=10,
+                 regulators=5,
+                 unit=3,
                  unit2=2,
                  small_world_network={"node_degree": 2, "rewiring_prob": 0.1},
                  external_files={
-                     "state_distances": "StatesAdjacencyMatrix.csv"}):
+                     "state_distances": "StatesAdjacencyMatrix.csv", "uswtdb":
+                     "uswtdb_v3_1_20200717.csv"}):
         """
         Initiate model.
         :param seed: number used to initialize the random generator
         :param wind_plant_owner: number of wind plant owners
+        :param manufacturers: number of manufacturers
+        :param developers: number of developers
+        :param recyclers: number of reyclers
+        :param landfills: number of landfills
+        :param regulators: number of regulators
         :param small_world_network: characteristics of the small-world network
         (if rewiring prob set to 0: regular lattice, if set to 1: random
         network)
         :param external_files: dictionary mapping files to their variables
         """
+        # Variables from inputs (value defined externally):
         self.seed = seed
         self.wind_plant_owner = wind_plant_owner
         self.manufacturers = manufacturers
+        self.developers = developers
+        self.recyclers = recyclers
+        self.landfills = landfills
+        self.regulators = regulators
         self.unit = unit
         self.unit2 = unit2
         self.small_world_network = small_world_network
         self.external_files = external_files
+        # Internal variables:
+        self.clock = 0  # keep track of simulation time step
+        self.unique_id = 0
+        self.all_agents_unit = 0
+        # Prepare wind project data
+        import gc
+        import os, psutil;
+        print(psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2)
+        uswtdb = pd.read_csv(self.external_files["uswtdb"])
+        uswtdb = uswtdb.loc[uswtdb['p_year'] > 1999]  # neglects years < 2000
+        uswtdb = uswtdb.groupby('p_name').agg(
+            lambda x: x.head(1) if x.dtype == 'object' else
+            x.mean()).reset_index()
+        print(uswtdb.columns)
+        uswtdb = uswtdb[['p_name', 'p_year', 'p_tnum', 'p_cap', 't_state']]
+        uswtdb = uswtdb[uswtdb['p_cap'].notna()]
+        # TODO:
+        #  1) Continue to shape the dataframe like I want to
+        #  2) Replace State abbreviation by full name (look for a function to
+        #  do that online
+        #  3) Put the whole code in a function and write the test: check that
+        #  the sum for a given state is euql to its value taken from database
+        #print(uswtdb)
+        print(psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2)
+        #del uswtdb
+        #gc.collect()
+        #uswtdb = []
+        #print(self.test)
+        print(psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2)
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -74,24 +123,58 @@ class WindABM(Model):
         self.all_shortest_paths_or_trg = self.compute_all_distances(
             self.states, self.states_graph)
         # Creating agents and social networks:
-        self.G = self.creating_social_network(
+        self.schedule = BaseScheduler(self)
+        self.G_wpo = self.creating_social_network(
             self.wind_plant_owner, self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
-        self.grid = NetworkGrid(self.G)
-        self.schedule = RandomActivation(self)
-        self.creating_agents(self.G, self.grid, self.schedule, WindPlantOwner,
-                             unit=self.unit)
-        self.G2 = self.creating_social_network(
+        self.grid_wpo = NetworkGrid(self.G_wpo)
+        self.schedule_wpo = RandomActivation(self)
+        self.creating_agents(self.G_wpo, self.grid_wpo, self.schedule_wpo,
+                             WindPlantOwner, unit=self.unit)
+        self.G_man = self.creating_social_network(
             self.manufacturers, self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
-        self.grid2 = NetworkGrid(self.G2)
-        self.schedule2 = RandomActivation(self)
-        self.creating_agents(self.G2, self.grid2, self.schedule2,
+        self.grid_man = NetworkGrid(self.G_man)
+        self.schedule_man = RandomActivation(self)
+        self.creating_agents(self.G_man, self.grid_man, self.schedule_man,
                              Manufacturer, unit=self.unit2)
-        # TODO:
-        #  1) Create other agents Python modules with dummy agent classes
-        #  2) Once module are created, write code to create agents and agent
-        #  networks
+        self.G_dev = self.creating_social_network(
+            self.developers, self.small_world_network["node_degree"],
+            self.small_world_network["rewiring_prob"])
+        self.grid_dev = NetworkGrid(self.G_dev)
+        self.schedule_dev = RandomActivation(self)
+        self.creating_agents(self.G_dev, self.grid_dev, self.schedule_dev,
+                             Developer, unit=self.unit2)
+        self.G_rec = self.creating_social_network(
+            self.recyclers, self.small_world_network["node_degree"],
+            self.small_world_network["rewiring_prob"])
+        self.grid_rec = NetworkGrid(self.G_rec)
+        self.schedule_rec = RandomActivation(self)
+        self.creating_agents(self.G_rec, self.grid_rec, self.schedule_rec,
+                             Developer, unit=self.unit2)
+        self.G_land = self.creating_social_network(
+            self.landfills, self.small_world_network["node_degree"],
+            self.small_world_network["rewiring_prob"])
+        self.grid_land = NetworkGrid(self.G_land)
+        self.schedule_land = RandomActivation(self)
+        self.creating_agents(self.G_land, self.grid_land, self.schedule_land,
+                             Landfill, unit=self.unit2)
+        self.G_reg = self.creating_social_network(
+            self.regulators, self.small_world_network["node_degree"],
+            self.small_world_network["rewiring_prob"])
+        self.grid_reg = NetworkGrid(self.G_reg)
+        self.schedule_reg = RandomActivation(self)
+        self.creating_agents(self.G_reg, self.grid_reg, self.schedule_reg,
+                             Regulator, unit=self.unit2)
+        # Create data collectors:
+        model_reporters = {
+            "Year": lambda a: self.clock + 2020,
+            "Units": lambda a: self.all_agents_unit}
+        agent_reporters = {
+            "Units": lambda a: getattr(a, "unit", None)}
+        self.data_collector = DataCollector(
+            model_reporters=model_reporters,
+            agent_reporters=agent_reporters)
 
     def compute_all_distances(self, states, graph):
         """
@@ -167,19 +250,41 @@ class WindABM(Model):
         agent class's name
         """
         for node in social_network:
-            a = agent_type(node, self, **kwargs)
+            a = agent_type(self.unique_id, self, **kwargs)
             schedule.add(a)
             grid.place_agent(a, node)
+            self.schedule.add(a)
+            self.unique_id += 1
+
+    """
+    The method below is not used at the moment, consider removing it
+    
+    @staticmethod
+    def aggregate_agent_output(schedule, variable):
+        ""
+        Sum the value of a given agent variable across a given schedule
+        :param schedule: the schedule containing agents
+        :param variable: the agent variable to sum
+        :return: sum of the given variable
+        ""
+        aggregated_output = 0
+        for agent in schedule.agents:
+            aggregated_output += getattr(agent, variable)
+        return aggregated_output
+    """
 
     def step(self):
         """
         Advance the model by one step and collect data.
         """
-        self.schedule.step()
-        self.schedule2.step()
+        self.schedule_wpo.step()
+        self.schedule_man.step()
+        self.schedule_dev.step()
+        self.schedule_rec.step()
+        self.schedule_land.step()
+        self.schedule_reg.step()
+        self.data_collector.collect(self)
+        self.clock += 1
 
 
-WindABM().step()
-
-
-
+WindABM()

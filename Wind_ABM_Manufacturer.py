@@ -33,7 +33,7 @@ class Manufacturer(Agent):
             setattr(self, key, value)
 
     def give_unit(self):
-        neighbors_nodes = self.model.grid.get_neighbors(self.pos,
+        neighbors_nodes = self.model.grid_man.get_neighbors(self.pos,
                                                         include_center=False)
         obtainer = random.choice(neighbors_nodes)
         if self.unit > 0:
