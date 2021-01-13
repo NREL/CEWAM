@@ -50,6 +50,26 @@ class WindABM(Model):
                  regulators=5,
                  unit=3,
                  unit2=2,
+                 growth_rates={
+                     'Alabama': 0.39, 'Arizona': 0.09, 'Arkansas': 0.47,
+                     'California': 0.05, 'Colorado': 0.02, 'Connecticut': 0.24,
+                     'Delaware': 0.25, 'Florida': 0.22, 'Georgia': 0.41,
+                     'Idaho': 0.04, 'Illinois': 0.06, 'Indiana': 0.04,
+                     'Iowa': 0.03, 'Kansas': 0.01, 'Kentucky': 0.45,
+                     'Louisiana': 0.39, 'Maine': 0.02, 'Maryland': 0.12,
+                     'Massachusetts': 0.15, 'Michigan': 0.08,
+                     'Minnesota': 0.01, 'Mississippi': 0.2, 'Missouri': 0.09,
+                     'Montana': 0.05, 'Nebraska': 0.04, 'Nevada': 0.1,
+                     'New Hampshire': 0.06, 'New Jersey': 0.23,
+                     'New Mexico': 0.07, 'New York': 0.08,
+                     'North Carolina': 0.16, 'North Dakota': 0.01,
+                     'Ohio': 0.1, 'Oklahoma': 0.02, 'Oregon': 0.03,
+                     'Pennsylvania': 0.09, 'Rhode Island': 0.09,
+                     'South Carolina': 0.44, 'South Dakota': 0.04,
+                     'Tennessee': 0.18, 'Texas': 0.03, 'Utah': 0.03,
+                     'Vermont': 0.06, 'Virginia': 0.14, 'Washington': 0.05,
+                     'West Virginia': 0.06, 'Wisconsin': 0.11,
+                     'Wyoming': 0.03},
                  small_world_network={"node_degree": 2, "rewiring_prob": 0.1},
                  external_files={
                      "state_distances": "StatesAdjacencyMatrix.csv", "uswtdb":
@@ -78,37 +98,33 @@ class WindABM(Model):
         self.regulators = regulators
         self.unit = unit
         self.unit2 = unit2
+        self.growth_rates = growth_rates
         self.small_world_network = small_world_network
         self.external_files = external_files
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
         self.all_agents_unit = 0
-        # Prepare wind project data
-        import gc
-        import os, psutil;
-        print(psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2)
-        uswtdb = pd.read_csv(self.external_files["uswtdb"])
-        uswtdb = uswtdb.loc[uswtdb['p_year'] > 1999]  # neglects years < 2000
-        uswtdb = uswtdb.groupby('p_name').agg(
-            lambda x: x.head(1) if x.dtype == 'object' else
-            x.mean()).reset_index()
-        print(uswtdb.columns)
-        uswtdb = uswtdb[['p_name', 'p_year', 'p_tnum', 'p_cap', 't_state']]
-        uswtdb = uswtdb[uswtdb['p_cap'].notna()]
-        # TODO:
-        #  1) Continue to shape the dataframe like I want to
-        #  2) Replace State abbreviation by full name (look for a function to
-        #  do that online
-        #  3) Put the whole code in a function and write the test: check that
-        #  the sum for a given state is euql to its value taken from database
-        #print(uswtdb)
-        print(psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2)
-        #del uswtdb
-        #gc.collect()
-        #uswtdb = []
-        #print(self.test)
-        print(psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2)
+        self.all_cum_cap = 0
+        self.state_abrev = {
+            'AL': 'Alabama', 'AZ': 'Arizona', 'AR': 'Arkansas',
+            'CA': 'California', 'CO': 'Colorado', 'CT': 'Connecticut',
+            'DE': 'Delaware', 'FL': 'Florida', 'GA': 'Georgia', 'ID': 'Idaho',
+            'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa', 'KS': 'Kansas',
+            'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine',
+            'MD': 'Maryland', 'MA': 'Massachusetts', 'MI': 'Michigan',
+            'MN': 'Minnesota', 'MS': 'Mississippi', 'MO': 'Missouri',
+            'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada',
+            'NH': 'New Hampshire', 'NJ': 'New Jersey', 'NM': 'New Mexico',
+            'NY': 'New York', 'NC': 'North Carolina', 'ND': 'North Dakota',
+            'OH': 'Ohio', 'OK': 'Oklahoma', 'OR': 'Oregon',
+            'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
+            'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas',
+            'UT': 'Utah', 'VT': 'Vermont', 'VA': 'Virginia',
+            'WA': 'Washington', 'WV': 'West Virginia', 'WI': 'Wisconsin',
+            'WY': 'Wyoming'}
+        self.uswtdb = self.wind_plant_owner_data(
+            self.external_files["uswtdb"], self.state_abrev)
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -125,7 +141,7 @@ class WindABM(Model):
         # Creating agents and social networks:
         self.schedule = BaseScheduler(self)
         self.G_wpo = self.creating_social_network(
-            self.wind_plant_owner, self.small_world_network["node_degree"],
+            self.uswtdb.shape[0], self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
         self.grid_wpo = NetworkGrid(self.G_wpo)
         self.schedule_wpo = RandomActivation(self)
@@ -169,9 +185,12 @@ class WindABM(Model):
         # Create data collectors:
         model_reporters = {
             "Year": lambda a: self.clock + 2020,
-            "Units": lambda a: self.all_agents_unit}
+            "Units": lambda a: self.all_agents_unit,
+            "Cumulative capacity": lambda a: self.all_cum_cap}
         agent_reporters = {
-            "Units": lambda a: getattr(a, "unit", None)}
+            "Units": lambda a: getattr(a, "unit", None),
+            "State": lambda a: getattr(a, "t_state", None),
+            "Cumulative capacity": lambda a: getattr(a, "cum_cap", None)}
         self.data_collector = DataCollector(
             model_reporters=model_reporters,
             agent_reporters=agent_reporters)
@@ -256,6 +275,32 @@ class WindABM(Model):
             self.schedule.add(a)
             self.unique_id += 1
 
+    @staticmethod
+    def wind_plant_owner_data(database, state_abrev):
+        """
+        Convert database to a pandas DataFrame and select relevant data
+        :param database: the csv file of the US wind turbine database
+        v3_1_20200717 (https://doi.org/10.5066/F7TX3DN0)
+        :param state_abrev: dictionary to convert state abbreviations to
+        full names
+        :return: pandas DataFrame for use by wind plant owners
+        """
+        uswtdb = pd.read_csv(database)
+        uswtdb = uswtdb.loc[uswtdb['p_year'] > 1999]  # neglects years < 2000
+        uswtdb = uswtdb.groupby('p_name').agg(
+            lambda x: x.head(1) if x.dtype == 'object' else
+            x.mean()).reset_index()
+        uswtdb = uswtdb[['p_name', 'p_year', 'p_tnum', 'p_cap', 't_state']]
+        uswtdb = uswtdb[(uswtdb.t_state != 'AK') & (uswtdb.t_state != 'HI') &
+                        (uswtdb.t_state != 'PR') & (uswtdb.t_state != 'GU')]
+        uswtdb = uswtdb[uswtdb['p_cap'].notna()].reset_index()
+        uswtdb = uswtdb.replace({'t_state': state_abrev})
+        return uswtdb
+
+    def re_initialize_global_variable(self):
+        """Re-initialize yearly variables"""
+        self.all_cum_cap = 0
+
     """
     The method below is not used at the moment, consider removing it
     
@@ -277,14 +322,16 @@ class WindABM(Model):
         """
         Advance the model by one step and collect data.
         """
+        self.data_collector.collect(self)
+        self.re_initialize_global_variable()
         self.schedule_wpo.step()
         self.schedule_man.step()
         self.schedule_dev.step()
         self.schedule_rec.step()
         self.schedule_land.step()
         self.schedule_reg.step()
-        self.data_collector.collect(self)
+        self.schedule.step()
         self.clock += 1
 
 
-WindABM()
+# WindABM()

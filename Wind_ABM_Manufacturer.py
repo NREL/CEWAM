@@ -32,9 +32,11 @@ class Manufacturer(Agent):
         for key, value in kwargs.items():
             setattr(self, key, value)
 
+        self.internal_clock = 0
+
     def give_unit(self):
-        neighbors_nodes = self.model.grid_man.get_neighbors(self.pos,
-                                                        include_center=False)
+        neighbors_nodes = self.model.grid_man.get_neighbors(
+            self.pos, include_center=False)
         obtainer = random.choice(neighbors_nodes)
         if self.unit > 0:
             self.unit -= 1
@@ -45,6 +47,11 @@ class Manufacturer(Agent):
 
     def step(self):
         """
-        Evolution of agent at each step
+        Evolution of agent at each step. As Mesa is not built for having
+        multiple scheduler, step needs to pass the global scheduler.
         """
-        self.give_unit()
+        if self.internal_clock == self.model.clock:
+            self.give_unit()
+            self.internal_clock += 1
+        else:
+            pass

@@ -81,6 +81,20 @@ class TestWindABM(TestCase):
         result = number_node * (test_param["unit"] + test_param["unit2"])
         self.assertEqual(sum_test, result)
 
+    def test_wind_plant_owner_data(self):
+        """Test that the sum of projects' cumulative capacity corresponds to
+        projects > 1999, with a cumulative capacity different from 0 and
+        limited to the contiguous US"""
+        uswtdb_test = WindABM().wind_plant_owner_data(
+            WindABM().external_files['uswtdb'], WindABM().state_abrev)
+        result = 106229  # sum of p_cap
+        sum_test = round(uswtdb_test['p_cap'].sum())
+        self.assertEqual(sum_test, result)
+
+    def test_re_initialize_global_variable(self):
+        """Function can't be formally tested here"""
+        pass
+
     """
     Method is not used at the moment, consider removing it
     

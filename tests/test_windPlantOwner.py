@@ -25,3 +25,32 @@ class TestWindPlantOwner(TestCase):
     def test_sum_agent_variable(self):
         """Function can't be formally tested here"""
         pass
+
+    def test_wind_power_capacity_state_distribution(self):
+        """Verify that capacities are distributed as should be within the US"""
+        schedule = WindABM().schedule_wpo
+        test_uswtdb = WindABM().uswtdb.drop(['p_name'], axis=1)
+        test_uswtdb = test_uswtdb.groupby(['t_state']).sum()
+        value = []
+        test_score = []
+        for index, row in test_uswtdb.iterrows():
+            test_sum = 0
+            for a in schedule.agents:
+                if a.t_state == index:
+                    test_sum += sum(a.p_cap)
+            if test_sum == row['p_cap']:
+                test_score.append(True)
+            else:
+                test_score.append(False)
+            value.append(True)
+        self.assertCountEqual(value, test_score)
+
+    def test_cumulative_capacity_growth(self):
+        """Verify that growth model behave as expected"""
+        p_cap = [100.0, 50.0, 25.0]
+        growth_rate = 0.1
+        result = [x for x in p_cap]
+        result.append(sum(p_cap) * growth_rate)
+        WindPlantOwner(0, model=WindABM()).cumulative_capacity_growth(
+            p_cap, growth_rate)
+        self.assertCountEqual(result, p_cap)

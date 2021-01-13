@@ -11,6 +11,10 @@ decisions, for instance, regarding EOL management.
 
 # Notes:
 # Remove unused library imports
+# For now we assume the number of project stays constant (but the installed
+# capacity grow). If the assumption is remove the number of agents would grow
+# up to about 4000 (100 wind project per year if looking at the 2000-2015
+# number of installations).
 
 
 from mesa import Agent
@@ -32,26 +36,46 @@ class WindPlantOwner(Agent):
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-    def give_unit(self):
-        neighbors_nodes = self.model.grid_wpo.get_neighbors(self.pos,
-                                                        include_center=False)
-        obtainer = random.choice(neighbors_nodes)
-        if self.unit > 0:
-            self.unit -= 1
-            # for agent in self.model.schedule.agents:
-            # if agent.unique_id == obtainer:
-            # agent.unit += 1
-        # print(self.unique_id)
+        self.internal_clock = self.model.clock
+        self.p_cap = [0] * int(self.model.uswtdb['p_year'].max() -
+                               self.model.uswtdb['p_year'].min() + 1)
+        self.p_name = self.model.uswtdb.loc[self.unique_id]['p_name']
+        self.p_year = self.model.uswtdb.loc[self.unique_id]['p_year']
+        self.p_tnum = self.model.uswtdb.loc[self.unique_id]['p_tnum']
+        self.p_cap[int(self.p_year -
+                       self.model.uswtdb['p_year'].min())] = \
+            self.model.uswtdb.loc[self.unique_id]['p_cap']  # in MW
+        self.p_cap_copy = self.p_cap.copy()
+        self.t_state = self.model.uswtdb.loc[self.unique_id]['t_state']
+        self.growth_rate = self.model.growth_rates.get(self.t_state)
+        self.cum_cap = sum(self.p_cap)
+
+    def cumulative_capacity_growth(self, p_cap, growth_rate):
+        """
+        Grow the list of yearly installed capacity according to growth rate
+        and update the cumulative installed capacity
+        :param p_cap: list of yearly installed capacity
+        :param growth_rate: growth rate of the cumulative installed capacity
+        """
+        additional_capacity = sum(p_cap) * growth_rate
+        p_cap.append(additional_capacity)
+        self.cum_cap = sum(self.p_cap)
 
     def sum_agent_variable(self):
         """
         Sum the value of agent variables across all agents
         """
         self.model.all_agents_unit += self.unit
+        self.model.all_cum_cap += self.cum_cap
 
     def step(self):
         """
-        Evolution of agent at each step
+        Evolution of agent at each step. As Mesa is not built for having
+        multiple scheduler, step needs to pass the global scheduler.
         """
-        self.give_unit()
-        self.sum_agent_variable()
+        if self.internal_clock == self.model.clock:
+            self.cumulative_capacity_growth(self.p_cap, self.growth_rate)
+            self.sum_agent_variable()
+            self.internal_clock += 1
+        else:
+            pass
