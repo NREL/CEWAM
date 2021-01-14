@@ -44,13 +44,3 @@ class TestWindPlantOwner(TestCase):
                 test_score.append(False)
             value.append(True)
         self.assertCountEqual(value, test_score)
-
-    def test_cumulative_capacity_growth(self):
-        """Verify that growth model behave as expected"""
-        p_cap = [100.0, 50.0, 25.0]
-        growth_rate = 0.1
-        result = [x for x in p_cap]
-        result.append(sum(p_cap) * growth_rate)
-        WindPlantOwner(0, model=WindABM()).cumulative_capacity_growth(
-            p_cap, growth_rate)
-        self.assertCountEqual(result, p_cap)

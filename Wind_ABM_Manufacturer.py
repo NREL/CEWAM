@@ -34,16 +34,8 @@ class Manufacturer(Agent):
 
         self.internal_clock = 0
 
-    def give_unit(self):
-        neighbors_nodes = self.model.grid_man.get_neighbors(
-            self.pos, include_center=False)
-        obtainer = random.choice(neighbors_nodes)
-        if self.unit > 0:
-            self.unit -= 1
-            # for agent in self.model.schedule.agents:
-            # if agent.unique_id == obtainer:
-            # agent.unit += 1
-        # print(self.unique_id)
+    def mock_up(self):
+        pass
 
     def step(self):
         """
@@ -51,7 +43,7 @@ class Manufacturer(Agent):
         multiple scheduler, step needs to pass the global scheduler.
         """
         if self.internal_clock == self.model.clock:
-            self.give_unit()
+            self.mock_up()
             self.internal_clock += 1
         else:
             pass

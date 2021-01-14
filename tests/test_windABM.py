@@ -44,7 +44,7 @@ class TestWindABM(TestCase):
 
     def test_creating_social_network_avg_node_degree(self):
         """Test that the network is built with the right average node degree"""
-        number_node = WindABM().wind_plant_owner
+        number_node = WindABM().uswtdb.shape[0]
         theo_avg_node_degree = WindABM().small_world_network["node_degree"]
         rewiring_prob = WindABM().small_world_network["rewiring_prob"]
         graph = WindABM().creating_social_network(
@@ -57,7 +57,7 @@ class TestWindABM(TestCase):
     def test_creating_agent(self):
         """Test that agents are created with all attributes"""
         test_param = {"unit": 1, "unit2": 2}
-        number_node = WindABM().wind_plant_owner
+        number_node = WindABM().uswtdb.shape[0]
         theo_avg_node_degree = WindABM().small_world_network["node_degree"]
         rewiring_prob = WindABM().small_world_network["rewiring_prob"]
         graph = WindABM().creating_social_network(
@@ -91,6 +91,36 @@ class TestWindABM(TestCase):
         sum_test = round(uswtdb_test['p_cap'].sum())
         self.assertEqual(sum_test, result)
 
+    def test_cumulative_capacity_growth(self):
+        """Verify that growth model behave as expected"""
+        p_cap = [100.0, 50.0, 25.0]
+        growth_rate = 0.1
+        result = [x for x in p_cap]
+        result.append(sum(p_cap) * growth_rate)
+        p_cap = WindABM().cumulative_capacity_growth(p_cap, growth_rate)
+        self.assertCountEqual(result, p_cap)
+
+    def test_waste_generation(self):
+        """Test that waste generation behave as expected"""
+        p_cap_waste = [10, 10, 10, 10]
+        installation_years = pd.DataFrame(
+            [2017, 2017, 2017, 2018, 2018, 2020], columns=["years"])
+        avg_lifetime = 3
+        weibull_shape_factor = 3
+        test_result = [round(x, 1) for x in WindABM().waste_generation(
+            installation_years["years"], p_cap_waste, avg_lifetime,
+            weibull_shape_factor)]
+        result = [6.3, 2.6, 0.4, 0]
+        self.assertCountEqual(result, test_result)
+
+    def test_subtract_lists(self):
+        """Verify that subtraction with list comprehension is not altered"""
+        p_cap_waste = [10, 10, 10, 10]
+        waste = [6.3, 2.6, 0.4, 0]
+        results = [(10 - 6.3), (10-2.6), (10-0.4), (10-0)]
+        test_results = WindABM().subtract_lists(p_cap_waste, waste)
+        self.assertCountEqual(results, test_results)
+
     def test_re_initialize_global_variable(self):
         """Function can't be formally tested here"""
         pass
@@ -121,4 +151,10 @@ class TestWindABM(TestCase):
 
     def test_step(self):
         """Test that the model run steps without errors"""
-        WindABM().step()
+        model = WindABM()
+        steps = 2
+        clock = 0
+        for i in range(steps):
+            model.step()
+            clock = model.clock
+        self.assertEqual(steps, clock)

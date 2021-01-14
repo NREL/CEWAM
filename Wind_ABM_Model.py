@@ -42,14 +42,15 @@ import time
 class WindABM(Model):
     def __init__(self,
                  seed=None,
-                 wind_plant_owner=30,
                  manufacturers=25,
                  developers=20,
                  recyclers=15,
                  landfills=10,
                  regulators=5,
-                 unit=3,
-                 unit2=2,
+                 small_world_network={"node_degree": 2, "rewiring_prob": 0.1},
+                 external_files={
+                     "state_distances": "StatesAdjacencyMatrix.csv", "uswtdb":
+                     "uswtdb_v3_1_20200717.csv"},
                  growth_rates={
                      'Alabama': 0.39, 'Arizona': 0.09, 'Arkansas': 0.47,
                      'California': 0.05, 'Colorado': 0.02, 'Connecticut': 0.24,
@@ -70,42 +71,42 @@ class WindABM(Model):
                      'Vermont': 0.06, 'Virginia': 0.14, 'Washington': 0.05,
                      'West Virginia': 0.06, 'Wisconsin': 0.11,
                      'Wyoming': 0.03},
-                 small_world_network={"node_degree": 2, "rewiring_prob": 0.1},
-                 external_files={
-                     "state_distances": "StatesAdjacencyMatrix.csv", "uswtdb":
-                     "uswtdb_v3_1_20200717.csv"}):
+                 average_lifetime=20.0,
+                 weibull_shape_factor=2.2):
         """
         Initiate model.
         :param seed: number used to initialize the random generator
-        :param wind_plant_owner: number of wind plant owners
         :param manufacturers: number of manufacturers
         :param developers: number of developers
         :param recyclers: number of reyclers
         :param landfills: number of landfills
         :param regulators: number of regulators
+        :param growth_rates: states' wind capacity growth rates
         :param small_world_network: characteristics of the small-world network
         (if rewiring prob set to 0: regular lattice, if set to 1: random
         network)
         :param external_files: dictionary mapping files to their variables
+        :param average_lifetime: wind turbines' average lifetime (in years)
+        :param weibull_shape_factor: parameter controlling curve's shape in 
+        the Weibull function
         """
         # Variables from inputs (value defined externally):
         self.seed = seed
-        self.wind_plant_owner = wind_plant_owner
         self.manufacturers = manufacturers
         self.developers = developers
         self.recyclers = recyclers
         self.landfills = landfills
         self.regulators = regulators
-        self.unit = unit
-        self.unit2 = unit2
-        self.growth_rates = growth_rates
         self.small_world_network = small_world_network
         self.external_files = external_files
+        self.growth_rates = growth_rates
+        self.average_lifetime = average_lifetime
+        self.weibull_shape_factor = weibull_shape_factor
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
-        self.all_agents_unit = 0
         self.all_cum_cap = 0
+        self.all_cum_waste = 0
         self.state_abrev = {
             'AL': 'Alabama', 'AZ': 'Arizona', 'AR': 'Arkansas',
             'CA': 'California', 'CO': 'Colorado', 'CT': 'Connecticut',
@@ -146,51 +147,51 @@ class WindABM(Model):
         self.grid_wpo = NetworkGrid(self.G_wpo)
         self.schedule_wpo = RandomActivation(self)
         self.creating_agents(self.G_wpo, self.grid_wpo, self.schedule_wpo,
-                             WindPlantOwner, unit=self.unit)
+                             WindPlantOwner)
         self.G_man = self.creating_social_network(
             self.manufacturers, self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
         self.grid_man = NetworkGrid(self.G_man)
         self.schedule_man = RandomActivation(self)
         self.creating_agents(self.G_man, self.grid_man, self.schedule_man,
-                             Manufacturer, unit=self.unit2)
+                             Manufacturer)
         self.G_dev = self.creating_social_network(
             self.developers, self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
         self.grid_dev = NetworkGrid(self.G_dev)
         self.schedule_dev = RandomActivation(self)
         self.creating_agents(self.G_dev, self.grid_dev, self.schedule_dev,
-                             Developer, unit=self.unit2)
+                             Developer)
         self.G_rec = self.creating_social_network(
             self.recyclers, self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
         self.grid_rec = NetworkGrid(self.G_rec)
         self.schedule_rec = RandomActivation(self)
         self.creating_agents(self.G_rec, self.grid_rec, self.schedule_rec,
-                             Developer, unit=self.unit2)
+                             Developer)
         self.G_land = self.creating_social_network(
             self.landfills, self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
         self.grid_land = NetworkGrid(self.G_land)
         self.schedule_land = RandomActivation(self)
         self.creating_agents(self.G_land, self.grid_land, self.schedule_land,
-                             Landfill, unit=self.unit2)
+                             Landfill)
         self.G_reg = self.creating_social_network(
             self.regulators, self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
         self.grid_reg = NetworkGrid(self.G_reg)
         self.schedule_reg = RandomActivation(self)
         self.creating_agents(self.G_reg, self.grid_reg, self.schedule_reg,
-                             Regulator, unit=self.unit2)
+                             Regulator)
         # Create data collectors:
         model_reporters = {
             "Year": lambda a: self.clock + 2020,
-            "Units": lambda a: self.all_agents_unit,
-            "Cumulative capacity": lambda a: self.all_cum_cap}
+            "Cumulative capacity (MW)": lambda a: self.all_cum_cap,
+            "Cumulative waste (MW)": lambda a: self.all_cum_waste}
         agent_reporters = {
-            "Units": lambda a: getattr(a, "unit", None),
             "State": lambda a: getattr(a, "t_state", None),
-            "Cumulative capacity": lambda a: getattr(a, "cum_cap", None)}
+            "Cumulative capacity (MW)": lambda a: getattr(a, "cum_cap", None),
+            "Cumulative waste (MW)": lambda a: getattr(a, "cum_waste", None)}
         self.data_collector = DataCollector(
             model_reporters=model_reporters,
             agent_reporters=agent_reporters)
@@ -297,9 +298,55 @@ class WindABM(Model):
         uswtdb = uswtdb.replace({'t_state': state_abrev})
         return uswtdb
 
+    @staticmethod
+    def cumulative_capacity_growth(p_cap, growth_rate):
+        """
+        Grow the list of yearly installed capacity according to growth rate
+        and update the cumulative installed capacity
+        :param p_cap: list of yearly installed capacity
+        :param growth_rate: growth rate of the cumulative installed capacity
+        :return list of yearly installed capacity appended one year
+        """
+        additional_capacity = sum(p_cap) * growth_rate
+        p_cap.append(additional_capacity)
+        return p_cap
+
+    # TODO: Start waste generation:
+    #  2) develop agent sum waste and model sum waste variables
+    #  3) add variable to data collector
+
+    def waste_generation(self, installation_years, p_cap_waste, avg_lifetime,
+                         weibull_shape_factor):
+        """
+        Weibull function generating waste: simulate wind turbine failure rate
+        :param installation_years: pandas series with installation years
+        :param p_cap_waste: list of yearly capacities to apply function to
+        :param avg_lifetime: average lifetime of wind turbines
+        :param weibull_shape_factor: factor controlling shape of Weibull curve
+        :return: A list of yearly waste from EOL Wind turbine
+        """
+        correction_year = \
+            installation_years.max() - installation_years.min()
+        waste = [
+            j * (1 - e**(-(((self.clock + (correction_year - z)) /
+                            avg_lifetime)**weibull_shape_factor)))
+            for (z, j) in enumerate(p_cap_waste)]
+        return waste
+
+    @staticmethod
+    def subtract_lists(first_list, second_list):
+        """
+        Return list from element-wise subtraction of two lists
+        :param first_list: first list (to be subtracted)
+        :param second_list: second list (to subtract)
+        :return: element-wise subtracted list
+        """
+        return [x - y for x, y in zip(first_list, second_list)]
+
     def re_initialize_global_variable(self):
         """Re-initialize yearly variables"""
         self.all_cum_cap = 0
+        self.all_cum_waste = 0
 
     """
     The method below is not used at the moment, consider removing it
