@@ -61,9 +61,14 @@ class WindPlantOwner(Agent):
             self.p_cap_waste, self.waste)
         self.p_cap = self.model.cumulative_capacity_growth(
             self.p_cap, self.growth_rate)
-        self.p_cap_waste[-1] = self.p_cap[-1]
+        self.p_cap_waste.append(self.p_cap[-1])
         self.cum_cap = sum(self.p_cap)
-        self.cum_waste = sum(self.waste)
+        self.cum_waste += sum(self.waste)
+
+    # TODO:
+    #  1) Convert waste in mass unit use Liu et al formula to have one
+    #  conversion factor per agent
+    #  2) Continue building model: Theory of Planned Behavior
 
     def sum_agent_variable(self):
         """

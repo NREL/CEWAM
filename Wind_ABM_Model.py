@@ -311,10 +311,6 @@ class WindABM(Model):
         p_cap.append(additional_capacity)
         return p_cap
 
-    # TODO: Start waste generation:
-    #  2) develop agent sum waste and model sum waste variables
-    #  3) add variable to data collector
-
     def waste_generation(self, installation_years, p_cap_waste, avg_lifetime,
                          weibull_shape_factor):
         """
