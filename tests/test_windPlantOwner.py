@@ -44,3 +44,16 @@ class TestWindPlantOwner(TestCase):
                 test_score.append(False)
             value.append(True)
         self.assertCountEqual(value, test_score)
+
+    def test_compute_mass_conv_factor(self):
+        """Verify that conversion factor is computed correctly"""
+        rotor_diameter = 20
+        coefficient = 0.5
+        power = 2
+        t_cap = 10
+        result = coefficient * (rotor_diameter / 2)**power / t_cap
+        unique_id = 0
+        test_result = \
+            WindPlantOwner(unique_id, WindABM()).compute_mass_conv_factor(
+                rotor_diameter, coefficient, power, t_cap)
+        self.assertEqual(result, test_result)

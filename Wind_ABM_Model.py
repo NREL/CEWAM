@@ -37,6 +37,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import random
 import time
+import scipy
 
 
 class WindABM(Model):
@@ -50,7 +51,7 @@ class WindABM(Model):
                  small_world_network={"node_degree": 2, "rewiring_prob": 0.1},
                  external_files={
                      "state_distances": "StatesAdjacencyMatrix.csv", "uswtdb":
-                     "uswtdb_v3_1_20200717.csv"},
+                     "uswtdb_v3_3_20210114.csv"},
                  growth_rates={
                      'Alabama': 0.39, 'Arizona': 0.09, 'Arkansas': 0.47,
                      'California': 0.05, 'Colorado': 0.02, 'Connecticut': 0.24,
@@ -72,7 +73,11 @@ class WindABM(Model):
                      'West Virginia': 0.06, 'Wisconsin': 0.11,
                      'Wyoming': 0.03},
                  average_lifetime=20.0,
-                 weibull_shape_factor=2.2):
+                 weibull_shape_factor=2.2,
+                 blade_size_to_mass_model={'coefficient': 0.0026,
+                                           'power': 2.1447},
+                 cap_to_diameter_model={'coefficient': 57,
+                                        'power': 0.44}):
         """
         Initiate model.
         :param seed: number used to initialize the random generator
@@ -89,6 +94,11 @@ class WindABM(Model):
         :param average_lifetime: wind turbines' average lifetime (in years)
         :param weibull_shape_factor: parameter controlling curve's shape in 
         the Weibull function
+        :param blade_size_to_mass_model: parameters for a power function 
+        y=ax**b relating blade radius and blade mass where y is in tons and x 
+        is in meters
+        :param cap_to_diameter_model: parameters for a power function 
+        converting turbine capacity to rotor diameter
         """
         # Variables from inputs (value defined externally):
         self.seed = seed
@@ -102,6 +112,8 @@ class WindABM(Model):
         self.growth_rates = growth_rates
         self.average_lifetime = average_lifetime
         self.weibull_shape_factor = weibull_shape_factor
+        self.blade_size_to_mass_model = blade_size_to_mass_model
+        self.cap_to_diameter_model = cap_to_diameter_model
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -125,7 +137,17 @@ class WindABM(Model):
             'WA': 'Washington', 'WV': 'West Virginia', 'WI': 'Wisconsin',
             'WY': 'Wyoming'}
         self.uswtdb = self.wind_plant_owner_data(
-            self.external_files["uswtdb"], self.state_abrev)
+            self.external_files["uswtdb"], self.state_abrev,
+            self.cap_to_diameter_model)
+        self.project_size_growth_model = self.linear_regression_model(
+            self.uswtdb['p_year'], self.uswtdb['p_cap'])
+        # TODO:
+        #  1) note: self.project_size_growth_model['coefficient] is the
+        #  increase in project size every year
+        #  2) size of project should be drawn from a distribution where bounds
+        #  and average grow every year from:
+        #  self.project_size_growth_model['coefficient]
+        self.avg_p_cap = self.uswtdb['p_cap'].mean()
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -277,26 +299,49 @@ class WindABM(Model):
             self.unique_id += 1
 
     @staticmethod
-    def wind_plant_owner_data(database, state_abrev):
+    def wind_plant_owner_data(database, state_abrev, cap_to_diameter_model):
         """
         Convert database to a pandas DataFrame and select relevant data
         :param database: the csv file of the US wind turbine database
-        v3_1_20200717 (https://doi.org/10.5066/F7TX3DN0)
+        uswtdb_v3_3_20210114 (https://doi.org/10.5066/F7TX3DN0)
         :param state_abrev: dictionary to convert state abbreviations to
         full names
+        :param cap_to_diameter_model: parameters for a power function used to
+        fill up data gaps in the uswtdb t_rd column
         :return: pandas DataFrame for use by wind plant owners
         """
-        uswtdb = pd.read_csv(database)
-        uswtdb = uswtdb.loc[uswtdb['p_year'] > 1999]  # neglects years < 2000
+        uswtdb = pd.read_csv(database, dtype={'t_manu': 'object',
+                                              't_model': 'object'})
+        uswtdb = uswtdb[(uswtdb['p_year'] > 1999) &
+                        (uswtdb['p_year'] < 2021)]  # select 2000-2020 period
         uswtdb = uswtdb.groupby('p_name').agg(
             lambda x: x.head(1) if x.dtype == 'object' else
             x.mean()).reset_index()
-        uswtdb = uswtdb[['p_name', 'p_year', 'p_tnum', 'p_cap', 't_state']]
+        uswtdb = uswtdb[['p_name', 'p_year', 'p_tnum', 't_state', 't_rd',
+                         't_cap']]
+        uswtdb['t_cap'] /= 1000  # convert t_cap from kW to MW
+        uswtdb['p_cap'] = uswtdb['t_cap'] * uswtdb['p_tnum']
         uswtdb = uswtdb[(uswtdb.t_state != 'AK') & (uswtdb.t_state != 'HI') &
                         (uswtdb.t_state != 'PR') & (uswtdb.t_state != 'GU')]
         uswtdb = uswtdb[uswtdb['p_cap'].notna()].reset_index()
+        uswtdb['t_rd'].fillna(
+            cap_to_diameter_model['coefficient'] *
+            uswtdb['t_cap']**cap_to_diameter_model['power'], inplace=True)
         uswtdb = uswtdb.replace({'t_state': state_abrev})
         return uswtdb
+
+    @staticmethod
+    def linear_regression_model(x, y):
+        """
+        Compute parameters of a linear regression model and store them
+        in a dictionary
+        :param x: list of x values
+        :param y: list of y values
+        :return: dictionary containing linear regression model parameters
+        """
+        result = scipy.stats.linregress(x, y)
+        model = {'intercept': result.intercept, 'coefficient': result.slope}
+        return model
 
     @staticmethod
     def cumulative_capacity_growth(p_cap, growth_rate):
@@ -343,23 +388,6 @@ class WindABM(Model):
         """Re-initialize yearly variables"""
         self.all_cum_cap = 0
         self.all_cum_waste = 0
-
-    """
-    The method below is not used at the moment, consider removing it
-    
-    @staticmethod
-    def aggregate_agent_output(schedule, variable):
-        ""
-        Sum the value of a given agent variable across a given schedule
-        :param schedule: the schedule containing agents
-        :param variable: the agent variable to sum
-        :return: sum of the given variable
-        ""
-        aggregated_output = 0
-        for agent in schedule.agents:
-            aggregated_output += getattr(agent, variable)
-        return aggregated_output
-    """
 
     def step(self):
         """

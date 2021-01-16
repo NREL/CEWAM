@@ -86,8 +86,9 @@ class TestWindABM(TestCase):
         projects > 1999, with a cumulative capacity different from 0 and
         limited to the contiguous US"""
         uswtdb_test = WindABM().wind_plant_owner_data(
-            WindABM().external_files['uswtdb'], WindABM().state_abrev)
-        result = 106229  # sum of p_cap
+            WindABM().external_files['uswtdb'], WindABM().state_abrev,
+            WindABM().cap_to_diameter_model)
+        result = 110316  # sum of p_cap
         sum_test = round(uswtdb_test['p_cap'].sum())
         self.assertEqual(sum_test, result)
 
@@ -121,33 +122,17 @@ class TestWindABM(TestCase):
         test_results = WindABM().subtract_lists(p_cap_waste, waste)
         self.assertCountEqual(results, test_results)
 
+    def test_linear_regression_model(self):
+        x = [1, 2, 3]
+        y = [3, 5, 7]
+        result = [1, 2]
+        dic_param = WindABM().linear_regression_model(x, y)
+        test_results = [dic_param['intercept'], dic_param['coefficient']]
+        self.assertCountEqual(test_results, result)
+
     def test_re_initialize_global_variable(self):
         """Function can't be formally tested here"""
         pass
-
-    """
-    Method is not used at the moment, consider removing it
-    
-    def test_aggregate_agent_output(self):
-        test_param = 1
-        agents = 10
-        schedule = BaseScheduler(self)
-
-        class TestAgent(Agent):
-            def __init__(self, unique_id, model, param):
-                super().__init__(unique_id, model)
-                ""
-                Creation of new agent
-                ""
-                self.param = param
-
-        for a in range(agents):
-            a = TestAgent(a, WindABM(), test_param)
-            schedule.add(a)
-        result = test_param * agents
-        test_result = WindABM().aggregate_agent_output(schedule, "param")
-        self.assertEqual(result, test_result)
-    """
 
     def test_step(self):
         """Test that the model run steps without errors"""

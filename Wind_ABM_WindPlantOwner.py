@@ -33,9 +33,10 @@ class WindPlantOwner(Agent):
         """
         Creation of new agent
         """
+        # Variables from inputs (value defined externally to the class):
         for key, value in kwargs.items():
             setattr(self, key, value)
-
+        # Variables internal to the class:
         self.internal_clock = self.model.clock
         self.p_cap = [0] * int(self.model.uswtdb['p_year'].max() -
                                self.model.uswtdb['p_year'].min() + 1)
@@ -47,10 +48,34 @@ class WindPlantOwner(Agent):
             self.model.uswtdb.loc[self.unique_id]['p_cap']  # in MW
         self.p_cap_waste = self.p_cap.copy()
         self.t_state = self.model.uswtdb.loc[self.unique_id]['t_state']
+        self.t_rd = self.model.uswtdb.loc[self.unique_id]['t_rd']
+        self.t_cap = self.model.uswtdb.loc[self.unique_id]['t_cap']
+        self.mass_conv_factor = self.compute_mass_conv_factor(
+            self.t_rd, self.model.blade_size_to_mass_model['coefficient'],
+            self.model.blade_size_to_mass_model['power'], self.t_cap)
         self.growth_rate = self.model.growth_rates.get(self.t_state)
         self.cum_cap = sum(self.p_cap)
         self.waste = []
         self.cum_waste = 0
+
+    # TODO:
+    #  1) add and remove agents to the network
+    #  2) Continue building model: Theory of Planned Behavior
+
+    @staticmethod
+    def compute_mass_conv_factor(rotor_diameter, coefficient, power, t_cap):
+        """
+        Compute a conversion factor to convert EOL volumes from MW to tons
+        :param rotor_diameter: average rotor diameter in meters
+        :param coefficient: coefficient of the power function
+        :param power: power of the power function
+        :param t_cap: average turbine capacity
+        :return: conversion factor in tons/MW
+        """
+        blade_radius = rotor_diameter / 2
+        mass = coefficient * blade_radius**power
+        conversion_factor = mass / t_cap
+        return conversion_factor
 
     def update_agent_variables(self):
         """Update instance (agent) variables"""
@@ -64,11 +89,6 @@ class WindPlantOwner(Agent):
         self.p_cap_waste.append(self.p_cap[-1])
         self.cum_cap = sum(self.p_cap)
         self.cum_waste += sum(self.waste)
-
-    # TODO:
-    #  1) Convert waste in mass unit use Liu et al formula to have one
-    #  conversion factor per agent
-    #  2) Continue building model: Theory of Planned Behavior
 
     def sum_agent_variable(self):
         """
