@@ -87,7 +87,9 @@ class TestWindABM(TestCase):
         limited to the contiguous US"""
         uswtdb_test = WindABM().wind_plant_owner_data(
             WindABM().external_files['uswtdb'], WindABM().state_abrev,
-            WindABM().cap_to_diameter_model)
+            WindABM().cap_to_diameter_model,
+            WindABM().temporal_scope['pre_simulation'],
+            WindABM().temporal_scope['simulation_start'])
         result = 110316  # sum of p_cap
         sum_test = round(uswtdb_test['p_cap'].sum())
         self.assertEqual(sum_test, result)

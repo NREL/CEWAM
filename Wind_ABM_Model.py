@@ -77,7 +77,10 @@ class WindABM(Model):
                  blade_size_to_mass_model={'coefficient': 0.0026,
                                            'power': 2.1447},
                  cap_to_diameter_model={'coefficient': 57,
-                                        'power': 0.44}):
+                                        'power': 0.44},
+                 temporal_scope={
+                     'pre_simulation': 2000, 'simulation_start': 2020,
+                     'simulation_end': 2050}):
         """
         Initiate model.
         :param seed: number used to initialize the random generator
@@ -99,6 +102,8 @@ class WindABM(Model):
         is in meters
         :param cap_to_diameter_model: parameters for a power function 
         converting turbine capacity to rotor diameter
+        :param temporal_scope: simulation start and end year and past 
+        installations considered
         """
         # Variables from inputs (value defined externally):
         self.seed = seed
@@ -114,11 +119,12 @@ class WindABM(Model):
         self.weibull_shape_factor = weibull_shape_factor
         self.blade_size_to_mass_model = blade_size_to_mass_model
         self.cap_to_diameter_model = cap_to_diameter_model
+        self.temporal_scope = temporal_scope
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
-        self.all_cum_cap = 0
-        self.all_cum_waste = 0
+        self.all_cap = 0
+        self.all_waste = 0
         self.state_abrev = {
             'AL': 'Alabama', 'AZ': 'Arizona', 'AR': 'Arkansas',
             'CA': 'California', 'CO': 'Colorado', 'CT': 'Connecticut',
@@ -138,7 +144,8 @@ class WindABM(Model):
             'WY': 'Wyoming'}
         self.uswtdb = self.wind_plant_owner_data(
             self.external_files["uswtdb"], self.state_abrev,
-            self.cap_to_diameter_model)
+            self.cap_to_diameter_model, self.temporal_scope['pre_simulation'],
+            self.temporal_scope['simulation_start'])
         self.project_size_growth_model = self.linear_regression_model(
             self.uswtdb['p_year'], self.uswtdb['p_cap'])
         # TODO:
@@ -164,7 +171,11 @@ class WindABM(Model):
         # Creating agents and social networks:
         self.schedule = BaseScheduler(self)
         self.G_wpo = self.creating_social_network(
-            self.uswtdb.shape[0], self.small_world_network["node_degree"],
+            self.compute_max_network_size(
+                self.uswtdb, self.growth_rates, self.avg_p_cap,
+                self.temporal_scope['simulation_start'],
+                self.temporal_scope['simulation_end']),
+            self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
         self.grid_wpo = NetworkGrid(self.G_wpo)
         self.schedule_wpo = RandomActivation(self)
@@ -207,9 +218,10 @@ class WindABM(Model):
                              Regulator)
         # Create data collectors:
         model_reporters = {
-            "Year": lambda a: self.clock + 2020,
-            "Cumulative capacity (MW)": lambda a: self.all_cum_cap,
-            "Cumulative waste (MW)": lambda a: self.all_cum_waste}
+            "Year": lambda a:
+            self.clock + self.temporal_scope['simulation_start'],
+            "Cumulative capacity (MW)": lambda a: self.all_cap,
+            "Cumulative waste (MW)": lambda a: self.all_waste}
         agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Cumulative capacity (MW)": lambda a: getattr(a, "cum_cap", None),
@@ -268,7 +280,8 @@ class WindABM(Model):
         return distances_to_target
 
     @staticmethod
-    def creating_social_network(nodes, node_degree, rewiring_prob):
+    def creating_social_network(nodes, node_degree,
+                                rewiring_prob):
         """
         Set up model's social networks with the Watts & Strogatz algorithm.
         :param nodes: number of nodes in the graph
@@ -279,6 +292,25 @@ class WindABM(Model):
         social_network = nx.watts_strogatz_graph(nodes, node_degree,
                                                  rewiring_prob)
         return social_network
+
+    @staticmethod
+    def compute_max_network_size(uswtdb, growth_rates, avg_p_cap,
+                                 simulation_start, simulation_end):
+        initial_nodes = uswtdb.shape[0]
+        print(initial_nodes)
+        mean_growth_rate = \
+            sum(growth_rates.values()) / len(growth_rates.values())
+        print(mean_growth_rate)
+        tot_p_cap = uswtdb['p_cap'].sum()
+        print(tot_p_cap)
+        add_cap_sim_end = tot_p_cap * (1 + mean_growth_rate)**(
+                simulation_end - simulation_start) - tot_p_cap
+        print(add_cap_sim_end)
+        additional_nodes = add_cap_sim_end / avg_p_cap
+        print(additional_nodes)
+        total_nodes = initial_nodes + additional_nodes
+        print(total_nodes)
+        return initial_nodes
 
     def creating_agents(self, social_network, grid, schedule, agent_type,
                         **kwargs):
@@ -299,7 +331,8 @@ class WindABM(Model):
             self.unique_id += 1
 
     @staticmethod
-    def wind_plant_owner_data(database, state_abrev, cap_to_diameter_model):
+    def wind_plant_owner_data(database, state_abrev, cap_to_diameter_model,
+                              start_year, pre_simulation):
         """
         Convert database to a pandas DataFrame and select relevant data
         :param database: the csv file of the US wind turbine database
@@ -308,12 +341,14 @@ class WindABM(Model):
         full names
         :param cap_to_diameter_model: parameters for a power function used to
         fill up data gaps in the uswtdb t_rd column
+        :param start_year: simulation start year
+        :param pre_simulation: historical years considered
         :return: pandas DataFrame for use by wind plant owners
         """
         uswtdb = pd.read_csv(database, dtype={'t_manu': 'object',
                                               't_model': 'object'})
-        uswtdb = uswtdb[(uswtdb['p_year'] > 1999) &
-                        (uswtdb['p_year'] < 2021)]  # select 2000-2020 period
+        uswtdb = uswtdb[(uswtdb['p_year'] >= start_year) &
+                        (uswtdb['p_year'] <= pre_simulation)]
         uswtdb = uswtdb.groupby('p_name').agg(
             lambda x: x.head(1) if x.dtype == 'object' else
             x.mean()).reset_index()
@@ -352,28 +387,33 @@ class WindABM(Model):
         :param growth_rate: growth rate of the cumulative installed capacity
         :return list of yearly installed capacity appended one year
         """
-        additional_capacity = sum(p_cap) * growth_rate
-        p_cap.append(additional_capacity)
+        additional_capacity = p_cap * growth_rate
+        p_cap += additional_capacity
         return p_cap
 
-    def waste_generation(self, installation_years, p_cap_waste, avg_lifetime,
+    def waste_generation(self, p_year, p_cap_waste, avg_lifetime,
                          weibull_shape_factor):
         """
         Weibull function generating waste: simulate wind turbine failure rate
-        :param installation_years: pandas series with installation years
-        :param p_cap_waste: list of yearly capacities to apply function to
+        :param p_year: agent installation year
+        :param p_cap_waste: agent capacity to apply function to
         :param avg_lifetime: average lifetime of wind turbines
         :param weibull_shape_factor: factor controlling shape of Weibull curve
-        :return: A list of yearly waste from EOL Wind turbine
+        :return: Yearly waste from agent EOL Wind turbine
         """
-        correction_year = \
-            installation_years.max() - installation_years.min()
-        waste = [
-            j * (1 - e**(-(((self.clock + (correction_year - z)) /
-                            avg_lifetime)**weibull_shape_factor)))
-            for (z, j) in enumerate(p_cap_waste)]
+        correction_year = self.temporal_scope['simulation_start'] - p_year
+        waste = \
+            p_cap_waste * (1 - e**(-(((self.clock + correction_year) /
+                                      avg_lifetime)**weibull_shape_factor)))
         return waste
 
+    # TODO: Next steps -
+    #  1) have a function that create giant network with active and
+    #  inactive nodes
+    #  2) have a function that activate and deactivate nodes to network
+    #  3) have a function that add and remove agents
+
+    # TODO: consider removing method below if not used
     @staticmethod
     def subtract_lists(first_list, second_list):
         """
@@ -386,8 +426,8 @@ class WindABM(Model):
 
     def re_initialize_global_variable(self):
         """Re-initialize yearly variables"""
-        self.all_cum_cap = 0
-        self.all_cum_waste = 0
+        self.all_cap = 0
+        self.all_waste = 0
 
     def step(self):
         """

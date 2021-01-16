@@ -38,14 +38,10 @@ class WindPlantOwner(Agent):
             setattr(self, key, value)
         # Variables internal to the class:
         self.internal_clock = self.model.clock
-        self.p_cap = [0] * int(self.model.uswtdb['p_year'].max() -
-                               self.model.uswtdb['p_year'].min() + 1)
+        self.p_cap = self.model.uswtdb.loc[self.unique_id]['p_cap']
         self.p_name = self.model.uswtdb.loc[self.unique_id]['p_name']
         self.p_year = self.model.uswtdb.loc[self.unique_id]['p_year']
         self.p_tnum = self.model.uswtdb.loc[self.unique_id]['p_tnum']
-        self.p_cap[int(self.p_year -
-                       self.model.uswtdb['p_year'].min())] = \
-            self.model.uswtdb.loc[self.unique_id]['p_cap']  # in MW
         self.p_cap_waste = self.p_cap.copy()
         self.t_state = self.model.uswtdb.loc[self.unique_id]['t_state']
         self.t_rd = self.model.uswtdb.loc[self.unique_id]['t_rd']
@@ -54,9 +50,7 @@ class WindPlantOwner(Agent):
             self.t_rd, self.model.blade_size_to_mass_model['coefficient'],
             self.model.blade_size_to_mass_model['power'], self.t_cap)
         self.growth_rate = self.model.growth_rates.get(self.t_state)
-        self.cum_cap = sum(self.p_cap)
-        self.waste = []
-        self.cum_waste = 0
+        self.waste = 0
 
     # TODO:
     #  1) add and remove agents to the network
@@ -80,22 +74,18 @@ class WindPlantOwner(Agent):
     def update_agent_variables(self):
         """Update instance (agent) variables"""
         self.waste = self.model.waste_generation(
-            self.model.uswtdb['p_year'], self.p_cap_waste,
-            self.model.average_lifetime, self.model.weibull_shape_factor)
-        self.p_cap_waste = self.model.subtract_lists(
-            self.p_cap_waste, self.waste)
+            self.p_year, self.p_cap_waste, self.model.average_lifetime,
+            self.model.weibull_shape_factor)
+        self.p_cap_waste -= self.waste
         self.p_cap = self.model.cumulative_capacity_growth(
             self.p_cap, self.growth_rate)
-        self.p_cap_waste.append(self.p_cap[-1])
-        self.cum_cap = sum(self.p_cap)
-        self.cum_waste += sum(self.waste)
 
     def sum_agent_variable(self):
         """
         Sum the value of agent variables across all agents
         """
-        self.model.all_cum_cap += self.cum_cap
-        self.model.all_cum_waste += self.cum_waste
+        self.model.all_cap += self.p_cap
+        self.model.all_waste += self.p_cap_waste
 
     def step(self):
         """
