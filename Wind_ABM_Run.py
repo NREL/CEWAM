@@ -21,7 +21,7 @@ import time
 for j in range(1):
     t0 = time.time()
     model = WindABM()
-    for i in range(10):
+    for i in range(2):
         model.step()
     results_model = model.data_collector.get_model_vars_dataframe()
     results_agents = model.data_collector.get_agent_vars_dataframe()

@@ -146,8 +146,7 @@ class WindABM(Model):
             self.external_files["uswtdb"], self.state_abrev,
             self.cap_to_diameter_model, self.temporal_scope['pre_simulation'],
             self.temporal_scope['simulation_start'])
-        self.project_size_growth_model = self.linear_regression_model(
-            self.uswtdb['p_year'], self.uswtdb['p_cap'])
+        self.p_install_growth = self.p_install_growth_model(self.uswtdb)
         # TODO:
         #  1) note: self.project_size_growth_model['coefficient] is the
         #  increase in project size every year
@@ -172,50 +171,50 @@ class WindABM(Model):
         self.schedule = BaseScheduler(self)
         self.G_wpo = self.creating_social_network(
             self.compute_max_network_size(
-                self.uswtdb, self.growth_rates, self.avg_p_cap,
-                self.temporal_scope['simulation_start'],
-                self.temporal_scope['simulation_end']),
+                self.uswtdb, self.temporal_scope['simulation_start'],
+                self.temporal_scope['simulation_end'],
+                self.p_install_growth['coefficient']),
             self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
         self.grid_wpo = NetworkGrid(self.G_wpo)
         self.schedule_wpo = RandomActivation(self)
-        self.creating_agents(self.G_wpo, self.grid_wpo, self.schedule_wpo,
-                             WindPlantOwner)
+        self.creating_agents(self.uswtdb.shape[0], self.G_wpo, self.grid_wpo,
+                             self.schedule_wpo, WindPlantOwner)
         self.G_man = self.creating_social_network(
             self.manufacturers, self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
         self.grid_man = NetworkGrid(self.G_man)
         self.schedule_man = RandomActivation(self)
-        self.creating_agents(self.G_man, self.grid_man, self.schedule_man,
-                             Manufacturer)
+        self.creating_agents(self.manufacturers, self.G_man, self.grid_man,
+                             self.schedule_man, Manufacturer)
         self.G_dev = self.creating_social_network(
             self.developers, self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
         self.grid_dev = NetworkGrid(self.G_dev)
         self.schedule_dev = RandomActivation(self)
-        self.creating_agents(self.G_dev, self.grid_dev, self.schedule_dev,
-                             Developer)
+        self.creating_agents(self.developers, self.G_dev, self.grid_dev,
+                             self.schedule_dev, Developer)
         self.G_rec = self.creating_social_network(
             self.recyclers, self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
         self.grid_rec = NetworkGrid(self.G_rec)
         self.schedule_rec = RandomActivation(self)
-        self.creating_agents(self.G_rec, self.grid_rec, self.schedule_rec,
-                             Developer)
+        self.creating_agents(self.recyclers, self.G_rec, self.grid_rec,
+                             self.schedule_rec, Recycler)
         self.G_land = self.creating_social_network(
             self.landfills, self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
         self.grid_land = NetworkGrid(self.G_land)
         self.schedule_land = RandomActivation(self)
-        self.creating_agents(self.G_land, self.grid_land, self.schedule_land,
-                             Landfill)
+        self.creating_agents(self.landfills, self.G_land, self.grid_land,
+                             self.schedule_land, Landfill)
         self.G_reg = self.creating_social_network(
             self.regulators, self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
         self.grid_reg = NetworkGrid(self.G_reg)
         self.schedule_reg = RandomActivation(self)
-        self.creating_agents(self.G_reg, self.grid_reg, self.schedule_reg,
-                             Regulator)
+        self.creating_agents(self.regulators, self.G_reg, self.grid_reg,
+                             self.schedule_reg, Regulator)
         # Create data collectors:
         model_reporters = {
             "Year": lambda a:
@@ -294,29 +293,20 @@ class WindABM(Model):
         return social_network
 
     @staticmethod
-    def compute_max_network_size(uswtdb, growth_rates, avg_p_cap,
-                                 simulation_start, simulation_end):
+    def compute_max_network_size(uswtdb, simulation_start, simulation_end,
+                                 coefficient):
         initial_nodes = uswtdb.shape[0]
-        print(initial_nodes)
-        mean_growth_rate = \
-            sum(growth_rates.values()) / len(growth_rates.values())
-        print(mean_growth_rate)
-        tot_p_cap = uswtdb['p_cap'].sum()
-        print(tot_p_cap)
-        add_cap_sim_end = tot_p_cap * (1 + mean_growth_rate)**(
-                simulation_end - simulation_start) - tot_p_cap
-        print(add_cap_sim_end)
-        additional_nodes = add_cap_sim_end / avg_p_cap
-        print(additional_nodes)
-        total_nodes = initial_nodes + additional_nodes
-        print(total_nodes)
-        return initial_nodes
+        years = simulation_end - simulation_start
+        additional_nodes = coefficient * years
+        total_nodes = int(initial_nodes + additional_nodes)
+        return total_nodes
 
-    def creating_agents(self, social_network, grid, schedule, agent_type,
-                        **kwargs):
+    def creating_agents(self, num_agents, social_network, grid, schedule,
+                        agent_type, **kwargs):
         """
         Create agents and assign their attributes. Link agents to nodes in the
         social network with the node labels equal to the agent unique id.
+        :param num_agents: number of agents at the beginning of the simulation
         :param social_network: social network linking agents
         :param grid: equivalent graph in Mesa's space
         :param schedule: Mesa scheduler of the agent type
@@ -324,10 +314,11 @@ class WindABM(Model):
         agent class's name
         """
         for node in social_network:
-            a = agent_type(self.unique_id, self, **kwargs)
-            schedule.add(a)
-            grid.place_agent(a, node)
-            self.schedule.add(a)
+            if node < num_agents:
+                a = agent_type(self.unique_id, self, **kwargs)
+                schedule.add(a)
+                grid.place_agent(a, node)
+                self.schedule.add(a)
             self.unique_id += 1
 
     @staticmethod
@@ -366,14 +357,18 @@ class WindABM(Model):
         return uswtdb
 
     @staticmethod
-    def linear_regression_model(x, y):
+    def p_install_growth_model(uswtdb):
         """
         Compute parameters of a linear regression model and store them
         in a dictionary
-        :param x: list of x values
-        :param y: list of y values
+        :param uswtdb: us wind turbine database
         :return: dictionary containing linear regression model parameters
         """
+        year_count = uswtdb['p_year'].value_counts(sort=False).to_frame()
+        year_count = year_count.sort_index(ascending=True)
+        year_count['cum_install'] = year_count['p_year'].cumsum()
+        x = year_count.index.tolist()
+        y = year_count['cum_install'].tolist()
         result = scipy.stats.linregress(x, y)
         model = {'intercept': result.intercept, 'coefficient': result.slope}
         return model
@@ -412,6 +407,14 @@ class WindABM(Model):
     #  inactive nodes
     #  2) have a function that activate and deactivate nodes to network
     #  3) have a function that add and remove agents
+    #  4) Continue the agent creation/deletion functions
+    #  5) keep in mind that the grid has the number of node of the graph but
+    #  with empty cells. Get neighbors also get empty cells so I'll need to
+    #  ignore empty neighbors. I should set up the average number of degree
+    #  to account for potential empty cells (between 5-15?)
+    #  6) Re do all the test and fix them after all that effort
+    #  7) on jupyter I could check that a subset of the graph (1300 out of
+    #  3000 of the small world is a small world)
 
     # TODO: consider removing method below if not used
     @staticmethod
