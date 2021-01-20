@@ -43,11 +43,11 @@ import scipy
 class WindABM(Model):
     def __init__(self,
                  seed=None,
-                 manufacturers=25,
-                 developers=20,
-                 recyclers=15,
+                 manufacturers=10,
+                 developers=10,
+                 recyclers=10,
                  landfills=10,
-                 regulators=5,
+                 regulators=10,
                  small_world_network={"node_degree": 2, "rewiring_prob": 0.1},
                  external_files={
                      "state_distances": "StatesAdjacencyMatrix.csv", "uswtdb":
@@ -147,12 +147,6 @@ class WindABM(Model):
             self.cap_to_diameter_model, self.temporal_scope['pre_simulation'],
             self.temporal_scope['simulation_start'])
         self.p_install_growth = self.p_install_growth_model(self.uswtdb)
-        # TODO:
-        #  1) note: self.project_size_growth_model['coefficient] is the
-        #  increase in project size every year
-        #  2) size of project should be drawn from a distribution where bounds
-        #  and average grow every year from:
-        #  self.project_size_growth_model['coefficient]
         self.avg_p_cap = self.uswtdb['p_cap'].mean()
         # Computing transportation distances:
         self.state_distances = \
@@ -167,6 +161,7 @@ class WindABM(Model):
                                              nodes_states_dic)
         self.all_shortest_paths_or_trg = self.compute_all_distances(
             self.states, self.states_graph)
+        self.additional_id = self.uswtdb.shape[0]
         # Creating agents and social networks:
         self.schedule = BaseScheduler(self)
         self.G_wpo = self.creating_social_network(
@@ -321,6 +316,14 @@ class WindABM(Model):
                 self.schedule.add(a)
             self.unique_id += 1
 
+    def adding_agents(self, num_agents, grid, schedule, agent_type, **kwargs):
+        for agent in range(num_agents):
+            a = agent_type(self.additional_id, self, **kwargs)
+            schedule.add(a)
+            grid.place_agent(a, self.additional_id)
+            self.schedule.add(a)
+            self.additional_id += 1
+
     @staticmethod
     def wind_plant_owner_data(database, state_abrev, cap_to_diameter_model,
                               start_year, pre_simulation):
@@ -416,17 +419,6 @@ class WindABM(Model):
     #  7) on jupyter I could check that a subset of the graph (1300 out of
     #  3000 of the small world is a small world)
 
-    # TODO: consider removing method below if not used
-    @staticmethod
-    def subtract_lists(first_list, second_list):
-        """
-        Return list from element-wise subtraction of two lists
-        :param first_list: first list (to be subtracted)
-        :param second_list: second list (to subtract)
-        :return: element-wise subtracted list
-        """
-        return [x - y for x, y in zip(first_list, second_list)]
-
     def re_initialize_global_variable(self):
         """Re-initialize yearly variables"""
         self.all_cap = 0
@@ -436,6 +428,9 @@ class WindABM(Model):
         """
         Advance the model by one step and collect data.
         """
+
+        self.adding_agents(1, self.grid_wpo, self.schedule_wpo, WindPlantOwner)
+
         self.data_collector.collect(self)
         self.re_initialize_global_variable()
         self.schedule_wpo.step()

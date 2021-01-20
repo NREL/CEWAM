@@ -116,14 +116,6 @@ class TestWindABM(TestCase):
         result = [6.3, 2.6, 0.4, 0]
         self.assertCountEqual(result, test_result)
 
-    def test_subtract_lists(self):
-        """Verify that subtraction with list comprehension is not altered"""
-        p_cap_waste = [10, 10, 10, 10]
-        waste = [6.3, 2.6, 0.4, 0]
-        results = [(10 - 6.3), (10-2.6), (10-0.4), (10-0)]
-        test_results = WindABM().subtract_lists(p_cap_waste, waste)
-        self.assertCountEqual(results, test_results)
-
     def test_linear_regression_model(self):
         x = [1, 2, 3]
         y = [3, 5, 7]

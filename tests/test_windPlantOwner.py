@@ -37,7 +37,7 @@ class TestWindPlantOwner(TestCase):
             test_sum = 0
             for a in schedule.agents:
                 if a.t_state == index:
-                    test_sum += sum(a.p_cap)
+                    test_sum += a.p_cap
             if test_sum == row['p_cap']:
                 test_score.append(True)
             else:
