@@ -38,6 +38,7 @@ import pandas as pd
 import random
 import time
 import scipy
+import warnings
 
 
 class WindABM(Model):
@@ -148,6 +149,11 @@ class WindABM(Model):
             self.temporal_scope['simulation_start'])
         self.p_install_growth = self.p_install_growth_model(self.uswtdb)
         self.avg_p_cap = self.uswtdb['p_cap'].mean()
+        self.additional_id = self.uswtdb.shape[0]
+        self.states_cap = self.null_dic_from_key_list(growth_rates.keys())
+        self.additional_cap = self.null_dic_from_key_list(growth_rates.keys())
+        self.list_agent_states = []
+        self.dict_agent_states = {}
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -161,14 +167,13 @@ class WindABM(Model):
                                              nodes_states_dic)
         self.all_shortest_paths_or_trg = self.compute_all_distances(
             self.states, self.states_graph)
-        self.additional_id = self.uswtdb.shape[0]
         # Creating agents and social networks:
         self.schedule = BaseScheduler(self)
         self.G_wpo = self.creating_social_network(
             self.compute_max_network_size(
                 self.uswtdb, self.temporal_scope['simulation_start'],
                 self.temporal_scope['simulation_end'],
-                self.p_install_growth['coefficient']),
+                self.p_install_growth),
             self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
         self.grid_wpo = NetworkGrid(self.G_wpo)
@@ -373,21 +378,63 @@ class WindABM(Model):
         x = year_count.index.tolist()
         y = year_count['cum_install'].tolist()
         result = scipy.stats.linregress(x, y)
-        model = {'intercept': result.intercept, 'coefficient': result.slope}
-        return model
+        p_install_growth = result.slope
+        min_install = uswtdb['t_state'].nunique()
+        if p_install_growth < min_install:
+            warnings.warn("There are less additional installation than "
+                          "states with growth. The model added additional "
+                          "installations to balance.")
+            p_install_growth = min_install
+        return int(p_install_growth)
 
     @staticmethod
-    def cumulative_capacity_growth(p_cap, growth_rate):
+    def cumulative_capacity_growth(states_cap, growth_rate, additional_cap):
         """
         Grow the list of yearly installed capacity according to growth rate
         and update the cumulative installed capacity
-        :param p_cap: list of yearly installed capacity
+        :param states_cap:
         :param growth_rate: growth rate of the cumulative installed capacity
-        :return list of yearly installed capacity appended one year
+        :param additional_cap:
+        :return
         """
-        additional_capacity = p_cap * growth_rate
-        p_cap += additional_capacity
-        return p_cap
+        for state in states_cap.keys():
+            additional_capacity = states_cap[state] * growth_rate[state]
+            additional_cap[state] = additional_capacity
+        additional_cap = {key: value for (key, value) in
+                          additional_cap.items() if value != 0}
+        return additional_cap
+
+    def additional_agent_state(self, additional_cap):
+        state_add_cap_prop = {
+            key: (value / sum(additional_cap.values())) for (key, value) in
+            additional_cap.items()}
+        list_agent_states = list(state_add_cap_prop.keys())
+        if len(list_agent_states) < self.p_install_growth:
+            list_cumprob = np.cumsum(list(state_add_cap_prop.values()))
+            state_add_cap_cumprob = dict(zip(state_add_cap_prop.keys(),
+                                             list_cumprob))
+            max_prob = max(state_add_cap_cumprob.values())
+            for i in range(self.p_install_growth -
+                           len(list_agent_states)):
+                pick = random.uniform(0, max_prob)
+                current = 0
+                for key, value in state_add_cap_cumprob.items():
+                    current += value
+                    if value > pick:
+                        list_agent_states.append(key)
+                        break
+        random.shuffle(list_agent_states)
+        return list_agent_states
+
+    @staticmethod
+    def dic_with_list_item_frequency(input_list):
+        output_dic = {}
+        for item in input_list:
+            if item in output_dic:
+                output_dic[item] += 1
+            else:
+                output_dic[item] = 1
+        return output_dic
 
     def waste_generation(self, p_year, p_cap_waste, avg_lifetime,
                          weibull_shape_factor):
@@ -406,31 +453,40 @@ class WindABM(Model):
         return waste
 
     # TODO: Next steps -
-    #  1) have a function that create giant network with active and
-    #  inactive nodes
-    #  2) have a function that activate and deactivate nodes to network
-    #  3) have a function that add and remove agents
-    #  4) Continue the agent creation/deletion functions
-    #  5) keep in mind that the grid has the number of node of the graph but
-    #  with empty cells. Get neighbors also get empty cells so I'll need to
-    #  ignore empty neighbors. I should set up the average number of degree
-    #  to account for potential empty cells (between 5-15?)
-    #  6) Re do all the test and fix them after all that effort
-    #  7) on jupyter I could check that a subset of the graph (1300 out of
+    #  1) have a function that remove agents
+    #  2) Continue the agent creation/deletion functions
+    #  3) Re do all the unittests and fix them after all that effort
+    #  4) At this point build a test that check that some simulation results
+    #  stay what they should be (e.g., after 30 time steps are he results what
+    #  Aubryn got for waste and projection?)
+    #  5) on jupyter I could check that a subset of the graph (1300 out of
     #  3000 of the small world is a small world)
+
+    @staticmethod
+    def null_dic_from_key_list(key_list):
+        null_dic = {}
+        for i in key_list:
+            null_dic[i] = 0
+        return null_dic
 
     def re_initialize_global_variable(self):
         """Re-initialize yearly variables"""
         self.all_cap = 0
         self.all_waste = 0
+        self.states_cap = dict.fromkeys(self.states_cap, 0)
+
+    def update_model_variables(self):
+        self.additional_cap = self.cumulative_capacity_growth(
+            self.states_cap, self.growth_rates, self.additional_cap)
+        self.list_agent_states = \
+            self.additional_agent_state(self.additional_cap)
+        self.dict_agent_states = self.dic_with_list_item_frequency(
+            self.list_agent_states)
 
     def step(self):
         """
         Advance the model by one step and collect data.
         """
-
-        self.adding_agents(1, self.grid_wpo, self.schedule_wpo, WindPlantOwner)
-
         self.data_collector.collect(self)
         self.re_initialize_global_variable()
         self.schedule_wpo.step()
@@ -440,7 +496,7 @@ class WindABM(Model):
         self.schedule_land.step()
         self.schedule_reg.step()
         self.schedule.step()
+        self.update_model_variables()
+        self.adding_agents(self.p_install_growth, self.grid_wpo,
+                           self.schedule_wpo, WindPlantOwner)
         self.clock += 1
-
-
-# WindABM()

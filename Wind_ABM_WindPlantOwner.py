@@ -47,18 +47,22 @@ class WindPlantOwner(Agent):
             self.t_rd = self.model.uswtdb.loc[self.unique_id]['t_rd']
             self.t_cap = self.model.uswtdb.loc[self.unique_id]['t_cap']
         # Additional agents:
-        # TODO: have the variables assigned depending on growth and other
-        #  parameters. For instance the number of agent in a given state
-        #  should be proportional to the share of additional capacity
         else:
-            self.p_cap = 4.0
-            self.p_name = 'Additional agent'
+            self.t_state = self.model.list_agent_states[0]
+            self.model.list_agent_states.pop(0)
+            self.p_cap = \
+                self.model.additional_cap[self.t_state] / \
+                self.model.dict_agent_states[self.t_state]
+            self.p_name = "".join(("Additional_agent_", self.t_state, "_",
+                                  str(self.unique_id)))
             self.p_year = self.model.clock + \
                 self.model.temporal_scope['simulation_start']
-            self.p_tnum = 3
-            self.t_state = 'Texas'
-            self.t_rd = 3
-            self.t_cap = 0.5
+            self.p_tnum = round(
+                self.model.uswtdb.groupby('t_state').mean().loc[
+                    self.t_state]['p_tnum'])
+            self.t_cap = self.p_cap / self.p_tnum
+            self.t_rd = self.model.cap_to_diameter_model['coefficient'] * \
+                self.t_cap**self.model.cap_to_diameter_model['power']
         # All agents
         self.mass_conv_factor = self.compute_mass_conv_factor(
             self.t_rd, self.model.blade_size_to_mass_model['coefficient'],
@@ -93,8 +97,7 @@ class WindPlantOwner(Agent):
             self.p_year, self.p_cap_waste, self.model.average_lifetime,
             self.model.weibull_shape_factor)
         self.p_cap_waste -= self.waste
-        self.p_cap = self.model.cumulative_capacity_growth(
-            self.p_cap, self.growth_rate)
+        self.model.states_cap[self.t_state] += self.p_cap
 
     def sum_agent_variable(self):
         """
