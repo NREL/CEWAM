@@ -16,7 +16,6 @@ from Wind_ABM_Model import WindABM
 from mesa.time import RandomActivation
 from mesa.space import NetworkGrid
 from mesa import Agent
-from mesa.time import BaseScheduler
 import pandas as pd
 
 
@@ -52,6 +51,8 @@ class TestWindABM(TestCase):
         graph_node_degrees = graph.degree()
         graph_avg_node_degree = sum(dict(graph_node_degrees).values()) / \
             number_node
+        if theo_avg_node_degree % 2 != 0:
+            graph_avg_node_degree = graph_avg_node_degree + 1
         self.assertEqual(theo_avg_node_degree, graph_avg_node_degree)
 
     def test_creating_agent(self):
@@ -73,8 +74,8 @@ class TestWindABM(TestCase):
                 """
                 self.test_var = kwargs
 
-        WindABM().creating_agents(graph, grid, schedule, TestAgent,
-                                  **test_param)
+        WindABM().creating_agents(number_node, graph, grid, schedule,
+                                  TestAgent, **test_param)
         sum_test = 0
         for a in schedule.agents:
             sum_test += a.test_var["unit"] + a.test_var["unit2"]
@@ -96,33 +97,38 @@ class TestWindABM(TestCase):
 
     def test_cumulative_capacity_growth(self):
         """Verify that growth model behave as expected"""
-        p_cap = [100.0, 50.0, 25.0]
-        growth_rate = 0.1
-        result = [x for x in p_cap]
-        result.append(sum(p_cap) * growth_rate)
-        p_cap = WindABM().cumulative_capacity_growth(p_cap, growth_rate)
-        self.assertCountEqual(result, p_cap)
+        states_cap = {"Colorado": 100.0, "Washington": 50.0}
+        additional_cap = states_cap.copy()
+        growth_rates = {"Colorado": 0.1, "Washington": 0.2}
+        result = list(states_cap.values())
+        gr = list(growth_rates.values())
+        result = [x * y for x, y in zip(result, gr)]
+        additional_cap = WindABM().cumulative_capacity_growth(
+            states_cap, growth_rates, additional_cap)
+        additional_cap = list(additional_cap.values())
+        self.assertCountEqual(result, additional_cap)
 
     def test_waste_generation(self):
         """Test that waste generation behave as expected"""
-        p_cap_waste = [10, 10, 10, 10]
-        installation_years = pd.DataFrame(
-            [2017, 2017, 2017, 2018, 2018, 2020], columns=["years"])
+        p_cap_waste = 10
+        installation_year = 2000
+        start_year = 2000
+        clock = 2
         avg_lifetime = 3
         weibull_shape_factor = 3
-        test_result = [round(x, 1) for x in WindABM().waste_generation(
-            installation_years["years"], p_cap_waste, avg_lifetime,
-            weibull_shape_factor)]
-        result = [6.3, 2.6, 0.4, 0]
-        self.assertCountEqual(result, test_result)
+        test_result = round(WindABM().waste_generation(
+            start_year, clock, installation_year, p_cap_waste, avg_lifetime,
+            weibull_shape_factor), 2)
+        result = 2.56
+        self.assertEqual(result, test_result)
 
-    def test_linear_regression_model(self):
-        x = [1, 2, 3]
-        y = [3, 5, 7]
-        result = [1, 2]
-        dic_param = WindABM().linear_regression_model(x, y)
-        test_results = [dic_param['intercept'], dic_param['coefficient']]
-        self.assertCountEqual(test_results, result)
+    def test_p_install_growth_model(self):
+        mock_up = pd.DataFrame(
+            list(zip([1, 2, 3, 4], ['CO', 'CO', 'CO', 'CO'])),
+            columns=['p_year', 't_state'])
+        result = 1
+        test_result = WindABM().p_install_growth_model(mock_up)
+        self.assertEqual(test_result, result)
 
     def test_re_initialize_global_variable(self):
         """Function can't be formally tested here"""

@@ -14,11 +14,6 @@ outputs.
 from unittest import TestCase
 from Wind_ABM_Model import WindABM
 from Wind_ABM_WindPlantOwner import WindPlantOwner
-from mesa.time import RandomActivation
-from mesa.space import NetworkGrid
-from mesa import Agent
-from mesa.time import BaseScheduler
-import pandas as pd
 
 
 class TestWindPlantOwner(TestCase):
@@ -50,10 +45,12 @@ class TestWindPlantOwner(TestCase):
         rotor_diameter = 20
         coefficient = 0.5
         power = 2
+        blades_per_rotor = 3
         t_cap = 10
-        result = coefficient * (rotor_diameter / 2)**power / t_cap
+        result = coefficient * (rotor_diameter / 2)**power * \
+            blades_per_rotor / t_cap
         unique_id = 0
         test_result = \
             WindPlantOwner(unique_id, WindABM()).compute_mass_conv_factor(
-                rotor_diameter, coefficient, power, t_cap)
+                rotor_diameter, coefficient, power, blades_per_rotor, t_cap)
         self.assertEqual(result, test_result)

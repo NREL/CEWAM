@@ -33,10 +33,8 @@ from mesa.datacollection import DataCollector
 import networkx as nx
 import numpy as np
 from math import *
-import matplotlib.pyplot as plt
 import pandas as pd
 import random
-import time
 import scipy
 import warnings
 
@@ -44,12 +42,12 @@ import warnings
 class WindABM(Model):
     def __init__(self,
                  seed=None,
-                 manufacturers=10,
-                 developers=10,
-                 recyclers=10,
-                 landfills=10,
-                 regulators=10,
-                 small_world_network={"node_degree": 2, "rewiring_prob": 0.1},
+                 manufacturers=100,
+                 developers=100,
+                 recyclers=100,
+                 landfills=100,
+                 regulators=100,
+                 small_world_network={"node_degree": 15, "rewiring_prob": 0.1},
                  external_files={
                      "state_distances": "StatesAdjacencyMatrix.csv", "uswtdb":
                      "uswtdb_v3_3_20210114.csv"},
@@ -81,7 +79,8 @@ class WindABM(Model):
                                         'power': 0.44},
                  temporal_scope={
                      'pre_simulation': 2000, 'simulation_start': 2020,
-                     'simulation_end': 2050}):
+                     'simulation_end': 2051},
+                 blades_per_rotor=3):
         """
         Initiate model.
         :param seed: number used to initialize the random generator
@@ -121,6 +120,7 @@ class WindABM(Model):
         self.blade_size_to_mass_model = blade_size_to_mass_model
         self.cap_to_diameter_model = cap_to_diameter_model
         self.temporal_scope = temporal_scope
+        self.blades_per_rotor = blades_per_rotor
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -154,6 +154,7 @@ class WindABM(Model):
         self.additional_cap = self.null_dic_from_key_list(growth_rates.keys())
         self.list_agent_states = []
         self.dict_agent_states = {}
+        self.number_wpo_agent = 0
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -220,11 +221,14 @@ class WindABM(Model):
             "Year": lambda a:
             self.clock + self.temporal_scope['simulation_start'],
             "Cumulative capacity (MW)": lambda a: self.all_cap,
-            "Cumulative waste (MW)": lambda a: self.all_waste}
+            "Cumulative waste (MW)": lambda a: self.all_waste,
+            "Number wpo agents": lambda a: self.number_wpo_agent}
         agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
-            "Cumulative capacity (MW)": lambda a: getattr(a, "cum_cap", None),
-            "Cumulative waste (MW)": lambda a: getattr(a, "cum_waste", None)}
+            "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
+            "Cumulative waste (MW)": lambda a: getattr(a, "cum_waste", None),
+            "Mass conversion factor)": lambda a:
+            getattr(a, "mass_conv_factor", None)}
         self.data_collector = DataCollector(
             model_reporters=model_reporters,
             agent_reporters=agent_reporters)
@@ -367,10 +371,10 @@ class WindABM(Model):
     @staticmethod
     def p_install_growth_model(uswtdb):
         """
-        Compute parameters of a linear regression model and store them
-        in a dictionary
+        Compute the number of yearly new wind project (agents) with a linear
+        regression model.
         :param uswtdb: us wind turbine database
-        :return: dictionary containing linear regression model parameters
+        :return: number of yearly new wind project (agents)
         """
         year_count = uswtdb['p_year'].value_counts(sort=False).to_frame()
         year_count = year_count.sort_index(ascending=True)
@@ -381,24 +385,24 @@ class WindABM(Model):
         p_install_growth = result.slope
         min_install = uswtdb['t_state'].nunique()
         if p_install_growth < min_install:
+            p_install_growth = min_install
             warnings.warn("There are less additional installation than "
                           "states with growth. The model added additional "
                           "installations to balance.")
-            p_install_growth = min_install
         return int(p_install_growth)
 
     @staticmethod
-    def cumulative_capacity_growth(states_cap, growth_rate, additional_cap):
+    def cumulative_capacity_growth(states_cap, growth_rates, additional_cap):
         """
         Grow the list of yearly installed capacity according to growth rate
         and update the cumulative installed capacity
         :param states_cap:
-        :param growth_rate: growth rate of the cumulative installed capacity
+        :param growth_rates: growth rate of the cumulative installed capacity
         :param additional_cap:
         :return
         """
         for state in states_cap.keys():
-            additional_capacity = states_cap[state] * growth_rate[state]
+            additional_capacity = states_cap[state] * growth_rates[state]
             additional_cap[state] = additional_capacity
         additional_cap = {key: value for (key, value) in
                           additional_cap.items() if value != 0}
@@ -436,31 +440,30 @@ class WindABM(Model):
                 output_dic[item] = 1
         return output_dic
 
-    def waste_generation(self, p_year, p_cap_waste, avg_lifetime,
+    @staticmethod
+    def waste_generation(start_year, clock, p_year, p_cap_waste, avg_lifetime,
                          weibull_shape_factor):
         """
         Weibull function generating waste: simulate wind turbine failure rate
+        :param start_year: starting year for waste generation
+        :param clock: model clock
         :param p_year: agent installation year
         :param p_cap_waste: agent capacity to apply function to
         :param avg_lifetime: average lifetime of wind turbines
         :param weibull_shape_factor: factor controlling shape of Weibull curve
         :return: Yearly waste from agent EOL Wind turbine
         """
-        correction_year = self.temporal_scope['simulation_start'] - p_year
+        correction_year = start_year - p_year
         waste = \
-            p_cap_waste * (1 - e**(-(((self.clock + correction_year) /
+            p_cap_waste * (1 - e**(-(((clock + correction_year) /
                                       avg_lifetime)**weibull_shape_factor)))
         return waste
 
     # TODO: Next steps -
-    #  1) have a function that remove agents
-    #  2) Continue the agent creation/deletion functions
-    #  3) Re do all the unittests and fix them after all that effort
-    #  4) At this point build a test that check that some simulation results
+    #  1) Write unittest and docstrings for new functions
+    #  2) At this point build a test that check that some simulation results
     #  stay what they should be (e.g., after 30 time steps are he results what
     #  Aubryn got for waste and projection?)
-    #  5) on jupyter I could check that a subset of the graph (1300 out of
-    #  3000 of the small world is a small world)
 
     @staticmethod
     def null_dic_from_key_list(key_list):
@@ -471,9 +474,7 @@ class WindABM(Model):
 
     def re_initialize_global_variable(self):
         """Re-initialize yearly variables"""
-        self.all_cap = 0
-        self.all_waste = 0
-        self.states_cap = dict.fromkeys(self.states_cap, 0)
+        self.number_wpo_agent = 0
 
     def update_model_variables(self):
         self.additional_cap = self.cumulative_capacity_growth(

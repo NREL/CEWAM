@@ -21,7 +21,7 @@ import time
 for j in range(1):
     t0 = time.time()
     model = WindABM()
-    for i in range(3):
+    for i in range(31):
         model.step()
     results_model = model.data_collector.get_model_vars_dataframe()
     results_agents = model.data_collector.get_agent_vars_dataframe()
@@ -29,4 +29,3 @@ for j in range(1):
     results_agents.to_csv("Results_agents.csv")
     t1 = time.time()
     print(t1 - t0)
-
