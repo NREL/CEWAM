@@ -18,7 +18,6 @@ from mesa.space import NetworkGrid
 from mesa import Agent
 import pandas as pd
 
-# TODO: add tests
 
 class TestWindABM(TestCase):
     def test_compute_all_distances(self):

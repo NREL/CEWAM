@@ -10,12 +10,11 @@ decisions, for instance, regarding EOL management.
 """
 
 # Notes:
-# Remove unused library imports
-# For now we assume the number of project stays constant (but the installed
-# capacity grow). If the assumption is remove the number of agents would grow
-# up to about 4000 (100 wind project per year if looking at the 2000-2015
-# number of installations).
+# Need to add adoption methods
 
+# TODO:
+#  1) Continue building model: Theory of Planned Behavior
+#  2) Start other agents
 
 from mesa import Agent
 
@@ -69,10 +68,6 @@ class WindPlantOwner(Agent):
         self.cum_waste = 0
         self.agent_attributes_counted = False
 
-    # TODO:
-    #  1) Continue building model: Theory of Planned Behavior
-    #  2) Start other agents
-
     @staticmethod
     def compute_mass_conv_factor(rotor_diameter, coefficient, power,
                                  blades_per_rotor, t_cap):
@@ -81,7 +76,7 @@ class WindPlantOwner(Agent):
         :param rotor_diameter: average rotor diameter in meters
         :param coefficient: coefficient of the power function
         :param power: power of the power function
-        :param blades_per_rotor:
+        :param blades_per_rotor: number of blades in wind turbines' rotors
         :param t_cap: average turbine capacity
         :return: conversion factor in tons/MW
         """
@@ -91,7 +86,13 @@ class WindPlantOwner(Agent):
         conversion_factor = mass / t_cap
         return conversion_factor
 
+    # TODO: the method below will need to be moved in the model module (to be
+    #  accessible by different agent types)
     def subjective_norm(self):
+        """
+        Compute the subjective norms as measured by the proportion of agents
+        tha have already adopted a given choice
+        """
         # Bits of code for SN function:
         neighbors_nodes = self.model.grid_wpo.get_neighbors(
             self.pos, include_center=False)
@@ -100,7 +101,9 @@ class WindPlantOwner(Agent):
         print(neighbors_nodes)
 
     def update_agent_variables(self):
-        """Update instance (agent) variables"""
+        """
+        Update instance (agent) variables
+        """
         self.waste = self.model.waste_generation(
             self.model.temporal_scope['simulation_start'], self.model.clock,
             self.p_year, self.p_cap_waste, self.model.average_lifetime,
@@ -123,6 +126,10 @@ class WindPlantOwner(Agent):
         self.model.number_wpo_agent += 1
 
     def remove_agent(self):
+        """
+        Remove an agent once its (the wind turbine project) capacity is close
+        to zero
+        """
         if self.p_cap_waste < 1E-6:
             # self.model.grid_wpo._remove_agent(self, self.unique_id)
             self.model.grid_wpo.G.nodes[self.unique_id]["agent"].remove(self)

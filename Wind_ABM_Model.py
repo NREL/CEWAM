@@ -13,11 +13,16 @@ outputs.
 # Notes:
 # A machine learning metamodel could be used to calibrate the ABM quicker
 # Reinforcement learning could be used in the future
-# Several random scheduler can be defined in one model
 # Do unittests before each commit (if doesn't pass unittest mention
 # in commit comment)
 # Avoid calling the scheduler unless there are no other choices
 
+# TODO: Next steps -
+#  1) Write unittest for new functions
+#  2) At this point build a test that check that some simulation results
+#  stay what they should be (e.g., after 30 time steps are the results what
+#  was obtained in other projections for waste and installed capacity?)
+#  3) start TPB
 
 from mesa import Model
 from Wind_ABM_WindPlantOwner import WindPlantOwner
@@ -89,11 +94,11 @@ class WindABM(Model):
         :param recyclers: number of reyclers
         :param landfills: number of landfills
         :param regulators: number of regulators
-        :param growth_rates: states' wind capacity growth rates
         :param small_world_network: characteristics of the small-world network
         (if rewiring prob set to 0: regular lattice, if set to 1: random
         network)
         :param external_files: dictionary mapping files to their variables
+        :param growth_rates: states' wind capacity growth rates
         :param average_lifetime: wind turbines' average lifetime (in years)
         :param weibull_shape_factor: parameter controlling curve's shape in 
         the Weibull function
@@ -104,6 +109,8 @@ class WindABM(Model):
         converting turbine capacity to rotor diameter
         :param temporal_scope: simulation start and end year and past 
         installations considered
+        :param blades_per_rotor: number of blades in rotors to compute blades'
+        mass
         """
         # Variables from inputs (value defined externally):
         self.seed = seed
@@ -299,6 +306,16 @@ class WindABM(Model):
     @staticmethod
     def compute_max_network_size(uswtdb, simulation_start, simulation_end,
                                  coefficient):
+        """
+        Compute the number of nodes for the graph of potential maximum length
+        during the simulation.
+        :param uswtdb: us wind turbine database
+        :param simulation_start: starting year of the simulation
+        :param simulation_end: ending year of the simulation
+        :param coefficient: slope from a linear regression model determining
+        the number yearly installed wind projects
+        :return: the number of nodes for the graph of potential maximum length
+        """
         initial_nodes = uswtdb.shape[0]
         years = simulation_end - simulation_start
         additional_nodes = coefficient * years
@@ -326,6 +343,16 @@ class WindABM(Model):
             self.unique_id += 1
 
     def adding_agents(self, num_agents, grid, schedule, agent_type, **kwargs):
+        """
+        Add agents to the network, the global schedule and a specific schedule
+        during the simulation.
+        :param num_agents: number of agents to add
+        :param grid: the network relating the agents
+        :param schedule: the schedule of the agent type
+        :param agent_type: the agent type
+        :param kwargs: additional parameters
+        :return: add the agent to the model
+        """
         for agent in range(num_agents):
             a = agent_type(self.additional_id, self, **kwargs)
             schedule.add(a)
@@ -396,10 +423,11 @@ class WindABM(Model):
         """
         Grow the list of yearly installed capacity according to growth rate
         and update the cumulative installed capacity
-        :param states_cap:
+        :param states_cap: dictionary of wind power capacity in each state
         :param growth_rates: growth rate of the cumulative installed capacity
-        :param additional_cap:
-        :return
+        :param additional_cap: dictionary to output
+        :return output a dictionary containing the states' additional capacity
+        for the time step of the simulation
         """
         for state in states_cap.keys():
             additional_capacity = states_cap[state] * growth_rates[state]
@@ -409,6 +437,13 @@ class WindABM(Model):
         return additional_cap
 
     def additional_agent_state(self, additional_cap):
+        """
+        Compute a list of state names, with several copies for certain names
+        :param additional_cap: a dictionary containing the states' additional
+        capacity for the time step of the simulation
+        :return: a list containing state names and duplicates, with relative
+        frequencies depending on the capacity growths in the states
+        """
         state_add_cap_prop = {
             key: (value / sum(additional_cap.values())) for (key, value) in
             additional_cap.items()}
@@ -432,6 +467,13 @@ class WindABM(Model):
 
     @staticmethod
     def dic_with_list_item_frequency(input_list):
+        """
+        Dictionary containing the values of a list as keys and their
+        frequencies as values
+        :param input_list: the list to transform in a dictionary with
+        frequencies
+        :return: dictionary with values and their frequencies
+        """
         output_dic = {}
         for item in input_list:
             if item in output_dic:
@@ -459,25 +501,28 @@ class WindABM(Model):
                                       avg_lifetime)**weibull_shape_factor)))
         return waste
 
-    # TODO: Next steps -
-    #  1) Write unittest and docstrings for new functions
-    #  2) At this point build a test that check that some simulation results
-    #  stay what they should be (e.g., after 30 time steps are he results what
-    #  Aubryn got for waste and projection?)
-    # 3) start TPB
-
     @staticmethod
     def null_dic_from_key_list(key_list):
+        """
+        Create an empty dictionary with keys taken from a list
+        :param key_list: the list of keys
+        :return: the empty dictionary with corresponding keys
+        """
         null_dic = {}
         for i in key_list:
             null_dic[i] = 0
         return null_dic
 
     def re_initialize_global_variable(self):
-        """Re-initialize yearly variables"""
+        """
+        Re-initialize yearly variables
+        """
         self.number_wpo_agent = 0
 
     def update_model_variables(self):
+        """
+        Update model variables
+        """
         self.additional_cap = self.cumulative_capacity_growth(
             self.states_cap, self.growth_rates, self.additional_cap)
         self.list_agent_states = \
