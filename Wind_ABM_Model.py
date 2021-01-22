@@ -464,6 +464,7 @@ class WindABM(Model):
     #  2) At this point build a test that check that some simulation results
     #  stay what they should be (e.g., after 30 time steps are he results what
     #  Aubryn got for waste and projection?)
+    # 3) start TPB
 
     @staticmethod
     def null_dic_from_key_list(key_list):

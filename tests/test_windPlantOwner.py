@@ -16,6 +16,7 @@ from Wind_ABM_Model import WindABM
 from Wind_ABM_WindPlantOwner import WindPlantOwner
 
 
+# TODO: add tests
 class TestWindPlantOwner(TestCase):
     def test_sum_agent_variable(self):
         """Function can't be formally tested here"""

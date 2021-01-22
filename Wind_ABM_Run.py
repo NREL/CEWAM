@@ -9,7 +9,7 @@ This module run the model according to user inputs.
 """
 
 # TODO:
-#  1) create a class to hold all function for runs
+#  1) create a class to hold all function for runs?
 #  2) create a test file with a test for a few steps and known results to
 #  reproduce
 

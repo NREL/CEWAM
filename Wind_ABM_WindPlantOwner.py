@@ -71,6 +71,7 @@ class WindPlantOwner(Agent):
 
     # TODO:
     #  1) Continue building model: Theory of Planned Behavior
+    #  2) Start other agents
 
     @staticmethod
     def compute_mass_conv_factor(rotor_diameter, coefficient, power,
