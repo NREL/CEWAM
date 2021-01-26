@@ -1,4 +1,5 @@
 .idea/
 __pycache__/
+arch
 venv/
 github-recovery-codes.txt
