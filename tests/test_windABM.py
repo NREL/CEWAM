@@ -55,6 +55,21 @@ class TestWindABM(TestCase):
             graph_avg_node_degree = graph_avg_node_degree + 1
         self.assertEqual(theo_avg_node_degree, graph_avg_node_degree)
 
+    def test_compute_max_network_size(self):
+        """Test that the maximum size of the network is calculated correctly"""
+        mock_up_database = pd.DataFrame(
+            list(zip([1, 2, 3, 4], ['CO', 'CO', 'CO', 'CO'])),
+            columns=['p_year', 't_state'])
+        initial_nodes = mock_up_database.shape[0]
+        simulation_start = 0
+        simulation_end = 3
+        coefficient = 2
+        result = (simulation_end - simulation_start) * \
+            coefficient + initial_nodes
+        test_result = WindABM().compute_max_network_size(
+            mock_up_database, simulation_start, simulation_end, coefficient)
+        self.assertEqual(result, test_result)
+
     def test_creating_agent(self):
         """Test that agents are created with all attributes"""
         test_param = {"unit": 1, "unit2": 2}
@@ -80,6 +95,36 @@ class TestWindABM(TestCase):
         for a in schedule.agents:
             sum_test += a.test_var["unit"] + a.test_var["unit2"]
         result = number_node * (test_param["unit"] + test_param["unit2"])
+        self.assertEqual(sum_test, result)
+
+    def test_adding_agents(self):
+        """Test that agents are added to the model"""
+        test_param = {"unit": 1, "unit2": 0}
+        max_num_agents = 15
+        num_agents = 5
+        test_model = WindABM()
+        test_model.additional_id = max_num_agents - num_agents
+        theo_avg_node_degree = 2
+        rewiring_prob = 0
+        graph = test_model.creating_social_network(
+            max_num_agents, theo_avg_node_degree, rewiring_prob)
+        schedule = RandomActivation(self)
+        grid = NetworkGrid(graph)
+
+        class TestAgent(Agent):
+            def __init__(self, unique_id, model, **kwargs):
+                super().__init__(unique_id, model)
+                """
+                Creation of new agent
+                """
+                self.test_var = kwargs
+
+        test_model.adding_agents(num_agents, grid, schedule, TestAgent,
+                                 **test_param)
+        sum_test = 0
+        for a in schedule.agents:
+            sum_test += a.test_var["unit"] + a.test_var["unit2"]
+        result = num_agents * (test_param["unit"] + test_param["unit2"])
         self.assertEqual(sum_test, result)
 
     def test_wind_plant_owner_data(self):
@@ -123,14 +168,46 @@ class TestWindABM(TestCase):
         self.assertEqual(result, test_result)
 
     def test_p_install_growth_model(self):
-        mock_up = pd.DataFrame(
+        """Test that the agent linear growth is computed accordingly"""
+        mock_up_database = pd.DataFrame(
             list(zip([1, 2, 3, 4], ['CO', 'CO', 'CO', 'CO'])),
             columns=['p_year', 't_state'])
         result = 1
-        test_result = WindABM().p_install_growth_model(mock_up)
+        test_result = WindABM().p_install_growth_model(mock_up_database)
         self.assertEqual(test_result, result)
 
+    def test_additional_agent_state(self):
+        """
+        Test that the right numbers of new project state locations are defined
+        """
+        additional_cap = {"Colorado": 2, "Washington": 3, "Oregon": 1}
+        p_install_growth = 6
+        result = ["Colorado", "Colorado", "Washington", "Washington",
+                  "Washington", "Oregon"]
+        test_result = WindABM().additional_agent_state(additional_cap,
+                                                       p_install_growth)
+        self.assertCountEqual(result, test_result)
+
+    def test_dic_with_list_item_frequency(self):
+        """Test that the function create the appropriate dictionary"""
+        test_list = ['Washington', 'Colorado', 'Oregon', 'Colorado',
+                     'Washington', 'Washington']
+        result = {"Oregon": 1, "Colorado": 2, "Washington": 3}
+        test_result = WindABM().dic_with_list_item_frequency(test_list)
+        self.assertDictEqual(result, test_result)
+
+    def test_null_dic_from_key_list(self):
+        """Test that the function create the appropriate dictionary"""
+        test_list = ["Colorado", "Washington", "California"]
+        result = {"Colorado": 0, "Washington": 0, "California": 0}
+        test_result = WindABM().null_dic_from_key_list(test_list)
+        self.assertDictEqual(result, test_result)
+
     def test_re_initialize_global_variable(self):
+        """Function can't be formally tested here"""
+        pass
+
+    def test_update_model_variables(self):
         """Function can't be formally tested here"""
         pass
 

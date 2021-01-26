@@ -14,10 +14,12 @@ outputs.
 from unittest import TestCase
 from Wind_ABM_Model import WindABM
 from Wind_ABM_WindPlantOwner import WindPlantOwner
+from mesa.time import RandomActivation
+from mesa.space import NetworkGrid
 
 
 class TestWindPlantOwner(TestCase):
-    def test_sum_agent_variable(self):
+    def test_sum_agent_variable_once_or_every_step(self):
         """Function can't be formally tested here"""
         pass
 
@@ -54,3 +56,27 @@ class TestWindPlantOwner(TestCase):
             WindPlantOwner(unique_id, WindABM()).compute_mass_conv_factor(
                 rotor_diameter, coefficient, power, blades_per_rotor, t_cap)
         self.assertEqual(result, test_result)
+
+    def test_update_agent_variables(self):
+        """Function can't be formally tested here"""
+        pass
+
+    def test_remove_agent(self):
+        """Test that agent is removed"""
+        test_model = WindABM()
+        num_agents = len(test_model.schedule_wpo.agents)
+        agent = test_model.schedule_wpo.agents[0]
+        agent.p_cap_waste = 0
+        agent.remove_agent()
+        test_result = len(test_model.schedule_wpo.agents)
+        result = num_agents - 1
+        self.assertEqual(test_result, result)
+
+    def test_step(self):
+        """Test that the wpo agents run steps without errors"""
+        model = WindABM()
+        agent = WindPlantOwner(0, model)
+        steps = 1
+        agent.step()
+        clock = agent.internal_clock
+        self.assertEqual(steps, clock)

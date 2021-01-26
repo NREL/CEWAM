@@ -18,11 +18,11 @@ outputs.
 # Avoid calling the scheduler unless there are no other choices
 
 # TODO: Next steps -
-#  1) Write unittest for new functions
 #  2) At this point build a test that check that some simulation results
 #  stay what they should be (e.g., after 30 time steps are the results what
 #  was obtained in other projections for waste and installed capacity?)
 #  3) start TPB
+#  4) Continue with other agents
 
 from mesa import Model
 from Wind_ABM_WindPlantOwner import WindPlantOwner
@@ -234,7 +234,7 @@ class WindABM(Model):
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
             "Cumulative waste (MW)": lambda a: getattr(a, "cum_waste", None),
-            "Mass conversion factor)": lambda a:
+            "Mass conversion factor": lambda a:
             getattr(a, "mass_conv_factor", None)}
         self.data_collector = DataCollector(
             model_reporters=model_reporters,
@@ -436,11 +436,13 @@ class WindABM(Model):
                           additional_cap.items() if value != 0}
         return additional_cap
 
-    def additional_agent_state(self, additional_cap):
+    @staticmethod
+    def additional_agent_state(additional_cap, p_install_growth):
         """
         Compute a list of state names, with several copies for certain names
         :param additional_cap: a dictionary containing the states' additional
         capacity for the time step of the simulation
+        :param p_install_growth: number of agents to add
         :return: a list containing state names and duplicates, with relative
         frequencies depending on the capacity growths in the states
         """
@@ -448,12 +450,12 @@ class WindABM(Model):
             key: (value / sum(additional_cap.values())) for (key, value) in
             additional_cap.items()}
         list_agent_states = list(state_add_cap_prop.keys())
-        if len(list_agent_states) < self.p_install_growth:
+        if len(list_agent_states) < p_install_growth:
             list_cumprob = np.cumsum(list(state_add_cap_prop.values()))
             state_add_cap_cumprob = dict(zip(state_add_cap_prop.keys(),
                                              list_cumprob))
             max_prob = max(state_add_cap_cumprob.values())
-            for i in range(self.p_install_growth -
+            for i in range(p_install_growth -
                            len(list_agent_states)):
                 pick = random.uniform(0, max_prob)
                 current = 0
@@ -526,7 +528,8 @@ class WindABM(Model):
         self.additional_cap = self.cumulative_capacity_growth(
             self.states_cap, self.growth_rates, self.additional_cap)
         self.list_agent_states = \
-            self.additional_agent_state(self.additional_cap)
+            self.additional_agent_state(self.additional_cap,
+                                        self.p_install_growth)
         self.dict_agent_states = self.dic_with_list_item_frequency(
             self.list_agent_states)
 

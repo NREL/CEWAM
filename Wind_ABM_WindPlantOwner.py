@@ -14,7 +14,6 @@ decisions, for instance, regarding EOL management.
 
 # TODO:
 #  1) Continue building model: Theory of Planned Behavior
-#  2) Start other agents
 
 from mesa import Agent
 
@@ -50,12 +49,12 @@ class WindPlantOwner(Agent):
                                   str(self.unique_id)))
             self.p_year = self.model.clock + \
                 self.model.temporal_scope['simulation_start']
-            self.p_tnum = round(
+            self.p_tnum = self.p_cap / \
                 self.model.uswtdb.groupby('t_state').mean().loc[
-                    self.t_state]['p_tnum'])
+                    self.t_state]['t_cap']
             self.t_cap = self.p_cap / self.p_tnum
-            self.t_rd = self.model.cap_to_diameter_model['coefficient'] * \
-                self.t_cap**self.model.cap_to_diameter_model['power']
+            self.t_rd = self.model.uswtdb.groupby('t_state').mean().loc[
+                               self.t_state]['t_rd']
             self.internal_clock = self.model.clock + 1
         # All agents
         self.mass_conv_factor = self.compute_mass_conv_factor(

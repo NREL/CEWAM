@@ -20,8 +20,11 @@ import time
 
 for j in range(1):
     t0 = time.time()
-    model = WindABM()
-    for i in range(31):
+    model = WindABM(temporal_scope={
+                     'pre_simulation': 2000, 'simulation_start': 2020,
+                     'simulation_end': 2051})
+    for i in range((model.temporal_scope['simulation_end'] -
+                    model.temporal_scope['simulation_start'])):
         model.step()
     results_model = model.data_collector.get_model_vars_dataframe()
     results_agents = model.data_collector.get_agent_vars_dataframe()
