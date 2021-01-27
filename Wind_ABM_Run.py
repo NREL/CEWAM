@@ -18,17 +18,29 @@ from Wind_ABM_Model import *
 import time
 
 
-for j in range(1):
-    t0 = time.time()
-    model = WindABM(temporal_scope={
-                     'pre_simulation': 2000, 'simulation_start': 2020,
-                     'simulation_end': 2051})
-    for i in range((model.temporal_scope['simulation_end'] -
-                    model.temporal_scope['simulation_start'])):
-        model.step()
-    results_model = model.data_collector.get_model_vars_dataframe()
-    results_agents = model.data_collector.get_agent_vars_dataframe()
-    results_model.to_csv("Results_model.csv")
-    results_agents.to_csv("Results_agents.csv")
-    t1 = time.time()
-    print(t1 - t0)
+def run_model(number_run, number_steps):
+    """
+    Run model and collect outputs at each time steps. Creates a new file for
+    each run. Use a new seed for random generation at each run.
+    :param number_run number of replicates for one model configuration
+    :param number_steps duration of the simulation(s) in years
+    """
+    for j in range(number_run):
+        t0 = time.time()
+        # default temporal scope: 2020-2051
+        model = WindABM(seed=j,
+                        temporal_scope={
+                         'pre_simulation': 2000, 'simulation_start': 2020,
+                         'simulation_end': (2020 + number_steps)})
+        for i in range((model.temporal_scope['simulation_end'] -
+                        model.temporal_scope['simulation_start'])):
+            model.step()
+        results_model = model.data_collector.get_model_vars_dataframe()
+        results_agents = model.data_collector.get_agent_vars_dataframe()
+        results_model.to_csv("Results_model_run_%s.csv" % j)
+        results_agents.to_csv("Results_agents_run_%s.csv" % j)
+        t1 = time.time()
+        print(t1 - t0)
+
+
+run_model(1, 31)

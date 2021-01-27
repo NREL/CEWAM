@@ -4,10 +4,7 @@ Created on December 31 2020
 
 @author Julien Walzberg - Julien.Walzberg@nrel.gov
 
-Model - Circular Economy Wind Agent-based Model (CEWAM)
-This module contains the model class that creates and activates agents. The
-module also defines inputs (default values can be changed by user) and collect
-outputs.
+Test functions in Wind_ABM_Model
 """
 
 
@@ -17,6 +14,7 @@ from mesa.time import RandomActivation
 from mesa.space import NetworkGrid
 from mesa import Agent
 import pandas as pd
+from collections import Counter
 
 
 class TestWindABM(TestCase):
@@ -134,8 +132,8 @@ class TestWindABM(TestCase):
         uswtdb_test = WindABM().wind_plant_owner_data(
             WindABM().external_files['uswtdb'], WindABM().state_abrev,
             WindABM().cap_to_diameter_model,
-            WindABM().temporal_scope['pre_simulation'],
-            WindABM().temporal_scope['simulation_start'])
+            WindABM().temporal_scope['simulation_start'],
+            WindABM().temporal_scope['pre_simulation'])
         result = 110316  # sum of p_cap
         sum_test = round(uswtdb_test['p_cap'].sum())
         self.assertEqual(sum_test, result)
@@ -180,13 +178,16 @@ class TestWindABM(TestCase):
         """
         Test that the right numbers of new project state locations are defined
         """
-        additional_cap = {"Colorado": 2, "Washington": 3, "Oregon": 1}
-        p_install_growth = 6
-        result = ["Colorado", "Colorado", "Washington", "Washington",
+        additional_cap = {"Colorado": 0, "Washington": 9, "Oregon": 1}
+        p_install_growth = 10
+        result = ["Washington", "Washington", "Washington", "Washington",
+                  "Washington", "Washington", "Washington", "Washington",
                   "Washington", "Oregon"]
+        result = Counter(result)['Washington']
         test_result = WindABM().additional_agent_state(additional_cap,
                                                        p_install_growth)
-        self.assertCountEqual(result, test_result)
+        test_result = Counter(test_result)['Washington']
+        self.assertAlmostEqual(test_result, result, delta=2)
 
     def test_dic_with_list_item_frequency(self):
         """Test that the function create the appropriate dictionary"""

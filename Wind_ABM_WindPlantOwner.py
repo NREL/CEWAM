@@ -121,7 +121,9 @@ class WindPlantOwner(Agent):
             self.model.states_cap[self.t_state] += self.p_cap
             self.agent_attributes_counted = True
         # Agents' attributes that should be counted every step
-        self.model.all_waste += self.waste
+        self.model.states_waste[self.t_state] += self.waste * \
+            self.mass_conv_factor
+        self.model.all_waste += self.waste * self.mass_conv_factor
         self.model.number_wpo_agent += 1
 
     def remove_agent(self):
@@ -130,7 +132,6 @@ class WindPlantOwner(Agent):
         to zero
         """
         if self.p_cap_waste < 1E-6:
-            # self.model.grid_wpo._remove_agent(self, self.unique_id)
             self.model.grid_wpo.G.nodes[self.unique_id]["agent"].remove(self)
             self.model.schedule_wpo.remove(self)
             self.model.schedule.remove(self)

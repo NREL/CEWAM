@@ -18,11 +18,8 @@ outputs.
 # Avoid calling the scheduler unless there are no other choices
 
 # TODO: Next steps -
-#  2) At this point build a test that check that some simulation results
-#  stay what they should be (e.g., after 30 time steps are the results what
-#  was obtained in other projections for waste and installed capacity?)
-#  3) start TPB
-#  4) Continue with other agents
+#  1) start TPB
+#  2) Continue with other agents
 
 from mesa import Model
 from Wind_ABM_WindPlantOwner import WindPlantOwner
@@ -152,12 +149,14 @@ class WindABM(Model):
             'WY': 'Wyoming'}
         self.uswtdb = self.wind_plant_owner_data(
             self.external_files["uswtdb"], self.state_abrev,
-            self.cap_to_diameter_model, self.temporal_scope['pre_simulation'],
-            self.temporal_scope['simulation_start'])
+            self.cap_to_diameter_model,
+            self.temporal_scope['simulation_start'],
+            self.temporal_scope['pre_simulation'])
         self.p_install_growth = self.p_install_growth_model(self.uswtdb)
         self.avg_p_cap = self.uswtdb['p_cap'].mean()
         self.additional_id = self.uswtdb.shape[0]
         self.states_cap = self.null_dic_from_key_list(growth_rates.keys())
+        self.states_waste = self.null_dic_from_key_list(growth_rates.keys())
         self.additional_cap = self.null_dic_from_key_list(growth_rates.keys())
         self.list_agent_states = []
         self.dict_agent_states = {}
@@ -228,12 +227,14 @@ class WindABM(Model):
             "Year": lambda a:
             self.clock + self.temporal_scope['simulation_start'],
             "Cumulative capacity (MW)": lambda a: self.all_cap,
-            "Cumulative waste (MW)": lambda a: self.all_waste,
+            "State cumulative capacity (MW)": lambda a: str(self.states_cap),
+            "Cumulative waste (tons)": lambda a: self.all_waste,
+            "State waste (tons)": lambda a: str(self.states_waste),
             "Number wpo agents": lambda a: self.number_wpo_agent}
         agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
-            "Cumulative waste (MW)": lambda a: getattr(a, "cum_waste", None),
+            "Cumulative waste (tons)": lambda a: getattr(a, "cum_waste", None),
             "Mass conversion factor": lambda a:
             getattr(a, "mass_conv_factor", None)}
         self.data_collector = DataCollector(
@@ -377,8 +378,8 @@ class WindABM(Model):
         """
         uswtdb = pd.read_csv(database, dtype={'t_manu': 'object',
                                               't_model': 'object'})
-        uswtdb = uswtdb[(uswtdb['p_year'] >= start_year) &
-                        (uswtdb['p_year'] <= pre_simulation)]
+        uswtdb = uswtdb[(uswtdb['p_year'] >= pre_simulation) &
+                        (uswtdb['p_year'] <= start_year)]
         uswtdb = uswtdb.groupby('p_name').agg(
             lambda x: x.head(1) if x.dtype == 'object' else
             x.mean()).reset_index()

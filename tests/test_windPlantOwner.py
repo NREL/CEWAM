@@ -4,10 +4,7 @@ Created on December 31 2020
 
 @author Julien Walzberg - Julien.Walzberg@nrel.gov
 
-Model - Circular Economy Wind Agent-based Model (CEWAM)
-This module contains the model class that creates and activates agents. The
-module also defines inputs (default values can be changed by user) and collect
-outputs.
+Test functions in Wind_ABM_WIndPlantOwner
 """
 
 
