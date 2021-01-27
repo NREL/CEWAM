@@ -38,10 +38,10 @@ class WindPlantOwner(Agent):
             self.t_rd = self.model.uswtdb.loc[self.unique_id]['t_rd']
             self.t_cap = self.model.uswtdb.loc[self.unique_id]['t_cap']
             self.internal_clock = self.model.clock
+            self.eol_pathway = self.model.list_init_eol_pathways.pop()
         # Additional agents:
         else:
-            self.t_state = self.model.list_agent_states[0]
-            self.model.list_agent_states.pop(0)
+            self.t_state = self.model.list_agent_states.pop()
             self.p_cap = \
                 self.model.additional_cap[self.t_state] / \
                 self.model.dict_agent_states[self.t_state]
@@ -55,6 +55,7 @@ class WindPlantOwner(Agent):
             self.t_cap = self.p_cap / self.p_tnum
             self.t_rd = self.model.uswtdb.groupby('t_state').mean().loc[
                                self.t_state]['t_rd']
+            self.eol_pathway = "landfill"  # TODO
             self.internal_clock = self.model.clock + 1
         # All agents
         self.mass_conv_factor = self.compute_mass_conv_factor(
@@ -84,6 +85,11 @@ class WindPlantOwner(Agent):
         mass = mass_blade * blades_per_rotor
         conversion_factor = mass / t_cap
         return conversion_factor
+
+    # TODO:
+    #  find a way to apply to new agents: the number of agents should be the
+    #  number of new agents and the dic_frequencies the adoption of pathway
+    #  among current population
 
     # TODO: the method below will need to be moved in the model module (to be
     #  accessible by different agent types)
@@ -125,6 +131,11 @@ class WindPlantOwner(Agent):
             self.mass_conv_factor
         self.model.all_waste += self.waste * self.mass_conv_factor
         self.model.number_wpo_agent += 1
+        self.model.eol_pathway_dist[self.eol_pathway] += 1
+        # TODO
+        # if self.unique_id > 1321:
+        #    print(self.model.clock, self.unique_id)
+        #    print(self.model.eol_pathway_dist)
 
     def remove_agent(self):
         """

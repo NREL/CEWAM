@@ -138,6 +138,15 @@ class TestWindABM(TestCase):
         sum_test = round(uswtdb_test['p_cap'].sum())
         self.assertEqual(sum_test, result)
 
+    def test_p_install_growth_model(self):
+        """Test that the agent linear growth is computed accordingly"""
+        mock_up_database = pd.DataFrame(
+            list(zip([1, 2, 3, 4], ['CO', 'CO', 'CO', 'CO'])),
+            columns=['p_year', 't_state'])
+        result = 1
+        test_result = WindABM().p_install_growth_model(mock_up_database)
+        self.assertEqual(test_result, result)
+
     def test_cumulative_capacity_growth(self):
         """Verify that growth model behave as expected"""
         states_cap = {"Colorado": 100.0, "Washington": 50.0}
@@ -150,6 +159,29 @@ class TestWindABM(TestCase):
             states_cap, growth_rates, additional_cap)
         additional_cap = list(additional_cap.values())
         self.assertCountEqual(result, additional_cap)
+
+    def test_additional_agent_state(self):
+        """
+        Test that the right numbers of new project state locations are defined
+        """
+        additional_cap = {"Colorado": 0, "Washington": 9, "Oregon": 1}
+        p_install_growth = 10
+        result = ["Washington", "Washington", "Washington", "Washington",
+                  "Washington", "Washington", "Oregon", "Washington",
+                  "Colorado", "Oregon"]
+        result = Counter(result)['Washington']
+        test_result = WindABM().additional_agent_state(additional_cap,
+                                                       p_install_growth)
+        test_result = Counter(test_result)['Washington']
+        self.assertAlmostEqual(test_result, result, delta=2)
+
+    def test_dic_with_list_item_frequency(self):
+        """Test that the function create the appropriate dictionary"""
+        test_list = ['Washington', 'Colorado', 'Oregon', 'Colorado',
+                     'Washington', 'Washington']
+        result = {"Oregon": 1, "Colorado": 2, "Washington": 3}
+        test_result = WindABM().dic_with_list_item_frequency(test_list)
+        self.assertDictEqual(result, test_result)
 
     def test_waste_generation(self):
         """Test that waste generation behave as expected"""
@@ -165,44 +197,20 @@ class TestWindABM(TestCase):
         result = 2.56
         self.assertEqual(result, test_result)
 
-    def test_p_install_growth_model(self):
-        """Test that the agent linear growth is computed accordingly"""
-        mock_up_database = pd.DataFrame(
-            list(zip([1, 2, 3, 4], ['CO', 'CO', 'CO', 'CO'])),
-            columns=['p_year', 't_state'])
-        result = 1
-        test_result = WindABM().p_install_growth_model(mock_up_database)
-        self.assertEqual(test_result, result)
-
-    def test_additional_agent_state(self):
-        """
-        Test that the right numbers of new project state locations are defined
-        """
-        additional_cap = {"Colorado": 0, "Washington": 9, "Oregon": 1}
-        p_install_growth = 10
-        result = ["Washington", "Washington", "Washington", "Washington",
-                  "Washington", "Washington", "Washington", "Washington",
-                  "Washington", "Oregon"]
-        result = Counter(result)['Washington']
-        test_result = WindABM().additional_agent_state(additional_cap,
-                                                       p_install_growth)
-        test_result = Counter(test_result)['Washington']
-        self.assertAlmostEqual(test_result, result, delta=2)
-
-    def test_dic_with_list_item_frequency(self):
-        """Test that the function create the appropriate dictionary"""
-        test_list = ['Washington', 'Colorado', 'Oregon', 'Colorado',
-                     'Washington', 'Washington']
-        result = {"Oregon": 1, "Colorado": 2, "Washington": 3}
-        test_result = WindABM().dic_with_list_item_frequency(test_list)
-        self.assertDictEqual(result, test_result)
-
     def test_null_dic_from_key_list(self):
         """Test that the function create the appropriate dictionary"""
         test_list = ["Colorado", "Washington", "California"]
         result = {"Colorado": 0, "Washington": 0, "California": 0}
         test_result = WindABM().null_dic_from_key_list(test_list)
         self.assertDictEqual(result, test_result)
+
+    def test_roulette_wheel(self):
+        # TODO
+        pass
+
+    def test_dic_cumulative_frequencies(self):
+        # TODO
+        pass
 
     def test_re_initialize_global_variable(self):
         """Function can't be formally tested here"""

@@ -82,7 +82,15 @@ class WindABM(Model):
                  temporal_scope={
                      'pre_simulation': 2000, 'simulation_start': 2020,
                      'simulation_end': 2051},
-                 blades_per_rotor=3):
+                 blades_per_rotor=3,
+                 eol_pathways={
+                     "lifetime_extension": True, "pyrolysis": True,
+                     "mechanical_recycling": True,
+                     "cement_co_processing": True, "landfill": True},
+                 eol_pathways_dist_init={
+                     "lifetime_extension": 0.005, "pyrolysis": 0.005,
+                     "mechanical_recycling": 0.005,
+                     "cement_co_processing": 0.005, "landfill": 0.98}):
         """
         Initiate model.
         :param seed: number used to initialize the random generator
@@ -125,6 +133,8 @@ class WindABM(Model):
         self.cap_to_diameter_model = cap_to_diameter_model
         self.temporal_scope = temporal_scope
         self.blades_per_rotor = blades_per_rotor
+        self.eol_pathways = eol_pathways
+        self.eol_pathways_dist_init = eol_pathways_dist_init
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -161,6 +171,11 @@ class WindABM(Model):
         self.list_agent_states = []
         self.dict_agent_states = {}
         self.number_wpo_agent = 0
+        self.list_init_eol_pathways = self.roulette_wheel_choice(
+            self.eol_pathways_dist_init, self.uswtdb.shape[0], True, [])
+        self.list_add_agent_eol_path = []
+        self.eol_pathway_dist = [self.null_dic_from_key_list(
+            self.eol_pathways.keys())]
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -437,8 +452,7 @@ class WindABM(Model):
                           additional_cap.items() if value != 0}
         return additional_cap
 
-    @staticmethod
-    def additional_agent_state(additional_cap, p_install_growth):
+    def additional_agent_state(self, additional_cap, p_install_growth):
         """
         Compute a list of state names, with several copies for certain names
         :param additional_cap: a dictionary containing the states' additional
@@ -452,21 +466,24 @@ class WindABM(Model):
             additional_cap.items()}
         list_agent_states = list(state_add_cap_prop.keys())
         if len(list_agent_states) < p_install_growth:
-            list_cumprob = np.cumsum(list(state_add_cap_prop.values()))
-            state_add_cap_cumprob = dict(zip(state_add_cap_prop.keys(),
-                                             list_cumprob))
-            max_prob = max(state_add_cap_cumprob.values())
-            for i in range(p_install_growth -
-                           len(list_agent_states)):
-                pick = random.uniform(0, max_prob)
-                current = 0
-                for key, value in state_add_cap_cumprob.items():
-                    current += value
-                    if value > pick:
-                        list_agent_states.append(key)
-                        break
-        random.shuffle(list_agent_states)
+            num_choices = p_install_growth - len(list_agent_states)
+            list_agent_states = self.roulette_wheel_choice(
+                state_add_cap_prop, num_choices, False, list_agent_states)
         return list_agent_states
+
+    def roulette_wheel_choice(self, dic_frequencies, num_choices,
+                              deterministic, list_choice):
+        cum_freq = self.dic_cumulative_frequencies(dic_frequencies)
+        max_cum_freq = max(cum_freq.values())
+        for i in range(num_choices):
+            if deterministic:
+                pick = i / num_choices * max_cum_freq
+            else:
+                pick = random.uniform(0, max_cum_freq)
+            choice = self.roulette_wheel(pick, cum_freq)
+            list_choice.append(choice)
+        random.shuffle(list_choice)
+        return list_choice
 
     @staticmethod
     def dic_with_list_item_frequency(input_list):
@@ -516,11 +533,43 @@ class WindABM(Model):
             null_dic[i] = 0
         return null_dic
 
+    @staticmethod
+    def roulette_wheel(pick, cum_prob_dic):
+        """
+        Apply a roulette wheel process to output an element according to its
+        frequency
+        :param pick: the value from which the corresponding dictionary key
+        need to be returned (the ball in the roulette)
+        :param cum_prob_dic: a dictionary containing cumulative frequencies
+        (the wedges in the roulette)
+        :return: the chosen key depending on the pick value (where the ball
+        stopped)
+        """
+        current = 0
+        for key, value in cum_prob_dic.items():
+            current += value
+            if value > pick:
+                return key
+
+    @staticmethod
+    def dic_cumulative_frequencies(dic):
+        """
+        From a dictionary containing keys and their frequencies, output a
+        dictionary with their cumulative frequencies
+        :param dic: the input dictionary with frequencies of keys
+        :return: an output dictionary with cumulative frequencies
+        """
+        list_cumprob = np.cumsum(list(dic.values()))
+        dic_cumprob = dict(zip(dic.keys(), list_cumprob))
+        return dic_cumprob
+
     def re_initialize_global_variable(self):
         """
         Re-initialize yearly variables
         """
         self.number_wpo_agent = 0
+        self.eol_pathway_dist = self.null_dic_from_key_list(
+            self.eol_pathways.keys())
 
     def update_model_variables(self):
         """
@@ -531,6 +580,7 @@ class WindABM(Model):
         self.list_agent_states = \
             self.additional_agent_state(self.additional_cap,
                                         self.p_install_growth)
+        self.list_add_agent_eol_path = 1
         self.dict_agent_states = self.dic_with_list_item_frequency(
             self.list_agent_states)
 
