@@ -55,7 +55,7 @@ class WindPlantOwner(Agent):
             self.t_cap = self.p_cap / self.p_tnum
             self.t_rd = self.model.uswtdb.groupby('t_state').mean().loc[
                                self.t_state]['t_rd']
-            self.eol_pathway = "landfill"  # TODO
+            self.eol_pathway = self.model.list_add_agent_eol_path.pop()
             self.internal_clock = self.model.clock + 1
         # All agents
         self.mass_conv_factor = self.compute_mass_conv_factor(
@@ -86,25 +86,6 @@ class WindPlantOwner(Agent):
         conversion_factor = mass / t_cap
         return conversion_factor
 
-    # TODO:
-    #  find a way to apply to new agents: the number of agents should be the
-    #  number of new agents and the dic_frequencies the adoption of pathway
-    #  among current population
-
-    # TODO: the method below will need to be moved in the model module (to be
-    #  accessible by different agent types)
-    def subjective_norm(self):
-        """
-        Compute the subjective norms as measured by the proportion of agents
-        tha have already adopted a given choice
-        """
-        # Bits of code for SN function:
-        neighbors_nodes = self.model.grid_wpo.get_neighbors(
-            self.pos, include_center=False)
-        neighbors_nodes = [x for x in neighbors_nodes
-                           if not self.model.grid_wpo.is_cell_empty(x)]
-        print(neighbors_nodes)
-
     def update_agent_variables(self):
         """
         Update instance (agent) variables
@@ -131,11 +112,9 @@ class WindPlantOwner(Agent):
             self.mass_conv_factor
         self.model.all_waste += self.waste * self.mass_conv_factor
         self.model.number_wpo_agent += 1
-        self.model.eol_pathway_dist[self.eol_pathway] += 1
-        # TODO
-        # if self.unique_id > 1321:
-        #    print(self.model.clock, self.unique_id)
-        #    print(self.model.eol_pathway_dist)
+        self.model.eol_pathway_dist_list.append(self.eol_pathway)
+        self.eol_pathway = self.model.theory_planned_behavior_model(
+            'eol_pathway', self.pos, self.model.eol_pathways)
 
     def remove_agent(self):
         """

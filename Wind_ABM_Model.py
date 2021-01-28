@@ -86,11 +86,12 @@ class WindABM(Model):
                  eol_pathways={
                      "lifetime_extension": True, "pyrolysis": True,
                      "mechanical_recycling": True,
-                     "cement_co_processing": True, "landfill": True},
+                     "cement_co_processing": True, "landfill": False},
                  eol_pathways_dist_init={
                      "lifetime_extension": 0.005, "pyrolysis": 0.005,
                      "mechanical_recycling": 0.005,
-                     "cement_co_processing": 0.005, "landfill": 0.98}):
+                     "cement_co_processing": 0.005, "landfill": 0.98},
+                 tpb_eol_coeff={'w_a': 0.3, 'w_sn': 0.56, 'w_pbc': 0.11}):
         """
         Initiate model.
         :param seed: number used to initialize the random generator
@@ -116,6 +117,12 @@ class WindABM(Model):
         installations considered
         :param blades_per_rotor: number of blades in rotors to compute blades'
         mass
+        :param eol_pathways: end of life (eol) pathways available to wind 
+        plant owner agents
+        :param eol_pathways_dist_init: initial distribution of eol pathways 
+        adoption in the population
+        :param tpb_eol_coeff: regression coefficient in the theory of planned 
+        behavior (TPB) model of eol behavior adoption 
         """
         # Variables from inputs (value defined externally):
         self.seed = seed
@@ -135,6 +142,7 @@ class WindABM(Model):
         self.blades_per_rotor = blades_per_rotor
         self.eol_pathways = eol_pathways
         self.eol_pathways_dist_init = eol_pathways_dist_init
+        self.tpb_eol_coeff = tpb_eol_coeff
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -172,10 +180,12 @@ class WindABM(Model):
         self.dict_agent_states = {}
         self.number_wpo_agent = 0
         self.list_init_eol_pathways = self.roulette_wheel_choice(
-            self.eol_pathways_dist_init, self.uswtdb.shape[0], True, [])
+            self.remove_item_dic_from_boolean_dic(self.eol_pathways_dist_init,
+                                                  self.eol_pathways),
+            self.uswtdb.shape[0], True, [])
         self.list_add_agent_eol_path = []
-        self.eol_pathway_dist = [self.null_dic_from_key_list(
-            self.eol_pathways.keys())]
+        self.eol_pathway_dist_list = []
+        self.eol_pathway_dist_dic = {}
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -563,13 +573,65 @@ class WindABM(Model):
         dic_cumprob = dict(zip(dic.keys(), list_cumprob))
         return dic_cumprob
 
+    @staticmethod
+    def remove_item_dic_from_boolean_dic(dic, boolean_dic):
+        for key, value in boolean_dic.items():
+            if not value:
+                dic.pop(key)
+        return dic
+
+    # TODO: continue TPB here
+    def attitude(self):
+        pass
+
+    # TODO: DocString first lines: "Compute the subjective norms as measured by
+    #  the proportion of agents that have already adopted a given choice"
+    def subjective_norms(self, adopted_choice, position, dic_choices):
+        scores = {}
+        neighbors_nodes = self.grid_wpo.get_neighbors(position,
+                                                      include_center=False)
+        neighbors_nodes = [x for x in neighbors_nodes
+                           if not self.grid_wpo.is_cell_empty(x)]
+        for key in dic_choices.keys():
+            list_agent_w_key = [
+                agent for agent in
+                self.grid_wpo.get_cell_list_contents(neighbors_nodes) if
+                getattr(agent, adopted_choice) == key]
+            score_key = self.safe_div(len(list_agent_w_key),
+                                      len(neighbors_nodes))
+            scores[key] = score_key
+        return scores
+
+    #  TODO:
+    #   1) continue: scores_bi = wsn * scores_sn[key] + wa * scores_a[key]...
+    #   2) add the w_bi in front of A, SN, and PBC but not B and P
+    def theory_planned_behavior_model(self, adopted_choice, position,
+                                      dic_choices):
+        scores_sn = self.subjective_norms(adopted_choice, position,
+                                          dic_choices)
+        scores_behaviors = {}
+        for key, value in dic_choices.items():
+            scores_behaviors[key] = self.tpb_eol_coeff['w_sn'] * scores_sn[key]
+            if not value:
+                scores_behaviors.pop(key)
+        behavior = [keys for keys, values in scores_behaviors.items() if
+                    values == max(scores_behaviors.values())]
+        # if two behavior equally score the highest, choose randomly
+        random.shuffle(behavior)
+        return behavior[0]
+
+    @staticmethod
+    def safe_div(x, y):
+        if y == 0:
+            return 0
+        return x / y
+
     def re_initialize_global_variable(self):
         """
         Re-initialize yearly variables
         """
         self.number_wpo_agent = 0
-        self.eol_pathway_dist = self.null_dic_from_key_list(
-            self.eol_pathways.keys())
+        self.eol_pathway_dist_list = []
 
     def update_model_variables(self):
         """
@@ -580,9 +642,13 @@ class WindABM(Model):
         self.list_agent_states = \
             self.additional_agent_state(self.additional_cap,
                                         self.p_install_growth)
-        self.list_add_agent_eol_path = 1
         self.dict_agent_states = self.dic_with_list_item_frequency(
             self.list_agent_states)
+        self.eol_pathway_dist_dic = self.dic_with_list_item_frequency(
+            self.eol_pathway_dist_list)
+        # Extend initial eol pathways constraints as based on current adoption
+        self.list_add_agent_eol_path = self.roulette_wheel_choice(
+            self.eol_pathway_dist_dic, self.p_install_growth, False, [])
 
     def step(self):
         """
@@ -598,6 +664,7 @@ class WindABM(Model):
         self.schedule_reg.step()
         self.schedule.step()
         self.update_model_variables()
+        # print(self.eol_pathway_dist_list)
         self.adding_agents(self.p_install_growth, self.grid_wpo,
                            self.schedule_wpo, WindPlantOwner)
         self.clock += 1
