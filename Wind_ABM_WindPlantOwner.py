@@ -67,6 +67,25 @@ class WindPlantOwner(Agent):
         self.waste = 0
         self.cum_waste = 0
         self.agent_attributes_counted = False
+        self.eol_att_level_ce_path = self.model.trunc_normal_distrib_draw(
+            (self.model.attitude_parameters['min'] -
+             self.model.attitude_parameters['mean']) /
+            self.model.attitude_parameters['standard_deviation'],
+            (self.model.attitude_parameters['max'] -
+             self.model.attitude_parameters['mean']) /
+            self.model.attitude_parameters['standard_deviation'],
+            self.model.attitude_parameters['mean'],
+            self.model.attitude_parameters['standard_deviation'])
+        self.eol_att_level_conv_path = self.model.trunc_normal_distrib_draw(
+            (self.model.attitude_parameters['min'] -
+             self.model.attitude_parameters['mean']) /
+            self.model.attitude_parameters['standard_deviation'],
+            (self.model.attitude_parameters['max'] -
+             self.model.attitude_parameters['mean']) /
+            self.model.attitude_parameters['standard_deviation'],
+            (self.model.attitude_parameters['max'] -
+             self.model.attitude_parameters['mean']),
+            self.model.attitude_parameters['standard_deviation'])
 
     @staticmethod
     def compute_mass_conv_factor(rotor_diameter, coefficient, power,
@@ -114,7 +133,9 @@ class WindPlantOwner(Agent):
         self.model.number_wpo_agent += 1
         self.model.eol_pathway_dist_list.append(self.eol_pathway)
         self.eol_pathway = self.model.theory_planned_behavior_model(
-            'eol_pathway', self.pos, self.model.eol_pathways)
+            self.eol_att_level_ce_path, self.eol_att_level_conv_path,
+            self.model.eol_pathways, self.model.choices_circularity,
+            'eol_pathway', self.pos)
 
     def remove_agent(self):
         """

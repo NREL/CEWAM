@@ -39,6 +39,7 @@ import pandas as pd
 import random
 import scipy
 import warnings
+from scipy.stats import truncnorm
 
 
 class WindABM(Model):
@@ -86,12 +87,23 @@ class WindABM(Model):
                  eol_pathways={
                      "lifetime_extension": True, "pyrolysis": True,
                      "mechanical_recycling": True,
-                     "cement_co_processing": True, "landfill": False},
+                     "cement_co_processing": True, "landfill": True},
                  eol_pathways_dist_init={
                      "lifetime_extension": 0.005, "pyrolysis": 0.005,
                      "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
-                 tpb_eol_coeff={'w_a': 0.3, 'w_sn': 0.56, 'w_pbc': 0.11}):
+                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.3, 'w_sn': 0.56,
+                                'w_pbc': 0.11},
+                 attitude_parameters={
+                     'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
+                     'max': 1},
+                 # TODO: complete dic with circular choices from other
+                 #  decision than eol (e.g., conventional vs thermoplastic
+                 #  blades)
+                 choices_circularity={
+                     "lifetime_extension": True, "pyrolysis": True,
+                     "mechanical_recycling": True,
+                     "cement_co_processing": True, "landfill": False}):
         """
         Initiate model.
         :param seed: number used to initialize the random generator
@@ -122,7 +134,13 @@ class WindABM(Model):
         :param eol_pathways_dist_init: initial distribution of eol pathways 
         adoption in the population
         :param tpb_eol_coeff: regression coefficient in the theory of planned 
-        behavior (TPB) model of eol behavior adoption 
+        behavior (TPB) model of eol behavior adoption
+        :param attitude_parameters: parameters for a truncated normal 
+        distribution representing attitude among the population toward circular
+        economy (CE) behaviors and to then infer non-circular behaviors
+        :param choices_circularity: dictionary qualifying choices in terms of 
+        circularity, this may affect agents decision (e.g., agents may hold a 
+        different attitude depending on the choice circularity
         """
         # Variables from inputs (value defined externally):
         self.seed = seed
@@ -143,6 +161,8 @@ class WindABM(Model):
         self.eol_pathways = eol_pathways
         self.eol_pathways_dist_init = eol_pathways_dist_init
         self.tpb_eol_coeff = tpb_eol_coeff
+        self.attitude_parameters = attitude_parameters
+        self.choices_circularity = choices_circularity
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -581,8 +601,20 @@ class WindABM(Model):
         return dic
 
     # TODO: continue TPB here
-    def attitude(self):
-        pass
+    #  attitude regarding CE pathways (environmental consciousness) for the
+    #  non-CE pathway (landfill) the function should be 1 - U(0-1)AttCE
+    @staticmethod
+    def attitude(ce_att_level, conv_att_level, dic_choices,
+                 choices_circularity):
+        scores = {}
+        circular_choices = {key: value for (key, value) in
+                            choices_circularity.items() if value}
+        for key in dic_choices.keys():
+            if key in circular_choices.keys():
+                scores[key] = ce_att_level
+            else:
+                scores[key] = conv_att_level
+        return scores
 
     # TODO: DocString first lines: "Compute the subjective norms as measured by
     #  the proportion of agents that have already adopted a given choice"
@@ -605,13 +637,18 @@ class WindABM(Model):
     #  TODO:
     #   1) continue: scores_bi = wsn * scores_sn[key] + wa * scores_a[key]...
     #   2) add the w_bi in front of A, SN, and PBC but not B and P
-    def theory_planned_behavior_model(self, adopted_choice, position,
-                                      dic_choices):
+    def theory_planned_behavior_model(
+            self, ce_att_level, conv_att_level, dic_choices,
+            choices_circularity, adopted_choice, position):
         scores_sn = self.subjective_norms(adopted_choice, position,
                                           dic_choices)
+        scores_a = self.attitude(ce_att_level, conv_att_level, dic_choices,
+                                 choices_circularity)
         scores_behaviors = {}
         for key, value in dic_choices.items():
-            scores_behaviors[key] = self.tpb_eol_coeff['w_sn'] * scores_sn[key]
+            scores_behaviors[key] = self.tpb_eol_coeff['w_bi'] * (
+                    self.tpb_eol_coeff['w_sn'] * scores_sn[key] +
+                    self.tpb_eol_coeff['w_a'] * scores_a[key])
             if not value:
                 scores_behaviors.pop(key)
         behavior = [keys for keys, values in scores_behaviors.items() if
@@ -625,6 +662,12 @@ class WindABM(Model):
         if y == 0:
             return 0
         return x / y
+
+    @staticmethod
+    def trunc_normal_distrib_draw(a, b, loc, scale):
+        distribution = truncnorm(a, b, loc, scale)
+        draw = float(distribution.rvs(1))
+        return draw
 
     def re_initialize_global_variable(self):
         """

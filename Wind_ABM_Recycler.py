@@ -22,6 +22,11 @@ import operator
 from math import *
 import time
 
+# TODO: separate pre-processing (e.g., done by Veolia) and actual co-processing
+#  (done by cement factories) in terms of activity and agents. In this way
+#  the number (and locations) of co-processing facilities can be different
+#  from the number of cement factories
+
 
 class Recycler(Agent):
     def __init__(self, unique_id, model, **kwargs):
