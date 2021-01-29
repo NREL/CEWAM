@@ -19,7 +19,9 @@ outputs.
 
 # TODO: Next steps -
 #  1) start TPB
-#  2) Continue with other agents
+#  2) Build dictionary with waste according to eol_pathway --> done
+#  3) Build consequences of lifetime extension: average lifetime is extended
+#  4) Continue with other agents
 
 from mesa import Model
 from Wind_ABM_WindPlantOwner import WindPlantOwner
@@ -206,6 +208,8 @@ class WindABM(Model):
         self.list_add_agent_eol_path = []
         self.eol_pathway_dist_list = []
         self.eol_pathway_dist_dic = {}
+        self.states_waste_eol_path = self.null_dic_from_key_list(
+            growth_rates.keys())
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -600,9 +604,6 @@ class WindABM(Model):
                 dic.pop(key)
         return dic
 
-    # TODO: continue TPB here
-    #  attitude regarding CE pathways (environmental consciousness) for the
-    #  non-CE pathway (landfill) the function should be 1 - U(0-1)AttCE
     @staticmethod
     def attitude(ce_att_level, conv_att_level, dic_choices,
                  choices_circularity):
@@ -633,6 +634,16 @@ class WindABM(Model):
                                       len(neighbors_nodes))
             scores[key] = score_key
         return scores
+
+    # TODO: Continue TPB with perceived behavioral control
+    #  1) have three separate components:
+    #    i) Decommissioning costs
+    #    ii) Transportation costs (how to get location information from
+    #    recyclers (without looping through them)?)
+    #    iii) Process costs
+    #  2) Add all components and use formula in PV model and milestone report
+    def perceived_behavioral_control(self):
+        pass
 
     #  TODO:
     #   1) continue: scores_bi = wsn * scores_sn[key] + wa * scores_a[key]...

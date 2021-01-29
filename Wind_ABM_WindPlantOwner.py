@@ -14,6 +14,8 @@ decisions, for instance, regarding EOL management.
 
 # TODO:
 #  1) Continue building model: Theory of Planned Behavior
+#  2) Build dictionary with waste according to eol_pathway
+#  3) Build consequences of lifetime extension: average lifetime is extended
 
 from mesa import Agent
 
@@ -86,6 +88,8 @@ class WindPlantOwner(Agent):
             (self.model.attitude_parameters['max'] -
              self.model.attitude_parameters['mean']),
             self.model.attitude_parameters['standard_deviation'])
+        self.waste_eol_path = self.model.null_dic_from_key_list(
+            self.model.eol_pathways)
 
     @staticmethod
     def compute_mass_conv_factor(rotor_diameter, coefficient, power,
@@ -136,6 +140,9 @@ class WindPlantOwner(Agent):
             self.eol_att_level_ce_path, self.eol_att_level_conv_path,
             self.model.eol_pathways, self.model.choices_circularity,
             'eol_pathway', self.pos)
+        self.waste_eol_path[self.eol_pathway] += self.waste * \
+            self.mass_conv_factor
+        self.model.states_waste_eol_path[self.t_state] = self.waste_eol_path
 
     def remove_agent(self):
         """

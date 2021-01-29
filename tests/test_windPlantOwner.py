@@ -11,8 +11,6 @@ Test functions in Wind_ABM_WIndPlantOwner
 from unittest import TestCase
 from Wind_ABM_Model import WindABM
 from Wind_ABM_WindPlantOwner import WindPlantOwner
-from mesa.time import RandomActivation
-from mesa.space import NetworkGrid
 
 
 class TestWindPlantOwner(TestCase):

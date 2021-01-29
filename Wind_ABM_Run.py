@@ -12,6 +12,22 @@ This module run the model according to user inputs.
 #  1) create a class to hold all function for runs?
 #  2) create a test file with a test for a few steps and known results to
 #  reproduce
+#  3) Consider value added of using df['Dictionary'].apply(pd.Series)] to
+#  transform reported dictionary in pandas columns (Should it be a
+#  post-simulation treatment or not?) when creating data frames from data
+#  collector
+#  4) To report by state and eol pathway - use a nested dictionary then use
+#  example code below to unpack (either here or in post-simulation):
+#  dct = {'Colorado': {'ce': 2, 'landfill': 5}, 'California': {'ce': 0,
+#  'landfill': 10}, 'Washington': {'ce': 4, 'landfill': 3}}
+#  v = pd.DataFrame(dct).stack()
+#  w = (pd.DataFrame(v.tolist(), index=v.index)
+#    .stack()
+#    .unstack(0)
+#    .reset_index(level=1, drop=True)
+#    .rename_axis('State')
+#    .reset_index())
+#  w.head()
 
 
 from Wind_ABM_Model import *
