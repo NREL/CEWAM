@@ -17,11 +17,19 @@ outputs.
 # in commit comment)
 # Avoid calling the scheduler unless there are no other choices
 
+# TODO: Continue TPB with perceived behavioral control
+#  1) have three separate components:
+#    i) Decommissioning costs
+#    ii) Transportation costs (how to get location information from
+#    recyclers (without looping through them)?)
+#    iii) Process costs
+#  2) Add all components and use formula in PV model and milestone report
+#  3) build function for B (barriers) and P (pressures) TPB components
+
 # TODO: Next steps -
-#  1) start TPB
-#  2) Build dictionary with waste according to eol_pathway --> done
-#  3) Build consequences of lifetime extension: average lifetime is extended
-#  4) Continue with other agents
+#  1) Finish TPB
+#  2) Build consequences of lifetime extension: average lifetime is extended
+#  3) Continue with other agents
 
 from mesa import Model
 from Wind_ABM_WindPlantOwner import WindPlantOwner
@@ -95,7 +103,7 @@ class WindABM(Model):
                      "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
                  tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.3, 'w_sn': 0.56,
-                                'w_pbc': 0.11},
+                                'w_pbc': -0.11},
                  attitude_parameters={
                      'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
@@ -105,7 +113,41 @@ class WindABM(Model):
                  choices_circularity={
                      "lifetime_extension": True, "pyrolysis": True,
                      "mechanical_recycling": True,
-                     "cement_co_processing": True, "landfill": False}):
+                     "cement_co_processing": True, "landfill": False},
+                 # TODO: all $/blade need to be converted into $/tons based
+                 #  on agents characteristics OR even better: use $/ton
+                 #  directly
+                 # TODO: decommissioning cost makes more sense in $/blade so
+                 #  keep it that way but convert in $/tons with agents
+                 #  characteristics
+                 decommissioning_cost=[1300, 33000],
+                 # TODO: all eol costs will come from other agents recyclers,
+                 #  developers and landfills: use mock up value for variables
+                 #  in recycler and landfills that I can use to develop wpo
+                 #  and PBC
+                 eol_pathways_process_cost={
+                     "lifetime_extension": None, "pyrolysis": None,
+                     "mechanical_recycling": None,
+                     "cement_co_processing": None, "landfill": None},
+                 transport_shreds={'shredding_costs': [99, 132],
+                                   'transport_cost_shreds': [0.0314, 0.0820]},
+                 transport_segments={
+                     'cutting_costs': 27.56, 'transport_cost_segments': 8.7,
+                     'length_segment': 30, 'segment_per_truck': 2},
+                 transport_repair=1.57,
+                 eol_pathways_transport_mode={
+                     "lifetime_extension": 'transport_repair',
+                     "pyrolysis": 'undefined',
+                     "mechanical_recycling": 'undefined',
+                     "cement_co_processing": 'transport_segments',
+                     "landfill": 'undefined'},
+                 eol_pathways_process_revenue={
+                     "lifetime_extension": None, "pyrolysis": None,
+                     "mechanical_recycling": None,
+                     "cement_co_processing": None, "landfill": None}
+                 # TODO: make sure that all data using tons are in metric
+                 #  tons and not in US tons
+                 ):
         """
         Initiate model.
         :param seed: number used to initialize the random generator
@@ -119,7 +161,7 @@ class WindABM(Model):
         network)
         :param external_files: dictionary mapping files to their variables
         :param growth_rates: states' wind capacity growth rates
-        :param average_lifetime: wind turbines' average lifetime (in years)
+        :param average_lifetime: wind turbines' average lifetime (years)
         :param weibull_shape_factor: parameter controlling curve's shape in 
         the Weibull function
         :param blade_size_to_mass_model: parameters for a power function 
@@ -143,6 +185,26 @@ class WindABM(Model):
         :param choices_circularity: dictionary qualifying choices in terms of 
         circularity, this may affect agents decision (e.g., agents may hold a 
         different attitude depending on the choice circularity
+        :param decommissioning_cost: cost of decommissioning wind turbines 
+        ($/blade)
+        :param eol_pathways_process_cost: process costs of different eol 
+        pathways ($/metric tons), e.g., energy, labor etc. costs of pyrolysis
+        :param transport_shreds: shredding_costs: grinding to 1-3 cm cost 
+        ($/metric ton), transport_cost_shreds: transportation costs for 
+        shredded blades ($/(metric ton-km))
+        :param transport_segments: cutting_costs: cutting blades to segment 
+        cost ($/metric ton), transport_cost_segment: transportation costs for 
+        blade segments (2 per truck) ($/(truck_load-km)), length_segment: 
+        length of blade segments once cut (m), segment_per_truck: number of 
+        segment per truck
+        :param transport_repair: transportation cost estimate for repair ($)
+        :param eol_pathways_transport_mode: transportation mode for each eol
+        pathway, if undefined, assumes a cost optimal choice between 
+        transporting shreds or segments; 'transport_shreds', 
+        'transport_segments', 'transport_shreds', and 'transport_repair' are 
+        the only value accepted
+        :param eol_pathways_process_revenue: revenue obtained from the various
+        eol pathways
         """
         # Variables from inputs (value defined externally):
         self.seed = seed
@@ -165,6 +227,13 @@ class WindABM(Model):
         self.tpb_eol_coeff = tpb_eol_coeff
         self.attitude_parameters = attitude_parameters
         self.choices_circularity = choices_circularity
+        self.decommissioning_cost = decommissioning_cost
+        self.eol_pathways_process_cost = eol_pathways_process_cost
+        self.transport_shreds = transport_shreds
+        self.transport_segments = transport_segments
+        self.transport_repair = transport_repair
+        self.eol_pathways_transport_mode = eol_pathways_transport_mode
+        self.eol_pathways_process_revenue = eol_pathways_process_revenue
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -195,9 +264,11 @@ class WindABM(Model):
         self.p_install_growth = self.p_install_growth_model(self.uswtdb)
         self.avg_p_cap = self.uswtdb['p_cap'].mean()
         self.additional_id = self.uswtdb.shape[0]
-        self.states_cap = self.null_dic_from_key_list(growth_rates.keys())
-        self.states_waste = self.null_dic_from_key_list(growth_rates.keys())
-        self.additional_cap = self.null_dic_from_key_list(growth_rates.keys())
+        self.states_cap = self.null_dic_from_key_list(self.growth_rates.keys())
+        self.states_waste = self.null_dic_from_key_list(
+            self.growth_rates.keys())
+        self.additional_cap = self.null_dic_from_key_list(
+            self.growth_rates.keys())
         self.list_agent_states = []
         self.dict_agent_states = {}
         self.number_wpo_agent = 0
@@ -208,8 +279,8 @@ class WindABM(Model):
         self.list_add_agent_eol_path = []
         self.eol_pathway_dist_list = []
         self.eol_pathway_dist_dic = {}
-        self.states_waste_eol_path = self.null_dic_from_key_list(
-            growth_rates.keys())
+        self.states_waste_eol_path = self.nested_null_dic(
+            self.growth_rates.keys(), self.eol_pathways)
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -567,6 +638,16 @@ class WindABM(Model):
             null_dic[i] = 0
         return null_dic
 
+    # TODO: in docstring explain lists of keys are needed
+    def nested_null_dic(self, *args):
+        dic = {}
+        for i in range(len(args) - 1):
+            dic = self.null_dic_from_key_list(args[i])
+            for key in dic.keys():
+                # noinspection PyTypeChecker
+                dic[key] = self.null_dic_from_key_list(args[i + 1])
+        return dic
+
     @staticmethod
     def roulette_wheel(pick, cum_prob_dic):
         """
@@ -635,15 +716,14 @@ class WindABM(Model):
             scores[key] = score_key
         return scores
 
-    # TODO: Continue TPB with perceived behavioral control
-    #  1) have three separate components:
-    #    i) Decommissioning costs
-    #    ii) Transportation costs (how to get location information from
-    #    recyclers (without looping through them)?)
-    #    iii) Process costs
-    #  2) Add all components and use formula in PV model and milestone report
-    def perceived_behavioral_control(self):
-        pass
+    def perceived_behavioral_control(self, cost_choices):
+        scores = {}
+        max_cost = max(abs(i) for i in cost_choices.values())
+        for key in cost_choices.keys():
+            score_key = self.safe_div(cost_choices[key], max_cost)
+            score_key = max(score_key, 0)
+            scores[key] = score_key
+        return scores
 
     #  TODO:
     #   1) continue: scores_bi = wsn * scores_sn[key] + wa * scores_a[key]...
@@ -678,6 +758,12 @@ class WindABM(Model):
     def trunc_normal_distrib_draw(a, b, loc, scale):
         distribution = truncnorm(a, b, loc, scale)
         draw = float(distribution.rvs(1))
+        return draw
+
+    @staticmethod
+    def symetric_triang_distrib_draw(min_value, max_value):
+        mode = (max_value + min_value) / 2
+        draw = np.random.triangular(min_value, mode, max_value)
         return draw
 
     def re_initialize_global_variable(self):
@@ -721,4 +807,12 @@ class WindABM(Model):
         # print(self.eol_pathway_dist_list)
         self.adding_agents(self.p_install_growth, self.grid_wpo,
                            self.schedule_wpo, WindPlantOwner)
+
+        test = 'transport_segments'
+        test2 = getattr(self, test, False)
+        if test2:
+            pass  # print(test2)
+        else:
+            pass  # print('Test')
+
         self.clock += 1

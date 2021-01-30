@@ -7,6 +7,7 @@ Created on December 31 2020
 Test functions in Wind_ABM_WIndPlantOwner
 """
 
+# TODO: complete with unittest for latest functions
 
 from unittest import TestCase
 from Wind_ABM_Model import WindABM

@@ -13,9 +13,11 @@ decisions, for instance, regarding EOL management.
 # Need to add adoption methods
 
 # TODO:
-#  1) Continue building model: Theory of Planned Behavior
-#  2) Build dictionary with waste according to eol_pathway
-#  3) Build consequences of lifetime extension: average lifetime is extended
+#  1) Continue building Theory of Planned Behavior model (PICK UP HERE):
+#    i) create a function to compute distance (just access two state in the
+#    transportation matrix)
+#    ii) continue eol costs: decommissioning and processing costs
+#  4) Build consequences of lifetime extension: average lifetime is extended
 
 from mesa import Agent
 
@@ -90,24 +92,78 @@ class WindPlantOwner(Agent):
             self.model.attitude_parameters['standard_deviation'])
         self.waste_eol_path = self.model.null_dic_from_key_list(
             self.model.eol_pathways)
+        # TODO:
+        #  1) replace mock up values below by the computed distances, use mock
+        #  up data in recyclers and landfills module (state name) to be able
+        #  to develop and test the function (choose closest facility for each
+        #  eol pathway)
+        self.eol_tr_cost = self.eol_transportation_costs(
+            {"lifetime_extension": 0, "pyrolysis": 300,
+             "mechanical_recycling": 1000, "cement_co_processing": 1000,
+             "landfill": 300})
 
     @staticmethod
     def compute_mass_conv_factor(rotor_diameter, coefficient, power,
                                  blades_per_rotor, t_cap):
         """
-        Compute a conversion factor to convert EOL volumes from MW to tons
+        Compute a conversion factor to convert EOL volumes from MW to metric
+        tons
         :param rotor_diameter: average rotor diameter in meters
         :param coefficient: coefficient of the power function
         :param power: power of the power function
         :param blades_per_rotor: number of blades in wind turbines' rotors
         :param t_cap: average turbine capacity
-        :return: conversion factor in tons/MW
+        :return: conversion factor in metric tons/MW
         """
         blade_radius = rotor_diameter / 2
         mass_blade = coefficient * blade_radius**power
         mass = mass_blade * blades_per_rotor
         conversion_factor = mass / t_cap
         return conversion_factor
+
+    def transport_shred_costs(self, data, distance):
+        shredding_costs = data['shredding_costs']
+        shredding_costs = self.model.symetric_triang_distrib_draw(
+                shredding_costs[0], shredding_costs[1])
+        transport_cost_shreds = data['transport_cost_shreds']
+        transport_cost_shreds = self.model.symetric_triang_distrib_draw(
+                    transport_cost_shreds[0], transport_cost_shreds[1])
+        cost_shreds = shredding_costs + transport_cost_shreds * distance
+        return cost_shreds
+
+    def transport_segment_costs(self, data, distance):
+        cutting_costs = data['cutting_costs']
+        transport_cost_segments = data['transport_cost_segments']
+        # converting $/truck_load-km in $/m_blade-km
+        transport_cost_meter = transport_cost_segments / (
+                data['length_segment'] * data['segment_per_truck'])
+        mass_to_meter = self.mass_conv_factor * self.t_cap / (
+                self.t_rd / 2) * self.model.blades_per_rotor
+        transport_cost_segments = transport_cost_meter / mass_to_meter
+        cost_segments = cutting_costs + transport_cost_segments * distance
+        return cost_segments
+
+    def eol_transportation_costs(self, distance):
+        eol_transport_costs = {}
+        for key in self.model.eol_pathways.keys():
+            transport_mode = self.model.eol_pathways_transport_mode[key]
+            data = getattr(self.model, transport_mode, False)
+            if data:
+                if transport_mode == 'transport_shreds':
+                    eol_transport_costs[key] = self.transport_shred_costs(
+                        data, distance[key])
+                elif transport_mode == 'transport_segments':
+                    eol_transport_costs[key] = self.transport_segment_costs(
+                        data, distance[key])
+                else:
+                    eol_transport_costs[key] = self.model.transport_repair
+            else:
+                cost_shreds = self.transport_shred_costs(
+                    self.model.transport_shreds, distance[key])
+                cost_segments = self.transport_segment_costs(
+                    self.model.transport_segments, distance[key])
+                eol_transport_costs[key] = min(cost_shreds, cost_segments)
+        return eol_transport_costs
 
     def update_agent_variables(self):
         """
@@ -140,9 +196,8 @@ class WindPlantOwner(Agent):
             self.eol_att_level_ce_path, self.eol_att_level_conv_path,
             self.model.eol_pathways, self.model.choices_circularity,
             'eol_pathway', self.pos)
-        self.waste_eol_path[self.eol_pathway] += self.waste * \
-            self.mass_conv_factor
-        self.model.states_waste_eol_path[self.t_state] = self.waste_eol_path
+        self.model.states_waste_eol_path[self.t_state][self.eol_pathway] += \
+            self.waste * self.mass_conv_factor
 
     def remove_agent(self):
         """

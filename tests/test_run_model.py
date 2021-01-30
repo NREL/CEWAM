@@ -12,6 +12,9 @@ from unittest import TestCase
 from Wind_ABM_Run import run_model
 import pandas as pd
 
+# TODO: complete with unittest for latest results (e.g., verify that wastes in
+#  all eol pathway tally to all waste reported in other global variable)
+
 
 class TestWindABMRun(TestCase):
     @classmethod
