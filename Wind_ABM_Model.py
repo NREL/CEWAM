@@ -50,6 +50,7 @@ import random
 import scipy
 import warnings
 from scipy.stats import truncnorm
+import copy
 
 
 class WindABM(Model):
@@ -57,8 +58,10 @@ class WindABM(Model):
                  seed=None,
                  manufacturers=100,
                  developers=100,
-                 recyclers=100,
-                 landfills=100,
+                 recyclers={
+                     "pyrolysis": 25, "mechanical_recycling": 25,
+                     "cement_co_processing": 25, "dissolution": 25},
+                 landfills={"landfill": 100},
                  regulators=100,
                  small_world_network={"node_degree": 15, "rewiring_prob": 0.1},
                  external_files={
@@ -153,7 +156,7 @@ class WindABM(Model):
         :param seed: number used to initialize the random generator
         :param manufacturers: number of manufacturers
         :param developers: number of developers
-        :param recyclers: number of reyclers
+        :param recyclers: number of reyclers for each recycler type
         :param landfills: number of landfills
         :param regulators: number of regulators
         :param small_world_network: characteristics of the small-world network
@@ -263,12 +266,12 @@ class WindABM(Model):
             self.temporal_scope['pre_simulation'])
         self.p_install_growth = self.p_install_growth_model(self.uswtdb)
         self.avg_p_cap = self.uswtdb['p_cap'].mean()
-        self.additional_id = self.uswtdb.shape[0]
-        self.states_cap = self.null_dic_from_key_list(self.growth_rates.keys())
-        self.states_waste = self.null_dic_from_key_list(
-            self.growth_rates.keys())
-        self.additional_cap = self.null_dic_from_key_list(
-            self.growth_rates.keys())
+        self.states_cap = self.initial_dic_from_key_list(
+            self.growth_rates.keys(), 0)
+        self.states_waste = self.initial_dic_from_key_list(
+            self.growth_rates.keys(), 0)
+        self.additional_cap = self.initial_dic_from_key_list(
+            self.growth_rates.keys(), 0)
         self.list_agent_states = []
         self.dict_agent_states = {}
         self.number_wpo_agent = 0
@@ -281,6 +284,10 @@ class WindABM(Model):
         self.eol_pathway_dist_dic = {}
         self.states_waste_eol_path = self.nested_null_dic(
             self.growth_rates.keys(), self.eol_pathways)
+        self.recycler_states = self.initial_dic_from_key_list(
+            self.recyclers.keys(), [])
+        self.landfill_states = self.initial_dic_from_key_list(
+            self.landfills.keys(), [])
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -296,6 +303,23 @@ class WindABM(Model):
             self.states, self.states_graph)
         # Creating agents and social networks:
         self.schedule = BaseScheduler(self)
+        self.G_rec = self.creating_social_network(
+            sum(self.recyclers.values()),
+            self.small_world_network["node_degree"],
+            self.small_world_network["rewiring_prob"])
+        self.grid_rec = NetworkGrid(self.G_rec)
+        self.schedule_rec = RandomActivation(self)
+        self.creating_agents(sum(self.recyclers.values()), self.G_rec,
+                             self.grid_rec, self.schedule_rec, Recycler)
+        self.G_land = self.creating_social_network(
+            sum(self.landfills.values()),
+            self.small_world_network["node_degree"],
+            self.small_world_network["rewiring_prob"])
+        self.grid_land = NetworkGrid(self.G_land)
+        self.schedule_land = RandomActivation(self)
+        self.creating_agents(sum(self.landfills.values()), self.G_land,
+                             self.grid_land, self.schedule_land, Landfill)
+        self.first_wpo_id = self.unique_id
         self.G_wpo = self.creating_social_network(
             self.compute_max_network_size(
                 self.uswtdb, self.temporal_scope['simulation_start'],
@@ -307,6 +331,7 @@ class WindABM(Model):
         self.schedule_wpo = RandomActivation(self)
         self.creating_agents(self.uswtdb.shape[0], self.G_wpo, self.grid_wpo,
                              self.schedule_wpo, WindPlantOwner)
+        self.additional_id = self.first_wpo_id + self.uswtdb.shape[0]
         self.G_man = self.creating_social_network(
             self.manufacturers, self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
@@ -321,20 +346,6 @@ class WindABM(Model):
         self.schedule_dev = RandomActivation(self)
         self.creating_agents(self.developers, self.G_dev, self.grid_dev,
                              self.schedule_dev, Developer)
-        self.G_rec = self.creating_social_network(
-            self.recyclers, self.small_world_network["node_degree"],
-            self.small_world_network["rewiring_prob"])
-        self.grid_rec = NetworkGrid(self.G_rec)
-        self.schedule_rec = RandomActivation(self)
-        self.creating_agents(self.recyclers, self.G_rec, self.grid_rec,
-                             self.schedule_rec, Recycler)
-        self.G_land = self.creating_social_network(
-            self.landfills, self.small_world_network["node_degree"],
-            self.small_world_network["rewiring_prob"])
-        self.grid_land = NetworkGrid(self.G_land)
-        self.schedule_land = RandomActivation(self)
-        self.creating_agents(self.landfills, self.G_land, self.grid_land,
-                             self.schedule_land, Landfill)
         self.G_reg = self.creating_social_network(
             self.regulators, self.small_world_network["node_degree"],
             self.small_world_network["rewiring_prob"])
@@ -477,7 +488,7 @@ class WindABM(Model):
         for agent in range(num_agents):
             a = agent_type(self.additional_id, self, **kwargs)
             schedule.add(a)
-            grid.place_agent(a, self.additional_id)
+            grid.place_agent(a, (self.additional_id - self.first_wpo_id))
             self.schedule.add(a)
             self.additional_id += 1
 
@@ -627,25 +638,27 @@ class WindABM(Model):
         return waste
 
     @staticmethod
-    def null_dic_from_key_list(key_list):
+    def initial_dic_from_key_list(key_list, initial_value):
         """
         Create an empty dictionary with keys taken from a list
         :param key_list: the list of keys
+        :param initial_value: initial value (or object) for the dictionary
         :return: the empty dictionary with corresponding keys
         """
-        null_dic = {}
+        initial_dic = {}
         for i in key_list:
-            null_dic[i] = 0
-        return null_dic
+            initial_value_copy = copy.copy(initial_value)
+            initial_dic[i] = initial_value_copy
+        return initial_dic
 
     # TODO: in docstring explain lists of keys are needed
     def nested_null_dic(self, *args):
         dic = {}
         for i in range(len(args) - 1):
-            dic = self.null_dic_from_key_list(args[i])
+            dic = self.initial_dic_from_key_list(args[i], 0)
             for key in dic.keys():
                 # noinspection PyTypeChecker
-                dic[key] = self.null_dic_from_key_list(args[i + 1])
+                dic[key] = self.initial_dic_from_key_list(args[i + 1], 0)
         return dic
 
     @staticmethod
@@ -804,15 +817,6 @@ class WindABM(Model):
         self.schedule_reg.step()
         self.schedule.step()
         self.update_model_variables()
-        # print(self.eol_pathway_dist_list)
         self.adding_agents(self.p_install_growth, self.grid_wpo,
                            self.schedule_wpo, WindPlantOwner)
-
-        test = 'transport_segments'
-        test2 = getattr(self, test, False)
-        if test2:
-            pass  # print(test2)
-        else:
-            pass  # print('Test')
-
         self.clock += 1

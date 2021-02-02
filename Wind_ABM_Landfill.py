@@ -33,9 +33,21 @@ class Landfill(Agent):
             setattr(self, key, value)
 
         self.internal_clock = 0
+        self.landfill_type = list(self.model.landfills.keys())[0]
+        self.landfill_state = self.mock_up_random_state(
+            self.model.growth_rates)
+        self.model.landfill_states[self.landfill_type].append(
+            self.landfill_state)
 
     def mock_up(self):
         pass
+
+    @staticmethod
+    def mock_up_random_state(dic_to_shuffle):
+        list_to_shuffle = list(dic_to_shuffle.keys())
+        random.shuffle(list_to_shuffle)
+        pick = list_to_shuffle[0]
+        return pick
 
     def step(self):
         """

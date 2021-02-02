@@ -197,11 +197,11 @@ class TestWindABM(TestCase):
         result = 2.56
         self.assertEqual(result, test_result)
 
-    def test_null_dic_from_key_list(self):
+    def test_initial_dic_from_key_list(self):
         """Test that the function create the appropriate dictionary"""
         test_list = ["Colorado", "Washington", "California"]
         result = {"Colorado": 0, "Washington": 0, "California": 0}
-        test_result = WindABM().null_dic_from_key_list(test_list)
+        test_result = WindABM().initial_dic_from_key_list(test_list, 0)
         self.assertDictEqual(result, test_result)
 
     def test_roulette_wheel(self):

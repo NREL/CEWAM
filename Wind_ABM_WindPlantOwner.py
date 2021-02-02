@@ -14,8 +14,6 @@ decisions, for instance, regarding EOL management.
 
 # TODO:
 #  1) Continue building Theory of Planned Behavior model (PICK UP HERE):
-#    i) create a function to compute distance (just access two state in the
-#    transportation matrix)
 #    ii) continue eol costs: decommissioning and processing costs
 #  4) Build consequences of lifetime extension: average lifetime is extended
 
@@ -32,15 +30,24 @@ class WindPlantOwner(Agent):
         for key, value in kwargs.items():
             setattr(self, key, value)
         # Variables internal to the class -
+        self.initial_agents = self.model.first_wpo_id + \
+            self.model.uswtdb.shape[0]
         # Initial agents:
-        if self.unique_id < self.model.uswtdb.shape[0]:
-            self.p_cap = self.model.uswtdb.loc[self.unique_id]['p_cap']
-            self.p_name = self.model.uswtdb.loc[self.unique_id]['p_name']
-            self.p_year = self.model.uswtdb.loc[self.unique_id]['p_year']
-            self.p_tnum = self.model.uswtdb.loc[self.unique_id]['p_tnum']
-            self.t_state = self.model.uswtdb.loc[self.unique_id]['t_state']
-            self.t_rd = self.model.uswtdb.loc[self.unique_id]['t_rd']
-            self.t_cap = self.model.uswtdb.loc[self.unique_id]['t_cap']
+        if self.unique_id < self.initial_agents:
+            self.p_cap = self.model.uswtdb.loc[
+                self.unique_id - self.model.first_wpo_id]['p_cap']
+            self.p_name = self.model.uswtdb.loc[
+                self.unique_id - self.model.first_wpo_id]['p_name']
+            self.p_year = self.model.uswtdb.loc[
+                self.unique_id - self.model.first_wpo_id]['p_year']
+            self.p_tnum = self.model.uswtdb.loc[
+                self.unique_id - self.model.first_wpo_id]['p_tnum']
+            self.t_state = self.model.uswtdb.loc[
+                self.unique_id - self.model.first_wpo_id]['t_state']
+            self.t_rd = self.model.uswtdb.loc[
+                self.unique_id - self.model.first_wpo_id]['t_rd']
+            self.t_cap = self.model.uswtdb.loc[
+                self.unique_id - self.model.first_wpo_id]['t_cap']
             self.internal_clock = self.model.clock
             self.eol_pathway = self.model.list_init_eol_pathways.pop()
         # Additional agents:
@@ -90,17 +97,17 @@ class WindPlantOwner(Agent):
             (self.model.attitude_parameters['max'] -
              self.model.attitude_parameters['mean']),
             self.model.attitude_parameters['standard_deviation'])
-        self.waste_eol_path = self.model.null_dic_from_key_list(
-            self.model.eol_pathways)
+        self.waste_eol_path = self.model.initial_dic_from_key_list(
+            self.model.eol_pathways, 0)
         # TODO:
         #  1) replace mock up values below by the computed distances, use mock
         #  up data in recyclers and landfills module (state name) to be able
         #  to develop and test the function (choose closest facility for each
         #  eol pathway)
         self.eol_tr_cost = self.eol_transportation_costs(
-            {"lifetime_extension": 0, "pyrolysis": 300,
-             "mechanical_recycling": 1000, "cement_co_processing": 1000,
-             "landfill": 300})
+            self.eol_distances(self.model.recycler_states,
+                               self.model.landfill_states,
+                               self.model.all_shortest_paths_or_trg))
 
     @staticmethod
     def compute_mass_conv_factor(rotor_diameter, coefficient, power,
@@ -120,6 +127,23 @@ class WindPlantOwner(Agent):
         mass = mass_blade * blades_per_rotor
         conversion_factor = mass / t_cap
         return conversion_factor
+
+    def eol_distances(self, possible_destinations_rec,
+                      possible_destinations_land, all_possible_distances):
+        distances = {}
+        possible_destinations = possible_destinations_rec
+        origin = self.t_state
+        for key in possible_destinations_land.keys():
+            possible_destinations[key] = possible_destinations_land[key]
+        for key in possible_destinations.keys():
+            list_destinations = possible_destinations[key]
+            list_distances = []
+            for i in range(len(list_destinations)):
+                destination = list_destinations[i]
+                distance = all_possible_distances[origin][destination]
+                list_distances.append(distance)
+            distances[key] = min(list_distances)
+        return distances
 
     def transport_shred_costs(self, data, distance):
         shredding_costs = data['shredding_costs']
@@ -205,7 +229,8 @@ class WindPlantOwner(Agent):
         to zero
         """
         if self.p_cap_waste < 1E-6:
-            self.model.grid_wpo.G.nodes[self.unique_id]["agent"].remove(self)
+            # self.model.grid_wpo.G.nodes[self.unique_id]["agent"].remove(self)
+            self.model.grid_wpo.G.nodes[self.pos]["agent"].remove(self)
             self.model.schedule_wpo.remove(self)
             self.model.schedule.remove(self)
 
