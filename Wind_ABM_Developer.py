@@ -14,14 +14,10 @@ decisions, for instance, what type blade to choose for a given wind turbine.
 
 
 from mesa import Agent
-import numpy as np
-import random
-from collections import OrderedDict
-from scipy.stats import truncnorm
-import operator
-from math import *
-import time
 
+
+# TODO: lifetime extension:
+#  Assign costs and revenue for lifetime extension
 
 class Developer(Agent):
     def __init__(self, unique_id, model, **kwargs):

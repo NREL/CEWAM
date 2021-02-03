@@ -19,8 +19,7 @@ outputs.
 
 # TODO: Continue TPB with perceived behavioral control
 #  1) have three separate components:
-#    i) Process costs
-#    ii) revenues
+#    i) revenues
 #  2) Add all components and use formula in PV model and milestone report
 #  3) build function for B (barriers) and P (pressures) TPB components
 
@@ -118,9 +117,6 @@ class WindABM(Model):
                  # TODO: all $/blade need to be converted into $/tons based
                  #  on agents characteristics OR even better: use $/ton
                  #  directly
-                 # TODO: decommissioning cost makes more sense in $/blade so
-                 #  keep it that way but convert in $/tons with agents
-                 #  characteristics
                  decommissioning_cost=[1300, 33000],
                  # TODO: all eol costs will come from other agents recyclers,
                  #  developers and landfills: use mock up value for variables
@@ -328,7 +324,7 @@ class WindABM(Model):
         self.all_shortest_paths_or_trg = self.compute_all_distances(
             self.states, self.states_graph)
         # Creating agents and social networks:
-        self.schedule = BaseScheduler(self)
+        self.schedule = RandomActivation(self)
         self.G_rec, self.grid_rec, self.schedule_rec = \
             self.network_grid_schedule_agents(
                 sum(self.recyclers.values()),
