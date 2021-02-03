@@ -30,6 +30,20 @@ class Developer(Agent):
 
         self.internal_clock = 0
 
+        # TODO: replace mock-up values
+        self.developer_type = list(self.model.developers.keys())[0]
+        self.lifetime_extension_tr_cost = self.model.transport_repair
+        self.lifetime_extension_cost = self.model.symetric_triang_distrib_draw(
+            self.model.lifetime_extension_costs[0],
+            self.model.lifetime_extension_costs[1])
+        self.lifetime_extension_revenue = \
+            self.model.symetric_triang_distrib_draw(
+                self.model.lifetime_extension_revenues[0],
+                self.model.lifetime_extension_revenues[1])
+        self.model.variables_developers[self.developer_type].append(
+            (self.unique_id, self.model.transport_repair,
+             (self.lifetime_extension_cost - self.lifetime_extension_revenue)))
+
     def mock_up(self):
         pass
 

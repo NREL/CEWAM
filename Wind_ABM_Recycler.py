@@ -47,12 +47,12 @@ class Recycler(Agent):
         self.init_recycler_cost = self.model.symetric_triang_distrib_draw(
             self.model.rec_processes_costs[self.recycler_type][0],
             self.model.rec_processes_costs[self.recycler_type][1])
-        # TODO: compute net recycler costs (first draw revenues and then add
-        #  two values); in the tuple in self.model.variables_recyclers, use
-        #  the net costs instead of the init_recycler_cost also add revenue
-        #  below in the update function
+        self.recycler_revenue = self.model.symetric_triang_distrib_draw(
+            self.model.rec_processes_revenues[self.recycler_type][0],
+            self.model.rec_processes_revenues[self.recycler_type][1])
         self.model.variables_recyclers[self.recycler_type].append(
-            (self.unique_id, self.recycler_state, self.init_recycler_cost))
+            (self.unique_id, self.recycler_state, (self.init_recycler_cost -
+                                                   self.recycler_revenue)))
         self.recycler_cost = 0
 
     def mock_up(self):

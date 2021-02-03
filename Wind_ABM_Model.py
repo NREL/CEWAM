@@ -54,7 +54,7 @@ class WindABM(Model):
     def __init__(self,
                  seed=None,
                  manufacturers=100,
-                 developers=100,
+                 developers={'lifetime_extension': 100},
                  recyclers={
                      "dissolution": 25, "pyrolysis": 25,
                      "mechanical_recycling": 25, "cement_co_processing": 25},
@@ -103,7 +103,7 @@ class WindABM(Model):
                      "pyrolysis": 0.005, "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
                  tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.3, 'w_sn': 0.56,
-                                'w_pbc': -0.11},
+                                'w_pbc': -0.11, 'w_p': 0.11, 'w_b': -0.21},
                  attitude_parameters={
                      'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
@@ -161,10 +161,12 @@ class WindABM(Model):
                      "mechanical_recycling": 'undefined',
                      "cement_co_processing": 'transport_segments',
                      "landfill": 'undefined'},
-                 eol_pathways_process_revenue={
-                     "lifetime_extension": None, "dissolution": None,
-                     "pyrolysis": None, "mechanical_recycling": None,
-                     "cement_co_processing": [0, 1E-6], "landfill": [0, 1E-6]}
+                 # TODO: find values for dissolution recycling process
+                 lifetime_extension_revenues=[124, 1.7E6],
+                 rec_processes_revenues={
+                     "dissolution": [0, 1E-6], "pyrolysis": [660, 1320],
+                     "mechanical_recycling":
+                         [242, 302.5], "cement_co_processing": [0, 1E-6]}
                  # TODO: make sure that all data using tons are in metric
                  #  tons and not in US tons
                  ):
@@ -185,8 +187,8 @@ class WindABM(Model):
         :param weibull_shape_factor: parameter controlling curve's shape in 
         the Weibull function
         :param blade_size_to_mass_model: parameters for a power function 
-        y=ax**b relating blade radius and blade mass where y is in tons and x 
-        is in meters
+        y=ax**b relating blade radius and blade mass where y is in metric tons 
+        and x is in meters
         :param cap_to_diameter_model: parameters for a power function 
         converting turbine capacity to rotor diameter
         :param temporal_scope: simulation start and end year and past 
@@ -210,7 +212,7 @@ class WindABM(Model):
         :param lifetime_extension_costs: costs of feasibility assessment for
         the lifetime extension eol pathway ($/blade)
         :param rec_processes_costs: process costs of different recycling 
-        pathways ($/metric tons), e.g., energy, labor etc. costs of pyrolysis
+        pathways ($/metric ton), e.g., energy, labor etc. costs of pyrolysis
         :param landfill_costs: dictionary with landfill costs for each state
         :param transport_shreds: shredding_costs: grinding to 1-3 cm cost 
         ($/metric ton), transport_cost_shreds: transportation costs for 
@@ -226,8 +228,10 @@ class WindABM(Model):
         transporting shreds or segments; 'transport_shreds', 
         'transport_segments', 'transport_shreds', and 'transport_repair' are 
         the only value accepted
-        :param eol_pathways_process_revenue: revenue obtained from the various
-        eol pathways
+        :param lifetime_extension_revenues: revenues from lifetime extension 
+        ($/blade)
+        :param rec_processes_revenues: revenue obtained from the various
+        recycling pathways ($/metric ton)
         """
         # Variables from inputs (value defined externally):
         self.seed = seed
@@ -258,7 +262,8 @@ class WindABM(Model):
         self.transport_segments = transport_segments
         self.transport_repair = transport_repair
         self.eol_pathways_transport_mode = eol_pathways_transport_mode
-        self.eol_pathways_process_revenue = eol_pathways_process_revenue
+        self.lifetime_extension_revenues = lifetime_extension_revenues
+        self.rec_processes_revenues = rec_processes_revenues
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -310,6 +315,8 @@ class WindABM(Model):
             self.recyclers.keys(), [])
         self.variables_landfills = self.initial_dic_from_key_list(
             self.landfills.keys(), [])
+        self.variables_developers = self.initial_dic_from_key_list(
+            self.developers.keys(), [])
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -337,6 +344,12 @@ class WindABM(Model):
                 self.small_world_network["node_degree"],
                 self.small_world_network["rewiring_prob"],
                 sum(self.landfills.values()), Landfill)
+        self.G_dev, self.grid_dev, self.schedule_dev = \
+            self.network_grid_schedule_agents(
+                sum(self.developers.values()),
+                self.small_world_network["node_degree"],
+                self.small_world_network["rewiring_prob"],
+                sum(self.developers.values()), Developer)
         self.first_wpo_id = self.unique_id
         self.G_wpo, self.grid_wpo, self.schedule_wpo = \
             self.network_grid_schedule_agents(
@@ -354,12 +367,6 @@ class WindABM(Model):
                 self.small_world_network["node_degree"],
                 self.small_world_network["rewiring_prob"],
                 self.manufacturers, Manufacturer)
-        self.G_dev, self.grid_dev, self.schedule_dev = \
-            self.network_grid_schedule_agents(
-                self.developers,
-                self.small_world_network["node_degree"],
-                self.small_world_network["rewiring_prob"],
-                self.developers, Developer)
         self.G_reg, self.grid_reg, self.schedule_reg = \
             self.network_grid_schedule_agents(
                 self.regulators,
@@ -372,13 +379,14 @@ class WindABM(Model):
             self.clock + self.temporal_scope['simulation_start'],
             "Cumulative capacity (MW)": lambda a: self.all_cap,
             "State cumulative capacity (MW)": lambda a: str(self.states_cap),
-            "Cumulative waste (tons)": lambda a: self.all_waste,
-            "State waste (tons)": lambda a: str(self.states_waste),
+            "Cumulative waste (metric tons)": lambda a: self.all_waste,
+            "State waste (metric tons)": lambda a: str(self.states_waste),
             "Number wpo agents": lambda a: self.number_wpo_agent}
         agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
-            "Cumulative waste (tons)": lambda a: getattr(a, "cum_waste", None),
+            "Cumulative waste (metric tons)": lambda a: getattr(
+                a, "cum_waste", None),
             "Mass conversion factor": lambda a:
             getattr(a, "mass_conv_factor", None)}
         self.data_collector = DataCollector(
@@ -766,16 +774,18 @@ class WindABM(Model):
     #   2) add the w_bi in front of A, SN, and PBC but not B and P
     def theory_planned_behavior_model(
             self, ce_att_level, conv_att_level, dic_choices,
-            choices_circularity, adopted_choice, position):
+            choices_circularity, adopted_choice, position, cost_choices):
         scores_sn = self.subjective_norms(adopted_choice, position,
                                           dic_choices)
         scores_a = self.attitude(ce_att_level, conv_att_level, dic_choices,
                                  choices_circularity)
+        scores_pbc = self.perceived_behavioral_control(cost_choices)
         scores_behaviors = {}
         for key, value in dic_choices.items():
             scores_behaviors[key] = self.tpb_eol_coeff['w_bi'] * (
                     self.tpb_eol_coeff['w_sn'] * scores_sn[key] +
-                    self.tpb_eol_coeff['w_a'] * scores_a[key])
+                    self.tpb_eol_coeff['w_a'] * scores_a[key] +
+                    self.tpb_eol_coeff['w_pbc'] * scores_pbc[key])
             if not value:
                 scores_behaviors.pop(key)
         behavior = [keys for keys, values in scores_behaviors.items() if

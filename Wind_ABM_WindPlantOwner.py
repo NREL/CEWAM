@@ -73,6 +73,8 @@ class WindPlantOwner(Agent):
             self.t_rd, self.model.blade_size_to_mass_model['coefficient'],
             self.model.blade_size_to_mass_model['power'],
             self.model.blades_per_rotor, self.t_cap)
+        self.blade_mass_conv_factor = self.conversion_blade_to_ton(
+            self.mass_conv_factor, self.t_cap, self.model.blades_per_rotor)
         self.growth_rate = self.model.growth_rates.get(self.t_state)
         self.p_cap_waste = self.p_cap
         self.waste = 0
@@ -99,16 +101,16 @@ class WindPlantOwner(Agent):
             self.model.attitude_parameters['standard_deviation'])
         self.waste_eol_path = self.model.initial_dic_from_key_list(
             self.model.eol_pathways, 0)
+        self.variables_developers_wpo = self.convert_developer_costs(
+            self.model.variables_developers, self.blade_mass_conv_factor)
         self.eol_tr_cost_shreds, self.eol_tr_cost_segments, \
             self.eol_tr_cost_repair = self.eol_transportation_costs(
               self.eol_distances(self.model.variables_recyclers,
                                  self.model.variables_landfills,
                                  self.model.all_shortest_paths_or_trg))
-        self.decommissioning_cost = self.conversion_blade_to_ton(
-            self.model.symetric_triang_distrib_draw(
-                self.model.decommissioning_cost[0],
-                self.model.decommissioning_cost[1]), self.mass_conv_factor,
-            self.t_cap, self.model.blades_per_rotor)
+        self.decommissioning_cost = self.model.symetric_triang_distrib_draw(
+            self.model.decommissioning_cost[0],
+            self.model.decommissioning_cost[1]) / self.blade_mass_conv_factor
         self.eol_pathways_costs = {}
 
     @staticmethod
@@ -132,11 +134,19 @@ class WindPlantOwner(Agent):
 
     # TODO: specify in doc string that value to convert must be in x/blade
     @staticmethod
-    def conversion_blade_to_ton(value_to_convert, mass_conv_factor, t_cap,
-                                blades_per_rotor):
+    def conversion_blade_to_ton(mass_conv_factor, t_cap, blades_per_rotor):
         conversion_factor = mass_conv_factor * t_cap / blades_per_rotor
-        converted_value = value_to_convert / conversion_factor
-        return converted_value
+        return conversion_factor
+
+    @staticmethod
+    def convert_developer_costs(developer_costs, conversion_factor):
+        converted_developer_costs = {}
+        for key in developer_costs.keys():
+            dev_costs_list = developer_costs[key]
+            converted_list = [(x, y, z / conversion_factor) for x, y, z in
+                              dev_costs_list]
+            converted_developer_costs[key] = converted_list
+        return converted_developer_costs
 
     def eol_distances(self, possible_destinations_rec,
                       possible_destinations_land, all_possible_distances):
@@ -150,7 +160,7 @@ class WindPlantOwner(Agent):
             list_distances = []
             for i in range(len(list_destinations)):
                 # in the tuple: x is agent id, y is agent state and z is agent
-                # process cost
+                # process net cost
                 destination_tuple = list_destinations[i]
                 destination = destination_tuple[1]
                 distance = all_possible_distances[origin][destination]
@@ -167,7 +177,7 @@ class WindPlantOwner(Agent):
         transport_cost_shreds = self.model.symetric_triang_distrib_draw(
                     transport_cost_shreds[0], transport_cost_shreds[1])
         # in the tuple: x is agent id, y is the distance to agent and z is
-        # agent process cost
+        # agent process net cost
         cost_shreds = [(x, shredding_costs + transport_cost_shreds * y) for
                        x, y, z in distances]
         # cost_shreds = min(cost_shreds, key=lambda t: t[1])
@@ -183,7 +193,7 @@ class WindPlantOwner(Agent):
                 self.t_rd / 2) * self.model.blades_per_rotor
         transport_cost_segments = transport_cost_meter / mass_to_meter
         # in the tuple: x is agent id, y is the distance to agent and z is
-        # agent process cost
+        # agent process net cost
         cost_segments = [(x, cutting_costs + transport_cost_segments * y)
                          for x, y, z in distances]
         # cost_segments = min(cost_segments, key=lambda t: t[1])
@@ -199,18 +209,20 @@ class WindPlantOwner(Agent):
                     self.model.transport_shreds, distances[key])
                 eol_tr_costs_segments[key] = self.transport_segment_costs(
                     self.model.transport_segments, distances[key])
-            eol_tr_costs_repair[key] = [(None, self.model.transport_repair)]
+            else:
+                eol_tr_costs_repair[key] = [
+                    (x, y) for x, y, z in self.variables_developers_wpo[key]]
         return eol_tr_costs_shreds, eol_tr_costs_segments, eol_tr_costs_repair
 
     def costs_eol_pathways(self, eol_tr_costs_shreds, eol_tr_costs_segments,
                            eol_tr_costs_repair, variables_recyclers,
-                           variables_landfills, decommissioning_cost):
+                           variables_landfills, variables_developers,
+                           decommissioning_cost):
         costs_eol_pathways = {}
         process_costs = {}
         process_costs.update(variables_landfills)
         process_costs.update(variables_recyclers)
-        # TODO: lifetime extension
-        process_costs.update({'lifetime_extension': [(None, 2, 3)]})
+        process_costs.update(variables_developers)
         for key in self.model.eol_pathways.keys():
             transport_mode = self.model.eol_pathways_transport_mode[key]
             if transport_mode == "transport_shreds":
@@ -239,7 +251,8 @@ class WindPlantOwner(Agent):
                 tr_proc_costs = min(
                     [tr_proc_costs_shreds + tr_proc_costs_segments],
                     key=lambda t: t[1])
-            # in the tuple (x, y): x = agent id, y = transport + process costs
+            # in the tuple (x, y): x = agent id, y = transport + process net
+            # costs
             costs_eol_pathways[key] = tr_proc_costs[1] + decommissioning_cost
         return costs_eol_pathways
 
@@ -252,7 +265,9 @@ class WindPlantOwner(Agent):
             dic_cost[x] += y
         list_tot_cost = list(map(tuple, dic_cost.items()))
         minimum_tr_proc_cost = min(list_tot_cost, key=lambda t: t[1])
-        return minimum_tr_proc_cost
+        transport_min_cost = [item for item in transport_cost if item[0] ==
+                              minimum_tr_proc_cost[0]][0]
+        return minimum_tr_proc_cost, transport_min_cost
 
     def update_agent_variables(self):
         """
@@ -267,7 +282,12 @@ class WindPlantOwner(Agent):
         self.eol_pathways_costs = self.costs_eol_pathways(
             self.eol_tr_cost_shreds, self.eol_tr_cost_segments,
             self.eol_tr_cost_repair, self.model.variables_recyclers,
-            self.model.variables_landfills, self.decommissioning_cost)
+            self.model.variables_landfills, self.variables_developers_wpo,
+            self.decommissioning_cost)
+        self.eol_pathway = self.model.theory_planned_behavior_model(
+            self.eol_att_level_ce_path, self.eol_att_level_conv_path,
+            self.model.eol_pathways, self.model.choices_circularity,
+            'eol_pathway', self.pos, self.eol_pathways_costs)
 
     def sum_agent_variable_once_or_every_step(self):
         """
@@ -285,10 +305,6 @@ class WindPlantOwner(Agent):
         self.model.all_waste += self.waste * self.mass_conv_factor
         self.model.number_wpo_agent += 1
         self.model.eol_pathway_dist_list.append(self.eol_pathway)
-        self.eol_pathway = self.model.theory_planned_behavior_model(
-            self.eol_att_level_ce_path, self.eol_att_level_conv_path,
-            self.model.eol_pathways, self.model.choices_circularity,
-            'eol_pathway', self.pos)
         self.model.states_waste_eol_path[self.t_state][self.eol_pathway] += \
             self.waste * self.mass_conv_factor
 
