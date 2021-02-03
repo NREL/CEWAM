@@ -99,15 +99,16 @@ class WindPlantOwner(Agent):
             self.model.attitude_parameters['standard_deviation'])
         self.waste_eol_path = self.model.initial_dic_from_key_list(
             self.model.eol_pathways, 0)
-        # TODO:
-        #  1) replace mock up values below by the computed distances, use mock
-        #  up data in recyclers and landfills module (state name) to be able
-        #  to develop and test the function (choose closest facility for each
-        #  eol pathway)
-        self.eol_tr_cost = self.eol_transportation_costs(
-            self.eol_distances(self.model.recycler_states,
-                               self.model.landfill_states,
+        self.eol_tr_proc_cost = self.eol_transportation_and_process_costs(
+            self.eol_distances(self.model.variables_recyclers,
+                               self.model.variables_landfills,
                                self.model.all_shortest_paths_or_trg))
+        self.decommissioning_cost = self.conversion_blade_to_ton(
+            self.model.symetric_triang_distrib_draw(
+                self.model.decommissioning_cost[0],
+                self.model.decommissioning_cost[1]), self.mass_conv_factor,
+            self.t_cap, self.model.blades_per_rotor)
+        self.eol_pathways_costs = {}
 
     @staticmethod
     def compute_mass_conv_factor(rotor_diameter, coefficient, power,
@@ -128,6 +129,14 @@ class WindPlantOwner(Agent):
         conversion_factor = mass / t_cap
         return conversion_factor
 
+    # TODO: specify in doc string that value to convert must be in x/blade
+    @staticmethod
+    def conversion_blade_to_ton(value_to_convert, mass_conv_factor, t_cap,
+                                blades_per_rotor):
+        conversion_factor = mass_conv_factor * t_cap / blades_per_rotor
+        converted_value = value_to_convert / conversion_factor
+        return converted_value
+
     def eol_distances(self, possible_destinations_rec,
                       possible_destinations_land, all_possible_distances):
         distances = {}
@@ -139,23 +148,31 @@ class WindPlantOwner(Agent):
             list_destinations = possible_destinations[key]
             list_distances = []
             for i in range(len(list_destinations)):
-                destination = list_destinations[i]
+                # in the tuple: x is agent id, y is agent state and z is agent
+                # process cost
+                destination_tuple = list_destinations[i]
+                destination = destination_tuple[1]
                 distance = all_possible_distances[origin][destination]
-                list_distances.append(distance)
-            distances[key] = min(list_distances)
+                list_distances.append((destination_tuple[0], distance,
+                                       destination_tuple[2]))
+            distances[key] = list_distances
         return distances
 
-    def transport_shred_costs(self, data, distance):
+    def transport_shred_and_process_costs(self, data, distances):
         shredding_costs = data['shredding_costs']
         shredding_costs = self.model.symetric_triang_distrib_draw(
                 shredding_costs[0], shredding_costs[1])
         transport_cost_shreds = data['transport_cost_shreds']
         transport_cost_shreds = self.model.symetric_triang_distrib_draw(
                     transport_cost_shreds[0], transport_cost_shreds[1])
-        cost_shreds = shredding_costs + transport_cost_shreds * distance
+        # in the tuple: x is agent id, y is the distance to agent and z is
+        # agent process cost
+        cost_shreds = [(x, shredding_costs + transport_cost_shreds * y + z) for
+                       x, y, z in distances]
+        # cost_shreds = min(cost_shreds, key=lambda t: t[1])
         return cost_shreds
 
-    def transport_segment_costs(self, data, distance):
+    def transport_segment_and_process_costs(self, data, distances):
         cutting_costs = data['cutting_costs']
         transport_cost_segments = data['transport_cost_segments']
         # converting $/truck_load-km in $/m_blade-km
@@ -164,30 +181,48 @@ class WindPlantOwner(Agent):
         mass_to_meter = self.mass_conv_factor * self.t_cap / (
                 self.t_rd / 2) * self.model.blades_per_rotor
         transport_cost_segments = transport_cost_meter / mass_to_meter
-        cost_segments = cutting_costs + transport_cost_segments * distance
+        # in the tuple: x is agent id, y is the distance to agent and z is
+        # agent process cost
+        cost_segments = [(x, cutting_costs + transport_cost_segments * y + z)
+                         for x, y, z in distances]
+        # cost_segments = min(cost_segments, key=lambda t: t[1])
         return cost_segments
 
-    def eol_transportation_costs(self, distance):
-        eol_transport_costs = {}
+    def eol_transportation_and_process_costs(self, distances):
+        eol_tr_proc_costs = {}
         for key in self.model.eol_pathways.keys():
             transport_mode = self.model.eol_pathways_transport_mode[key]
             data = getattr(self.model, transport_mode, False)
             if data:
                 if transport_mode == 'transport_shreds':
-                    eol_transport_costs[key] = self.transport_shred_costs(
-                        data, distance[key])
+                    eol_tr_proc_costs[key] = \
+                        self.transport_shred_and_process_costs(
+                            data, distances[key])
                 elif transport_mode == 'transport_segments':
-                    eol_transport_costs[key] = self.transport_segment_costs(
-                        data, distance[key])
+                    eol_tr_proc_costs[key] = \
+                        self.transport_segment_and_process_costs(
+                            data, distances[key])
                 else:
-                    eol_transport_costs[key] = self.model.transport_repair
+                    eol_tr_proc_costs[key] = (None,
+                                              self.model.transport_repair)
             else:
-                cost_shreds = self.transport_shred_costs(
-                    self.model.transport_shreds, distance[key])
-                cost_segments = self.transport_segment_costs(
-                    self.model.transport_segments, distance[key])
-                eol_transport_costs[key] = min(cost_shreds, cost_segments)
-        return eol_transport_costs
+                cost_shreds = self.transport_shred_and_process_costs(
+                    self.model.transport_shreds, distances[key])
+                cost_segments = self.transport_segment_and_process_costs(
+                    self.model.transport_segments, distances[key])
+                eol_tr_proc_costs[key] = min([cost_shreds, cost_segments],
+                                             key=lambda t: t[1])
+        return eol_tr_proc_costs
+
+    @staticmethod
+    def costs_eol_pathways(tr_proc_costs, decommissioning_cost):
+        costs_eol_pathways = {}
+        for key in tr_proc_costs.keys():
+            # in the tuple (x, y): x = agent id, y = transport + process costs
+            tuple_proc_cost = tr_proc_costs[key]
+            costs_eol_pathways[key] = tuple_proc_cost[1] + \
+                decommissioning_cost
+        return costs_eol_pathways
 
     def update_agent_variables(self):
         """
@@ -199,6 +234,15 @@ class WindPlantOwner(Agent):
             self.model.weibull_shape_factor)
         self.p_cap_waste -= self.waste
         self.cum_waste += self.waste
+        # TODO: continue here: find a faster way to compute costs
+        # self.eol_tr_proc_cost = self.eol_transportation_and_process_costs(
+        #    self.eol_distances(self.model.variables_recyclers,
+        #                       self.model.variables_landfills,
+        #                       self.model.all_shortest_paths_or_trg))
+        self.eol_pathways_costs = self.costs_eol_pathways(
+            self.eol_tr_proc_cost, self.decommissioning_cost)
+        if self.unique_id == 200:
+            print(self.model.clock, self.eol_pathways_costs)
 
     def sum_agent_variable_once_or_every_step(self):
         """
@@ -229,7 +273,6 @@ class WindPlantOwner(Agent):
         to zero
         """
         if self.p_cap_waste < 1E-6:
-            # self.model.grid_wpo.G.nodes[self.unique_id]["agent"].remove(self)
             self.model.grid_wpo.G.nodes[self.pos]["agent"].remove(self)
             self.model.schedule_wpo.remove(self)
             self.model.schedule.remove(self)

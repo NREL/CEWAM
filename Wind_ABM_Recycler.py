@@ -40,8 +40,12 @@ class Recycler(Agent):
         self.recycler_type = self.model.roulette_wheel_choice(
             self.model.recyclers, sum(self.model.recyclers.values()),
             True, []).pop()
-        self.model.recycler_states[self.recycler_type].append(
-            self.recycler_state)
+        self.init_recycler_cost = self.model.symetric_triang_distrib_draw(
+            self.model.rec_processes_costs[self.recycler_type][0],
+            self.model.rec_processes_costs[self.recycler_type][1])
+        self.model.variables_recyclers[self.recycler_type].append(
+            (self.unique_id, self.recycler_state, self.init_recycler_cost))
+        self.recycler_cost = 0
 
     def mock_up(self):
         pass
@@ -53,6 +57,16 @@ class Recycler(Agent):
         pick = list_to_shuffle[0]
         return pick
 
+    def update_agent_variables(self):
+        """
+        Update instance (agent) variables
+        """
+        # TODO: build learning effect function and update recycler costs
+        #  instead of having self.init_recycler_cost
+        self.recycler_cost = self.init_recycler_cost
+        self.model.variables_recyclers[self.recycler_type].append(
+            (self.unique_id, self.recycler_state, self.recycler_cost))
+
     def step(self):
         """
         Evolution of agent at each step. As Mesa is not built for having
@@ -60,6 +74,7 @@ class Recycler(Agent):
         """
         if self.internal_clock == self.model.clock:
             self.mock_up()
+            self.update_agent_variables()
             self.internal_clock += 1
         else:
             pass

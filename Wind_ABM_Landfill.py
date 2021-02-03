@@ -36,8 +36,9 @@ class Landfill(Agent):
         self.landfill_type = list(self.model.landfills.keys())[0]
         self.landfill_state = self.mock_up_random_state(
             self.model.growth_rates)
-        self.model.landfill_states[self.landfill_type].append(
-            self.landfill_state)
+        self.landfill_cost = self.model.landfill_costs[self.landfill_state]
+        self.model.variables_landfills[self.landfill_type].append(
+            (self.unique_id, self.landfill_state, self.landfill_cost))
 
     def mock_up(self):
         pass

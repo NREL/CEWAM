@@ -19,10 +19,8 @@ outputs.
 
 # TODO: Continue TPB with perceived behavioral control
 #  1) have three separate components:
-#    i) Decommissioning costs
-#    ii) Transportation costs (how to get location information from
-#    recyclers (without looping through them)?)
-#    iii) Process costs
+#    i) Process costs
+#    ii) revenues
 #  2) Add all components and use formula in PV model and milestone report
 #  3) build function for B (barriers) and P (pressures) TPB components
 
@@ -59,8 +57,8 @@ class WindABM(Model):
                  manufacturers=100,
                  developers=100,
                  recyclers={
-                     "pyrolysis": 25, "mechanical_recycling": 25,
-                     "cement_co_processing": 25, "dissolution": 25},
+                     "dissolution": 25, "pyrolysis": 25,
+                     "mechanical_recycling": 25, "cement_co_processing": 25},
                  landfills={"landfill": 100},
                  regulators=100,
                  small_world_network={"node_degree": 15, "rewiring_prob": 0.1},
@@ -98,12 +96,12 @@ class WindABM(Model):
                      'simulation_end': 2051},
                  blades_per_rotor=3,
                  eol_pathways={
-                     "lifetime_extension": True, "pyrolysis": True,
-                     "mechanical_recycling": True,
+                     "lifetime_extension": True, "dissolution": True,
+                     "pyrolysis": True, "mechanical_recycling": True,
                      "cement_co_processing": True, "landfill": True},
                  eol_pathways_dist_init={
-                     "lifetime_extension": 0.005, "pyrolysis": 0.005,
-                     "mechanical_recycling": 0.005,
+                     "lifetime_extension": 0.005, "dissolution": 0.0,
+                     "pyrolysis": 0.005, "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
                  tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.3, 'w_sn': 0.56,
                                 'w_pbc': -0.11},
@@ -114,8 +112,8 @@ class WindABM(Model):
                  #  decision than eol (e.g., conventional vs thermoplastic
                  #  blades)
                  choices_circularity={
-                     "lifetime_extension": True, "pyrolysis": True,
-                     "mechanical_recycling": True,
+                     "lifetime_extension": True, "dissolution": True,
+                     "pyrolysis": True, "mechanical_recycling": True,
                      "cement_co_processing": True, "landfill": False},
                  # TODO: all $/blade need to be converted into $/tons based
                  #  on agents characteristics OR even better: use $/ton
@@ -128,10 +126,33 @@ class WindABM(Model):
                  #  developers and landfills: use mock up value for variables
                  #  in recycler and landfills that I can use to develop wpo
                  #  and PBC
-                 eol_pathways_process_cost={
-                     "lifetime_extension": None, "pyrolysis": None,
-                     "mechanical_recycling": None,
-                     "cement_co_processing": None, "landfill": None},
+                 # TODO: find values for dissolution recycling process
+                 lifetime_extension_costs=[600, 6000],
+                 rec_processes_costs={
+                     "dissolution": [0, 1E-6], "pyrolysis": [280.5, 550],
+                     "mechanical_recycling": [212.3, 286],
+                     "cement_co_processing": [0, 1E-6]},
+                 landfill_costs={
+                     'Alabama': 33.41, 'Arizona': 43.39, 'Arkansas': 40.23,
+                     'California': 55.56, 'Colorado': 62.04,
+                     'Connecticut': 200.00, 'Delaware': 85.00,
+                     'Florida': 55.08, 'Georgia': 48.77, 'Idaho': 68.71,
+                     'Illinois': 51.78, 'Indiana': 47.91, 'Iowa': 48.47,
+                     'Kansas': 39.32, 'Kentucky': 29.82, 'Louisiana': 33.28,
+                     'Maine': 78.50, 'Maryland': 68.57, 'Massachusetts': 77.00,
+                     'Michigan': 41.97, 'Minnesota': 63.52,
+                     'Mississippi': 38.70, 'Missouri': 62.42, 'Montana': 49.36,
+                     'Nebraska': 39.21, 'Nevada': 74.20,
+                     'New Hampshire': 74.34, 'New Jersey': 81.91,
+                     'New Mexico': 38.28, 'New York': 68.40,
+                     'North Carolina': 43.87, 'North Dakota': 46.98,
+                     'Ohio': 44.35, 'Oklahoma': 50.22, 'Oregon': 71.28,
+                     'Pennsylvania': 68.07, 'Rhode Island': 110.00,
+                     'South Carolina': 44.03, 'South Dakota': 49.14,
+                     'Tennessee': 50.24, 'Texas': 40.18, 'Utah': 32.08,
+                     'Vermont': 66.53, 'Virginia': 52.22, 'Washington': 89.08,
+                     'West Virginia': 51.50, 'Wisconsin': 65.00,
+                     'Wyoming': 74.45},
                  transport_shreds={'shredding_costs': [99, 132],
                                    'transport_cost_shreds': [0.0314, 0.0820]},
                  transport_segments={
@@ -140,14 +161,14 @@ class WindABM(Model):
                  transport_repair=1.57,
                  eol_pathways_transport_mode={
                      "lifetime_extension": 'transport_repair',
-                     "pyrolysis": 'undefined',
+                     "dissolution": 'undefined', "pyrolysis": 'undefined',
                      "mechanical_recycling": 'undefined',
                      "cement_co_processing": 'transport_segments',
                      "landfill": 'undefined'},
                  eol_pathways_process_revenue={
-                     "lifetime_extension": None, "pyrolysis": None,
-                     "mechanical_recycling": None,
-                     "cement_co_processing": None, "landfill": None}
+                     "lifetime_extension": None, "dissolution": None,
+                     "pyrolysis": None, "mechanical_recycling": None,
+                     "cement_co_processing": [0, 1E-6], "landfill": [0, 1E-6]}
                  # TODO: make sure that all data using tons are in metric
                  #  tons and not in US tons
                  ):
@@ -190,8 +211,11 @@ class WindABM(Model):
         different attitude depending on the choice circularity
         :param decommissioning_cost: cost of decommissioning wind turbines 
         ($/blade)
-        :param eol_pathways_process_cost: process costs of different eol 
+        :param lifetime_extension_costs: costs of feasibility assessment for
+        the lifetime extension eol pathway ($/blade)
+        :param rec_processes_costs: process costs of different recycling 
         pathways ($/metric tons), e.g., energy, labor etc. costs of pyrolysis
+        :param landfill_costs: dictionary with landfill costs for each state
         :param transport_shreds: shredding_costs: grinding to 1-3 cm cost 
         ($/metric ton), transport_cost_shreds: transportation costs for 
         shredded blades ($/(metric ton-km))
@@ -231,7 +255,9 @@ class WindABM(Model):
         self.attitude_parameters = attitude_parameters
         self.choices_circularity = choices_circularity
         self.decommissioning_cost = decommissioning_cost
-        self.eol_pathways_process_cost = eol_pathways_process_cost
+        self.lifetime_extension_costs = lifetime_extension_costs
+        self.rec_processes_costs = rec_processes_costs
+        self.landfill_costs = landfill_costs
         self.transport_shreds = transport_shreds
         self.transport_segments = transport_segments
         self.transport_repair = transport_repair
@@ -284,9 +310,9 @@ class WindABM(Model):
         self.eol_pathway_dist_dic = {}
         self.states_waste_eol_path = self.nested_null_dic(
             self.growth_rates.keys(), self.eol_pathways)
-        self.recycler_states = self.initial_dic_from_key_list(
+        self.variables_recyclers = self.initial_dic_from_key_list(
             self.recyclers.keys(), [])
-        self.landfill_states = self.initial_dic_from_key_list(
+        self.variables_landfills = self.initial_dic_from_key_list(
             self.landfills.keys(), [])
         # Computing transportation distances:
         self.state_distances = \
@@ -303,56 +329,47 @@ class WindABM(Model):
             self.states, self.states_graph)
         # Creating agents and social networks:
         self.schedule = BaseScheduler(self)
-        self.G_rec = self.creating_social_network(
-            sum(self.recyclers.values()),
-            self.small_world_network["node_degree"],
-            self.small_world_network["rewiring_prob"])
-        self.grid_rec = NetworkGrid(self.G_rec)
-        self.schedule_rec = RandomActivation(self)
-        self.creating_agents(sum(self.recyclers.values()), self.G_rec,
-                             self.grid_rec, self.schedule_rec, Recycler)
-        self.G_land = self.creating_social_network(
-            sum(self.landfills.values()),
-            self.small_world_network["node_degree"],
-            self.small_world_network["rewiring_prob"])
-        self.grid_land = NetworkGrid(self.G_land)
-        self.schedule_land = RandomActivation(self)
-        self.creating_agents(sum(self.landfills.values()), self.G_land,
-                             self.grid_land, self.schedule_land, Landfill)
+        self.G_rec, self.grid_rec, self.schedule_rec = \
+            self.network_grid_schedule_agents(
+                sum(self.recyclers.values()),
+                self.small_world_network["node_degree"],
+                self.small_world_network["rewiring_prob"],
+                sum(self.recyclers.values()), Recycler)
+        self.G_land, self.grid_land, self.schedule_land = \
+            self.network_grid_schedule_agents(
+                sum(self.landfills.values()),
+                self.small_world_network["node_degree"],
+                self.small_world_network["rewiring_prob"],
+                sum(self.landfills.values()), Landfill)
         self.first_wpo_id = self.unique_id
-        self.G_wpo = self.creating_social_network(
-            self.compute_max_network_size(
-                self.uswtdb, self.temporal_scope['simulation_start'],
-                self.temporal_scope['simulation_end'],
-                self.p_install_growth),
-            self.small_world_network["node_degree"],
-            self.small_world_network["rewiring_prob"])
-        self.grid_wpo = NetworkGrid(self.G_wpo)
-        self.schedule_wpo = RandomActivation(self)
-        self.creating_agents(self.uswtdb.shape[0], self.G_wpo, self.grid_wpo,
-                             self.schedule_wpo, WindPlantOwner)
+        self.G_wpo, self.grid_wpo, self.schedule_wpo = \
+            self.network_grid_schedule_agents(
+                self.compute_max_network_size(
+                    self.uswtdb, self.temporal_scope['simulation_start'],
+                    self.temporal_scope['simulation_end'],
+                    self.p_install_growth),
+                self.small_world_network["node_degree"],
+                self.small_world_network["rewiring_prob"],
+                self.uswtdb.shape[0], WindPlantOwner)
         self.additional_id = self.first_wpo_id + self.uswtdb.shape[0]
-        self.G_man = self.creating_social_network(
-            self.manufacturers, self.small_world_network["node_degree"],
-            self.small_world_network["rewiring_prob"])
-        self.grid_man = NetworkGrid(self.G_man)
-        self.schedule_man = RandomActivation(self)
-        self.creating_agents(self.manufacturers, self.G_man, self.grid_man,
-                             self.schedule_man, Manufacturer)
-        self.G_dev = self.creating_social_network(
-            self.developers, self.small_world_network["node_degree"],
-            self.small_world_network["rewiring_prob"])
-        self.grid_dev = NetworkGrid(self.G_dev)
-        self.schedule_dev = RandomActivation(self)
-        self.creating_agents(self.developers, self.G_dev, self.grid_dev,
-                             self.schedule_dev, Developer)
-        self.G_reg = self.creating_social_network(
-            self.regulators, self.small_world_network["node_degree"],
-            self.small_world_network["rewiring_prob"])
-        self.grid_reg = NetworkGrid(self.G_reg)
-        self.schedule_reg = RandomActivation(self)
-        self.creating_agents(self.regulators, self.G_reg, self.grid_reg,
-                             self.schedule_reg, Regulator)
+        self.G_man, self.grid_man, self.schedule_man = \
+            self.network_grid_schedule_agents(
+                self.manufacturers,
+                self.small_world_network["node_degree"],
+                self.small_world_network["rewiring_prob"],
+                self.manufacturers, Manufacturer)
+        self.G_dev, self.grid_dev, self.schedule_dev = \
+            self.network_grid_schedule_agents(
+                self.developers,
+                self.small_world_network["node_degree"],
+                self.small_world_network["rewiring_prob"],
+                self.developers, Developer)
+        self.G_reg, self.grid_reg, self.schedule_reg = \
+            self.network_grid_schedule_agents(
+                self.regulators,
+                self.small_world_network["node_degree"],
+                self.small_world_network["rewiring_prob"],
+                self.regulators, Regulator)
         # Create data collectors:
         model_reporters = {
             "Year": lambda a:
@@ -371,6 +388,16 @@ class WindABM(Model):
         self.data_collector = DataCollector(
             model_reporters=model_reporters,
             agent_reporters=agent_reporters)
+
+    def network_grid_schedule_agents(self, num_nodes, node_degree,
+                                     rewiring_prob, num_agents, agent_type):
+        network = self.creating_social_network(num_nodes, node_degree,
+                                               rewiring_prob)
+        grid = NetworkGrid(network)
+        schedule = BaseScheduler(self)
+        # schedule = RandomActivation(self)
+        self.creating_agents(num_agents, network, grid, schedule, agent_type)
+        return network, grid, schedule,
 
     def compute_all_distances(self, states, graph):
         """
@@ -779,12 +806,19 @@ class WindABM(Model):
         draw = np.random.triangular(min_value, mode, max_value)
         return draw
 
-    def re_initialize_global_variable(self):
+    def reinitialize_global_variables_wpo(self):
         """
         Re-initialize yearly variables
         """
         self.number_wpo_agent = 0
         self.eol_pathway_dist_list = []
+
+    def reinitialize_global_variables_rec(self):
+        """
+        Re-initialize yearly variables
+        """
+        self.variables_recyclers = self.initial_dic_from_key_list(
+            self.recyclers.keys(), [])
 
     def update_model_variables(self):
         """
@@ -808,10 +842,11 @@ class WindABM(Model):
         Advance the model by one step and collect data.
         """
         self.data_collector.collect(self)
-        self.re_initialize_global_variable()
+        self.reinitialize_global_variables_wpo()
         self.schedule_wpo.step()
         self.schedule_man.step()
         self.schedule_dev.step()
+        self.reinitialize_global_variables_rec()
         self.schedule_rec.step()
         self.schedule_land.step()
         self.schedule_reg.step()
