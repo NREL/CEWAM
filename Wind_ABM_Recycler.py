@@ -21,10 +21,6 @@ import random
 #  the number (and locations) of co-processing facilities can be different
 #  from the number of cement factories
 
-# TODO: lifetime extension: Continue HERE:
-#  1) assign revenue for recycler
-#  2) assign costs and revenue for lifetime extension in Developer
-
 
 class Recycler(Agent):
     def __init__(self, unique_id, model, **kwargs):
@@ -72,6 +68,11 @@ class Recycler(Agent):
         # TODO: build learning effect function and update recycler costs
         #  instead of having self.init_recycler_cost
         self.recycler_cost = self.init_recycler_cost
+
+    def report_agent_variables(self):
+        """
+        Report instance (agent) variables
+        """
         self.model.variables_recyclers[self.recycler_type].append(
             (self.unique_id, self.recycler_state, self.recycler_cost))
 
@@ -83,6 +84,7 @@ class Recycler(Agent):
         if self.internal_clock == self.model.clock:
             self.mock_up()
             self.update_agent_variables()
+            self.report_agent_variables()
             self.internal_clock += 1
         else:
             pass

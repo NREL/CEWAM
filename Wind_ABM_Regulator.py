@@ -34,8 +34,29 @@ class Regulator(Agent):
 
         self.internal_clock = 0
 
+        # TODO: replace mock-up values below
+        self.regulator_state = self.model.regulator_states_list.pop()
+        self.regulation_enacted = self.model.initial_dic_from_key_list(
+            self.model.eol_pathways, False)
+
     def mock_up(self):
         pass
+
+    def update_agent_variables(self):
+        """
+        Update instance (agent) variables
+        """
+        # TODO: build regulation enacting
+        self.regulation_enacted = self.model.initial_dic_from_key_list(
+            self.model.eol_pathways, False)
+
+    def report_agent_variables(self):
+        """
+        Report instance (agent) variables
+        """
+        for key in self.regulation_enacted.keys():
+            self.model.regulations_enacted[key][self.regulator_state] = \
+                self.regulation_enacted[key]
 
     def step(self):
         """
@@ -44,6 +65,8 @@ class Regulator(Agent):
         """
         if self.internal_clock == self.model.clock:
             self.mock_up()
+            self.update_agent_variables()
+            self.report_agent_variables()
             self.internal_clock += 1
         else:
             pass

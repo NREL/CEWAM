@@ -17,16 +17,9 @@ outputs.
 # in commit comment)
 # Avoid calling the scheduler unless there are no other choices
 
-# TODO: Continue TPB with perceived behavioral control
-#  1) have three separate components:
-#    i) revenues
-#  2) Add all components and use formula in PV model and milestone report
-#  3) build function for B (barriers) and P (pressures) TPB components
-
-# TODO: Next steps -
-#  1) Finish TPB
-#  2) Build consequences of lifetime extension: average lifetime is extended
-#  3) Continue with other agents
+# TODO: Next steps - continue HERE
+#  1) Build consequences of lifetime extension: average lifetime is extended
+#  2) Continue with other agents
 
 from mesa import Model
 from Wind_ABM_WindPlantOwner import WindPlantOwner
@@ -59,7 +52,6 @@ class WindABM(Model):
                      "dissolution": 25, "pyrolysis": 25,
                      "mechanical_recycling": 25, "cement_co_processing": 25},
                  landfills={"landfill": 100},
-                 regulators=100,
                  small_world_network={"node_degree": 15, "rewiring_prob": 0.1},
                  external_files={
                      "state_distances": "StatesAdjacencyMatrix.csv", "uswtdb":
@@ -118,10 +110,6 @@ class WindABM(Model):
                  #  on agents characteristics OR even better: use $/ton
                  #  directly
                  decommissioning_cost=[1300, 33000],
-                 # TODO: all eol costs will come from other agents recyclers,
-                 #  developers and landfills: use mock up value for variables
-                 #  in recycler and landfills that I can use to develop wpo
-                 #  and PBC
                  # TODO: find values for dissolution recycling process
                  lifetime_extension_costs=[600, 6000],
                  rec_processes_costs={
@@ -177,7 +165,6 @@ class WindABM(Model):
         :param developers: number of developers
         :param recyclers: number of reyclers for each recycler type
         :param landfills: number of landfills
-        :param regulators: number of regulators
         :param small_world_network: characteristics of the small-world network
         (if rewiring prob set to 0: regular lattice, if set to 1: random
         network)
@@ -239,7 +226,6 @@ class WindABM(Model):
         self.developers = developers
         self.recyclers = recyclers
         self.landfills = landfills
-        self.regulators = regulators
         self.small_world_network = small_world_network
         self.external_files = external_files
         self.growth_rates = growth_rates
@@ -309,14 +295,18 @@ class WindABM(Model):
         self.list_add_agent_eol_path = []
         self.eol_pathway_dist_list = []
         self.eol_pathway_dist_dic = {}
-        self.states_waste_eol_path = self.nested_null_dic(
-            self.growth_rates.keys(), self.eol_pathways)
+        self.states_waste_eol_path = self.nested_init_dic(
+            0, self.growth_rates.keys(), self.eol_pathways)
         self.variables_recyclers = self.initial_dic_from_key_list(
             self.recyclers.keys(), [])
         self.variables_landfills = self.initial_dic_from_key_list(
             self.landfills.keys(), [])
         self.variables_developers = self.initial_dic_from_key_list(
             self.developers.keys(), [])
+        self.regulators = len(self.growth_rates.keys())
+        self.regulator_states_list = list(self.growth_rates.keys())
+        self.regulations_enacted = self.nested_init_dic(
+            False, self.eol_pathways, self.growth_rates.keys())
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -350,6 +340,12 @@ class WindABM(Model):
                 self.small_world_network["node_degree"],
                 self.small_world_network["rewiring_prob"],
                 sum(self.developers.values()), Developer)
+        self.G_reg, self.grid_reg, self.schedule_reg = \
+            self.network_grid_schedule_agents(
+                self.regulators,
+                self.small_world_network["node_degree"],
+                self.small_world_network["rewiring_prob"],
+                self.regulators, Regulator)
         self.first_wpo_id = self.unique_id
         self.G_wpo, self.grid_wpo, self.schedule_wpo = \
             self.network_grid_schedule_agents(
@@ -367,12 +363,6 @@ class WindABM(Model):
                 self.small_world_network["node_degree"],
                 self.small_world_network["rewiring_prob"],
                 self.manufacturers, Manufacturer)
-        self.G_reg, self.grid_reg, self.schedule_reg = \
-            self.network_grid_schedule_agents(
-                self.regulators,
-                self.small_world_network["node_degree"],
-                self.small_world_network["rewiring_prob"],
-                self.regulators, Regulator)
         # Create data collectors:
         model_reporters = {
             "Year": lambda a:
@@ -671,7 +661,7 @@ class WindABM(Model):
     @staticmethod
     def initial_dic_from_key_list(key_list, initial_value):
         """
-        Create an empty dictionary with keys taken from a list
+        Create dictionary with keys taken from a list and an initial value
         :param key_list: the list of keys
         :param initial_value: initial value (or object) for the dictionary
         :return: the empty dictionary with corresponding keys
@@ -683,13 +673,14 @@ class WindABM(Model):
         return initial_dic
 
     # TODO: in docstring explain lists of keys are needed
-    def nested_null_dic(self, *args):
+    def nested_init_dic(self, initial_value, *args):
         dic = {}
         for i in range(len(args) - 1):
-            dic = self.initial_dic_from_key_list(args[i], 0)
+            dic = self.initial_dic_from_key_list(args[i], initial_value)
             for key in dic.keys():
                 # noinspection PyTypeChecker
-                dic[key] = self.initial_dic_from_key_list(args[i + 1], 0)
+                dic[key] = self.initial_dic_from_key_list(
+                    args[i + 1], initial_value)
         return dic
 
     @staticmethod
@@ -760,32 +751,50 @@ class WindABM(Model):
             scores[key] = score_key
         return scores
 
-    def perceived_behavioral_control(self, cost_choices):
+    def perceived_behavioral_control_and_barrier(self, value_choices):
         scores = {}
-        max_cost = max(abs(i) for i in cost_choices.values())
-        for key in cost_choices.keys():
-            score_key = self.safe_div(cost_choices[key], max_cost)
+        max_cost = max(abs(i) for i in value_choices.values())
+        for key in value_choices.keys():
+            score_key = self.safe_div(value_choices[key], max_cost)
             score_key = max(score_key, 0)
             scores[key] = score_key
         return scores
 
-    #  TODO:
-    #   1) continue: scores_bi = wsn * scores_sn[key] + wa * scores_a[key]...
-    #   2) add the w_bi in front of A, SN, and PBC but not B and P
+    def pressure(self, state, regulations):
+        scores = {}
+        all_or_trg_distances = self.all_shortest_paths_or_trg[state]
+        max_dist = max(all_or_trg_distances)
+        for key, value in regulations.items():
+            weighted_avg = 0
+            list_state_w_regulation = [
+                key for key, val in value.items() if val]
+            for item in list_state_w_regulation:
+                score = (max_dist - all_or_trg_distances[item]) / max_dist
+                weighted_avg += score
+            scores[key] = weighted_avg
+        return scores
+
     def theory_planned_behavior_model(
-            self, ce_att_level, conv_att_level, dic_choices,
-            choices_circularity, adopted_choice, position, cost_choices):
+            self, tpb_weights, ce_att_level, conv_att_level, dic_choices,
+            choices_circularity, adopted_choice, position, cost_choices,
+            barrier_choices, state, regulations):
         scores_sn = self.subjective_norms(adopted_choice, position,
                                           dic_choices)
         scores_a = self.attitude(ce_att_level, conv_att_level, dic_choices,
                                  choices_circularity)
-        scores_pbc = self.perceived_behavioral_control(cost_choices)
+        scores_pbc = self.perceived_behavioral_control_and_barrier(
+            cost_choices)
+        scores_b = self.perceived_behavioral_control_and_barrier(
+            barrier_choices)
+        scores_p = self.pressure(state, regulations)
         scores_behaviors = {}
         for key, value in dic_choices.items():
-            scores_behaviors[key] = self.tpb_eol_coeff['w_bi'] * (
-                    self.tpb_eol_coeff['w_sn'] * scores_sn[key] +
-                    self.tpb_eol_coeff['w_a'] * scores_a[key] +
-                    self.tpb_eol_coeff['w_pbc'] * scores_pbc[key])
+            scores_behaviors[key] = tpb_weights['w_bi'] * (
+                    tpb_weights['w_sn'] * scores_sn[key] +
+                    tpb_weights['w_a'] * scores_a[key] +
+                    tpb_weights['w_pbc'] * scores_pbc[key]) + \
+                    tpb_weights['w_b'] * scores_b[key] + \
+                    tpb_weights['w_p'] * scores_p[key]
             if not value:
                 scores_behaviors.pop(key)
         behavior = [keys for keys, values in scores_behaviors.items() if
@@ -819,12 +828,14 @@ class WindABM(Model):
         self.number_wpo_agent = 0
         self.eol_pathway_dist_list = []
 
-    def reinitialize_global_variables_rec(self):
+    def reinitialize_global_variables_other_agents(self):
         """
         Re-initialize yearly variables
         """
         self.variables_recyclers = self.initial_dic_from_key_list(
             self.recyclers.keys(), [])
+        self.regulations_enacted = self.nested_init_dic(
+            False, self.eol_pathways, self.growth_rates.keys())
 
     def update_model_variables(self):
         """
@@ -839,7 +850,7 @@ class WindABM(Model):
             self.list_agent_states)
         self.eol_pathway_dist_dic = self.dic_with_list_item_frequency(
             self.eol_pathway_dist_list)
-        # Extend initial eol pathways constraints as based on current adoption
+        # Extend initial eol pathways distribution as based on current adoption
         self.list_add_agent_eol_path = self.roulette_wheel_choice(
             self.eol_pathway_dist_dic, self.p_install_growth, False, [])
 
@@ -850,9 +861,9 @@ class WindABM(Model):
         self.data_collector.collect(self)
         self.reinitialize_global_variables_wpo()
         self.schedule_wpo.step()
+        self.reinitialize_global_variables_other_agents()
         self.schedule_man.step()
         self.schedule_dev.step()
-        self.reinitialize_global_variables_rec()
         self.schedule_rec.step()
         self.schedule_land.step()
         self.schedule_reg.step()

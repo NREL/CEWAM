@@ -13,9 +13,7 @@ decisions, for instance, regarding EOL management.
 # Need to add adoption methods
 
 # TODO:
-#  1) Continue building Theory of Planned Behavior model (PICK UP HERE):
-#    ii) continue eol costs: decommissioning and processing costs
-#  2) Build consequences of lifetime extension: average lifetime is extended
+#  1) Build consequences of lifetime extension: average lifetime is extended
 
 from mesa import Agent
 
@@ -103,6 +101,8 @@ class WindPlantOwner(Agent):
             self.model.eol_pathways, 0)
         self.variables_developers_wpo = self.convert_developer_costs(
             self.model.variables_developers, self.blade_mass_conv_factor)
+        self.eol_pathways_barriers = self.model.initial_dic_from_key_list(
+            self.model.eol_pathways.keys(), 0)
         self.eol_tr_cost_shreds, self.eol_tr_cost_segments, \
             self.eol_tr_cost_repair = self.eol_transportation_costs(
               self.eol_distances(self.model.variables_recyclers,
@@ -167,6 +167,8 @@ class WindPlantOwner(Agent):
                 list_distances.append((destination_tuple[0], distance,
                                        destination_tuple[2]))
             distances[key] = list_distances
+            min_distance = min(list_distances, key=lambda t: t[1])[1]
+            self.eol_pathways_barriers[key] = min_distance
         return distances
 
     def transport_shred_costs(self, data, distances):
@@ -265,9 +267,7 @@ class WindPlantOwner(Agent):
             dic_cost[x] += y
         list_tot_cost = list(map(tuple, dic_cost.items()))
         minimum_tr_proc_cost = min(list_tot_cost, key=lambda t: t[1])
-        transport_min_cost = [item for item in transport_cost if item[0] ==
-                              minimum_tr_proc_cost[0]][0]
-        return minimum_tr_proc_cost, transport_min_cost
+        return minimum_tr_proc_cost
 
     def update_agent_variables(self):
         """
@@ -285,14 +285,16 @@ class WindPlantOwner(Agent):
             self.model.variables_landfills, self.variables_developers_wpo,
             self.decommissioning_cost)
         self.eol_pathway = self.model.theory_planned_behavior_model(
-            self.eol_att_level_ce_path, self.eol_att_level_conv_path,
-            self.model.eol_pathways, self.model.choices_circularity,
-            'eol_pathway', self.pos, self.eol_pathways_costs)
+            self.model.self.tpb_eol_coeff, self.eol_att_level_ce_path,
+            self.eol_att_level_conv_path, self.model.eol_pathways,
+            self.model.choices_circularity, 'eol_pathway', self.pos,
+            self.eol_pathways_costs, self.eol_pathways_barriers, self.t_state,
+            self.model.regulations_enacted)
 
-    def sum_agent_variable_once_or_every_step(self):
+    def report_agent_variable_once_or_every_step(self):
         """
-        Sum the value of agent variables across all agents, once or every step
-        of the simulation.
+        Report the value of agent variables across all agents, once or every
+        step of the simulation.
         """
         # Agents' attributes that should be counted once
         if not self.agent_attributes_counted:
@@ -325,7 +327,7 @@ class WindPlantOwner(Agent):
         """
         if self.internal_clock == self.model.clock:
             self.update_agent_variables()
-            self.sum_agent_variable_once_or_every_step()
+            self.report_agent_variable_once_or_every_step()
             self.remove_agent()
             self.internal_clock += 1
         else:

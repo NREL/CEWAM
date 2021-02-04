@@ -16,6 +16,8 @@ from mesa import Agent
 import pandas as pd
 from collections import Counter
 
+# TODO: complete unittests with TPB and other functions
+
 
 class TestWindABM(TestCase):
     def test_compute_all_distances(self):

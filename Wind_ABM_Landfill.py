@@ -14,13 +14,7 @@ decisions, for instance, to accept Wind Blades or not.
 
 
 from mesa import Agent
-import numpy as np
 import random
-from collections import OrderedDict
-from scipy.stats import truncnorm
-import operator
-from math import *
-import time
 
 
 class Landfill(Agent):
@@ -33,6 +27,9 @@ class Landfill(Agent):
             setattr(self, key, value)
 
         self.internal_clock = 0
+
+        # TODO: replace mock-up values by actual values and function of
+        #  landfill agents
         self.landfill_type = list(self.model.landfills.keys())[0]
         self.landfill_state = self.mock_up_random_state(
             self.model.growth_rates)
