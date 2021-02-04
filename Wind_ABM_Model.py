@@ -19,7 +19,12 @@ outputs.
 
 # TODO: Next steps - continue HERE
 #  1) Build consequences of lifetime extension: average lifetime is extended
-#  2) Continue with other agents
+#  2) Try to find for loops and see if I can reduce them by using list
+#  comprehension to filter some unused value (like I did for pressure function
+#  below)
+#  3) Write unittests and docstrings (and rewrite more efficient functions if
+#  possible)
+#  4) Continue with other agents
 
 from mesa import Model
 from Wind_ABM_WindPlantOwner import WindPlantOwner
@@ -292,6 +297,7 @@ class WindABM(Model):
             self.remove_item_dic_from_boolean_dic(self.eol_pathways_dist_init,
                                                   self.eol_pathways),
             self.uswtdb.shape[0], True, [])
+        self.list_init_eol_second_choice = self.list_init_eol_pathways.copy()
         self.list_add_agent_eol_path = []
         self.eol_pathway_dist_list = []
         self.eol_pathway_dist_dic = {}
@@ -574,8 +580,7 @@ class WindABM(Model):
     @staticmethod
     def cumulative_capacity_growth(states_cap, growth_rates, additional_cap):
         """
-        Grow the list of yearly installed capacity according to growth rate
-        and update the cumulative installed capacity
+        Grow the installed capacities according to growth rate
         :param states_cap: dictionary of wind power capacity in each state
         :param growth_rates: growth rate of the cumulative installed capacity
         :param additional_cap: dictionary to output
@@ -797,11 +802,22 @@ class WindABM(Model):
                     tpb_weights['w_p'] * scores_p[key]
             if not value:
                 scores_behaviors.pop(key)
-        behavior = [keys for keys, values in scores_behaviors.items() if
-                    values == max(scores_behaviors.values())]
+        first_choices = [keys for keys, values in scores_behaviors.items() if
+                         values == max(scores_behaviors.values())]
         # if two behavior equally score the highest, choose randomly
-        random.shuffle(behavior)
-        return behavior[0]
+        random.shuffle(first_choices)
+        first_choice = first_choices[0]
+        scores_behaviors.pop(first_choice)
+        second_choices = [keys for keys, values in scores_behaviors.items() if
+                          values == max(scores_behaviors.values())]
+        random.shuffle(second_choices)
+        second_choice = second_choices[0]
+        return first_choice, second_choice
+
+    @staticmethod
+    def filter_list(input_list, filtered_out_value):
+        output = list(filter(lambda x: x != filtered_out_value, input_list))
+        return output
 
     @staticmethod
     def safe_div(x, y):

@@ -14,8 +14,12 @@ decisions, for instance, regarding EOL management.
 
 # TODO:
 #  1) Build consequences of lifetime extension: average lifetime is extended
+#  2) write effect of ban: landfill is False for agent from state with a ban
+#  3) in landfill agent --> landfill could be closed and needs to have an
+#  effect on possible landfill destination!
 
 from mesa import Agent
+import random
 
 
 class WindPlantOwner(Agent):
@@ -65,6 +69,7 @@ class WindPlantOwner(Agent):
             self.t_rd = self.model.uswtdb.groupby('t_state').mean().loc[
                                self.t_state]['t_rd']
             self.eol_pathway = self.model.list_add_agent_eol_path.pop()
+            self.eol_second_choice = 'landfill'
             self.internal_clock = self.model.clock + 1
         # All agents
         self.mass_conv_factor = self.compute_mass_conv_factor(
@@ -73,7 +78,6 @@ class WindPlantOwner(Agent):
             self.model.blades_per_rotor, self.t_cap)
         self.blade_mass_conv_factor = self.conversion_blade_to_ton(
             self.mass_conv_factor, self.t_cap, self.model.blades_per_rotor)
-        self.growth_rate = self.model.growth_rates.get(self.t_state)
         self.p_cap_waste = self.p_cap
         self.waste = 0
         self.cum_waste = 0
@@ -112,6 +116,10 @@ class WindPlantOwner(Agent):
             self.model.decommissioning_cost[0],
             self.model.decommissioning_cost[1]) / self.blade_mass_conv_factor
         self.eol_pathways_costs = {}
+        self.average_lifetime = self.model.average_lifetime
+        self.eol_second_choice = random.choice(self.model.filter_list(
+            self.model.list_init_eol_second_choice, self.eol_pathway))
+        self.eol_second_choice_share = 0
 
     @staticmethod
     def compute_mass_conv_factor(rotor_diameter, coefficient, power,
@@ -157,15 +165,10 @@ class WindPlantOwner(Agent):
             possible_destinations[key] = possible_destinations_land[key]
         for key in possible_destinations.keys():
             list_destinations = possible_destinations[key]
-            list_distances = []
-            for i in range(len(list_destinations)):
-                # in the tuple: x is agent id, y is agent state and z is agent
-                # process net cost
-                destination_tuple = list_destinations[i]
-                destination = destination_tuple[1]
-                distance = all_possible_distances[origin][destination]
-                list_distances.append((destination_tuple[0], distance,
-                                       destination_tuple[2]))
+            # in the tuple: x is agent id, y is agent state and z is agent
+            # process net cost
+            list_distances = [(x, all_possible_distances[origin][y], z) for
+                              x, y, z in list_destinations]
             distances[key] = list_distances
             min_distance = min(list_distances, key=lambda t: t[1])[1]
             self.eol_pathways_barriers[key] = min_distance
@@ -269,13 +272,22 @@ class WindPlantOwner(Agent):
         minimum_tr_proc_cost = min(list_tot_cost, key=lambda t: t[1])
         return minimum_tr_proc_cost
 
+    # TODO
+    @staticmethod
+    def lifetime_extension(eol_pathway, second_choice, initial_lifetime,
+                           years_extended, feasibility):
+        if eol_pathway == 'lifetime_extension':
+            pass
+
     def update_agent_variables(self):
         """
         Update instance (agent) variables
         """
+        # TODO
+        self.average_lifetime = 2
         self.waste = self.model.waste_generation(
             self.model.temporal_scope['simulation_start'], self.model.clock,
-            self.p_year, self.p_cap_waste, self.model.average_lifetime,
+            self.p_year, self.p_cap_waste, self.average_lifetime,
             self.model.weibull_shape_factor)
         self.p_cap_waste -= self.waste
         self.cum_waste += self.waste
@@ -284,12 +296,13 @@ class WindPlantOwner(Agent):
             self.eol_tr_cost_repair, self.model.variables_recyclers,
             self.model.variables_landfills, self.variables_developers_wpo,
             self.decommissioning_cost)
-        self.eol_pathway = self.model.theory_planned_behavior_model(
-            self.model.self.tpb_eol_coeff, self.eol_att_level_ce_path,
-            self.eol_att_level_conv_path, self.model.eol_pathways,
-            self.model.choices_circularity, 'eol_pathway', self.pos,
-            self.eol_pathways_costs, self.eol_pathways_barriers, self.t_state,
-            self.model.regulations_enacted)
+        self.eol_pathway, self.eol_second_choice = \
+            self.model.theory_planned_behavior_model(
+                self.model.tpb_eol_coeff, self.eol_att_level_ce_path,
+                self.eol_att_level_conv_path, self.model.eol_pathways,
+                self.model.choices_circularity, 'eol_pathway', self.pos,
+                self.eol_pathways_costs, self.eol_pathways_barriers,
+                self.t_state, self.model.regulations_enacted)
 
     def report_agent_variable_once_or_every_step(self):
         """
@@ -308,7 +321,11 @@ class WindPlantOwner(Agent):
         self.model.number_wpo_agent += 1
         self.model.eol_pathway_dist_list.append(self.eol_pathway)
         self.model.states_waste_eol_path[self.t_state][self.eol_pathway] += \
-            self.waste * self.mass_conv_factor
+            self.waste * self.mass_conv_factor * (
+                    1 - self.eol_second_choice_share)
+        self.model.states_waste_eol_path[self.t_state][
+            self.eol_second_choice] += self.waste * self.mass_conv_factor * \
+            self.eol_second_choice_share
 
     def remove_agent(self):
         """
