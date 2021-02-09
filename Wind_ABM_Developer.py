@@ -17,7 +17,8 @@ from mesa import Agent
 
 
 # TODO: lifetime extension:
-#  Assign costs and revenue for lifetime extension
+#  1) Assign costs and revenue for lifetime extension
+#  2) set up projected capacities
 
 class Developer(Agent):
     def __init__(self, unique_id, model, **kwargs):
@@ -43,9 +44,27 @@ class Developer(Agent):
         self.model.variables_developers[self.developer_type].append(
             (self.unique_id, self.model.transport_repair,
              (self.lifetime_extension_cost - self.lifetime_extension_revenue)))
+        self.le_feasibility = self.model.le_feasibility
+        self.lifetime_extension_years = \
+            self.model.symetric_triang_distrib_draw(
+                self.model.lifetime_extension_years[0],
+                self.model.lifetime_extension_years[1])
+        self.model.le_characteristics.append((self.le_feasibility,
+                                              self.lifetime_extension_years))
 
     def mock_up(self):
         pass
+
+    def update_agent_variables(self):
+        """
+        Update instance (agent) variables
+        """
+        self.lifetime_extension_years = \
+            self.model.symetric_triang_distrib_draw(
+                self.model.lifetime_extension_years[0],
+                self.model.lifetime_extension_years[1])
+        self.model.le_characteristics.append((self.le_feasibility,
+                                              self.lifetime_extension_years))
 
     def step(self):
         """
@@ -54,6 +73,7 @@ class Developer(Agent):
         """
         if self.internal_clock == self.model.clock:
             self.mock_up()
+            self.update_agent_variables()
             self.internal_clock += 1
         else:
             pass

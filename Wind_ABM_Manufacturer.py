@@ -22,6 +22,9 @@ import operator
 from math import *
 import time
 
+# TODO: use the "cement_facility_locations.csv" for the cement agents
+#  C:\Users\jwalzber\Documents\Winter21\Wind_ABM\Modeling
+
 
 class Manufacturer(Agent):
     def __init__(self, unique_id, model, **kwargs):

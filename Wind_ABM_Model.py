@@ -18,13 +18,10 @@ outputs.
 # Avoid calling the scheduler unless there are no other choices
 
 # TODO: Next steps - continue HERE
-#  1) Build consequences of lifetime extension: average lifetime is extended
-#  2) Try to find for loops and see if I can reduce them by using list
-#  comprehension to filter some unused value (like I did for pressure function
-#  below)
-#  3) Write unittests and docstrings (and rewrite more efficient functions if
+#  1) Write unittests and docstrings (and rewrite more efficient functions if
 #  possible)
-#  4) Continue with other agents
+#  2) Continue with other agents
+#    i) have the developers set up projected capacities
 
 from mesa import Model
 from Wind_ABM_WindPlantOwner import WindPlantOwner
@@ -159,9 +156,11 @@ class WindABM(Model):
                  rec_processes_revenues={
                      "dissolution": [0, 1E-6], "pyrolysis": [660, 1320],
                      "mechanical_recycling":
-                         [242, 302.5], "cement_co_processing": [0, 1E-6]}
+                         [242, 302.5], "cement_co_processing": [0, 1E-6]},
                  # TODO: make sure that all data using tons are in metric
                  #  tons and not in US tons
+                 lifetime_extension_years=[5, 10],
+                 le_feasibility=0.55
                  ):
         """
         Initiate model.
@@ -224,6 +223,9 @@ class WindABM(Model):
         ($/blade)
         :param rec_processes_revenues: revenue obtained from the various
         recycling pathways ($/metric ton)
+        :param lifetime_extension_years: number of years a turbine lifetime is
+        extended (years)
+        :param le_feasibility: feasibility ratio of lifetime extension
         """
         # Variables from inputs (value defined externally):
         self.seed = seed
@@ -255,6 +257,8 @@ class WindABM(Model):
         self.eol_pathways_transport_mode = eol_pathways_transport_mode
         self.lifetime_extension_revenues = lifetime_extension_revenues
         self.rec_processes_revenues = rec_processes_revenues
+        self.lifetime_extension_years = lifetime_extension_years
+        self.le_feasibility = le_feasibility
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -313,6 +317,11 @@ class WindABM(Model):
         self.regulator_states_list = list(self.growth_rates.keys())
         self.regulations_enacted = self.nested_init_dic(
             False, self.eol_pathways, self.growth_rates.keys())
+        self.bans_enacted = self.nested_init_dic(
+            False, self.growth_rates.keys(), self.eol_pathways)
+        self.other_regulations_enacted = self.nested_init_dic(
+            False, self.growth_rates.keys(), self.eol_pathways)
+        self.le_characteristics = []
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -770,12 +779,11 @@ class WindABM(Model):
         all_or_trg_distances = self.all_shortest_paths_or_trg[state]
         max_dist = max(all_or_trg_distances)
         for key, value in regulations.items():
-            weighted_avg = 0
             list_state_w_regulation = [
                 key for key, val in value.items() if val]
-            for item in list_state_w_regulation:
-                score = (max_dist - all_or_trg_distances[item]) / max_dist
-                weighted_avg += score
+            weighted_avg = sum(
+                [(max_dist - all_or_trg_distances[item]) / max_dist for
+                 item in list_state_w_regulation])
             scores[key] = weighted_avg
         return scores
 
@@ -815,6 +823,25 @@ class WindABM(Model):
         return first_choice, second_choice
 
     @staticmethod
+    def lifetime_extension(eol_pathway, initial_lifetime, le_feas_years):
+        feasibility = le_feas_years[0]
+        years_extended = le_feas_years[1]
+        if eol_pathway == 'lifetime_extension':
+            return (initial_lifetime + years_extended), (1 - feasibility)
+        else:
+            return initial_lifetime, 0
+
+    @staticmethod
+    def boolean_dic_based_on_dicts(dic_to_modify, value_to_change, modifier,
+                                   *args):
+        for arg in args:
+            if any(x == value_to_change for x in arg.values()):
+                for key, value in arg.items():
+                    if value == value_to_change:
+                        dic_to_modify[key] = bool(value * modifier)
+        return dic_to_modify
+
+    @staticmethod
     def filter_list(input_list, filtered_out_value):
         output = list(filter(lambda x: x != filtered_out_value, input_list))
         return output
@@ -850,8 +877,11 @@ class WindABM(Model):
         """
         self.variables_recyclers = self.initial_dic_from_key_list(
             self.recyclers.keys(), [])
+        self.variables_landfills = self.initial_dic_from_key_list(
+            self.landfills.keys(), [])
         self.regulations_enacted = self.nested_init_dic(
             False, self.eol_pathways, self.growth_rates.keys())
+        self.le_characteristics = []
 
     def update_model_variables(self):
         """

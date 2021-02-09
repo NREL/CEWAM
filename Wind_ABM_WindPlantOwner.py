@@ -9,14 +9,6 @@ This module contains the WindPlantOwner class. Wind plant owners make several
 decisions, for instance, regarding EOL management.
 """
 
-# Notes:
-# Need to add adoption methods
-
-# TODO:
-#  1) Build consequences of lifetime extension: average lifetime is extended
-#  2) write effect of ban: landfill is False for agent from state with a ban
-#  3) in landfill agent --> landfill could be closed and needs to have an
-#  effect on possible landfill destination!
 
 from mesa import Agent
 import random
@@ -120,6 +112,7 @@ class WindPlantOwner(Agent):
         self.eol_second_choice = random.choice(self.model.filter_list(
             self.model.list_init_eol_second_choice, self.eol_pathway))
         self.eol_second_choice_share = 0
+        self.wpo_eol_pathways = self.model.eol_pathways
 
     @staticmethod
     def compute_mass_conv_factor(rotor_diameter, coefficient, power,
@@ -272,22 +265,22 @@ class WindPlantOwner(Agent):
         minimum_tr_proc_cost = min(list_tot_cost, key=lambda t: t[1])
         return minimum_tr_proc_cost
 
-    # TODO
-    @staticmethod
-    def lifetime_extension(eol_pathway, second_choice, initial_lifetime,
-                           years_extended, feasibility):
-        if eol_pathway == 'lifetime_extension':
-            pass
-
     def update_agent_variables(self):
         """
         Update instance (agent) variables
         """
-        # TODO
-        self.average_lifetime = 2
+        self.average_lifetime, self.eol_second_choice_share = \
+            self.model.lifetime_extension(
+                self.eol_pathway, self.model.average_lifetime,
+                random.choice(self.model.le_characteristics))
         self.waste = self.model.waste_generation(
             self.model.temporal_scope['simulation_start'], self.model.clock,
             self.p_year, self.p_cap_waste, self.average_lifetime,
+            self.model.weibull_shape_factor) + self.eol_second_choice_share * \
+            self.model.waste_generation(
+            self.model.temporal_scope['simulation_start'],
+            self.model.clock, self.p_year, self.p_cap_waste,
+            self.model.average_lifetime,
             self.model.weibull_shape_factor)
         self.p_cap_waste -= self.waste
         self.cum_waste += self.waste
@@ -296,10 +289,13 @@ class WindPlantOwner(Agent):
             self.eol_tr_cost_repair, self.model.variables_recyclers,
             self.model.variables_landfills, self.variables_developers_wpo,
             self.decommissioning_cost)
+        self.wpo_eol_pathways = self.model.boolean_dic_based_on_dicts(
+            self.wpo_eol_pathways, True, False,
+            self.model.bans_enacted[self.t_state])
         self.eol_pathway, self.eol_second_choice = \
             self.model.theory_planned_behavior_model(
                 self.model.tpb_eol_coeff, self.eol_att_level_ce_path,
-                self.eol_att_level_conv_path, self.model.eol_pathways,
+                self.eol_att_level_conv_path, self.wpo_eol_pathways,
                 self.model.choices_circularity, 'eol_pathway', self.pos,
                 self.eol_pathways_costs, self.eol_pathways_barriers,
                 self.t_state, self.model.regulations_enacted)

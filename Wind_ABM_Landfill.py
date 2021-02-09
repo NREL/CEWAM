@@ -36,6 +36,7 @@ class Landfill(Agent):
         self.landfill_cost = self.model.landfill_costs[self.landfill_state]
         self.model.variables_landfills[self.landfill_type].append(
             (self.unique_id, self.landfill_state, self.landfill_cost))
+        self.closure = False
 
     def mock_up(self):
         pass
@@ -47,6 +48,29 @@ class Landfill(Agent):
         pick = list_to_shuffle[0]
         return pick
 
+    @staticmethod
+    def closure_update(other_regulations, landfill_state):
+        if other_regulations[landfill_state]['landfill']:
+            closure = True
+        else:
+            closure = False
+        return closure
+
+    def update_agent_variables(self):
+        """
+        Update instance (agent) variables
+        """
+        self.closure = self.closure_update(
+            self.model.other_regulations_enacted, self.landfill_state)
+
+    def report_agent_variables(self):
+        """
+        Report instance (agent) variables
+        """
+        if not self.closure:
+            self.model.variables_landfills[self.landfill_type].append(
+                (self.unique_id, self.landfill_state, self.landfill_cost))
+
     def step(self):
         """
         Evolution of agent at each step. As Mesa is not built for having
@@ -54,6 +78,8 @@ class Landfill(Agent):
         """
         if self.internal_clock == self.model.clock:
             self.mock_up()
+            self.update_agent_variables()
+            self.report_agent_variables()
             self.internal_clock += 1
         else:
             pass
