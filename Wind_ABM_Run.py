@@ -51,8 +51,8 @@ def run_model(number_run, number_steps):
             model.step()
         results_model = model.data_collector.get_model_vars_dataframe()
         results_agents = model.data_collector.get_agent_vars_dataframe()
-        results_model.to_csv("Results_model_run_%s.csv" % j)
-        results_agents.to_csv("Results_agents_run_%s.csv" % j)
+        results_model.to_csv("results\\Results_model_run_%s.csv" % j)
+        results_agents.to_csv("results\\Results_agents_run_%s.csv" % j)
         t1 = time.time()
         print(t1 - t0)
 
