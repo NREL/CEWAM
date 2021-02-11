@@ -74,6 +74,7 @@ class WindPlantOwner(Agent):
         self.waste = 0
         self.cum_waste = 0
         self.agent_attributes_counted = False
+        self.agent_attributes_updated = False
         self.eol_att_level_ce_path = self.model.trunc_normal_distrib_draw(
             (self.model.attitude_parameters['min'] -
              self.model.attitude_parameters['mean']) /
@@ -113,6 +114,7 @@ class WindPlantOwner(Agent):
             self.model.list_init_eol_second_choice, self.eol_pathway))
         self.eol_second_choice_share = 0
         self.wpo_eol_pathways = self.model.eol_pathways
+        self.le_characteristics = random.choice(self.model.le_characteristics)
 
     @staticmethod
     def compute_mass_conv_factor(rotor_diameter, coefficient, power,
@@ -265,14 +267,15 @@ class WindPlantOwner(Agent):
         minimum_tr_proc_cost = min(list_tot_cost, key=lambda t: t[1])
         return minimum_tr_proc_cost
 
-    def update_agent_variables(self):
+    def update_agent_variables_every_or_specific_step(self):
         """
         Update instance (agent) variables
         """
+        # Agents' attributes that should be updated every step
         self.average_lifetime, self.eol_second_choice_share = \
             self.model.lifetime_extension(
                 self.eol_pathway, self.model.average_lifetime,
-                random.choice(self.model.le_characteristics))
+                self.le_characteristics)
         self.waste = self.model.waste_generation(
             self.model.temporal_scope['simulation_start'], self.model.clock,
             self.p_year, self.p_cap_waste, self.average_lifetime,
@@ -292,13 +295,18 @@ class WindPlantOwner(Agent):
         self.wpo_eol_pathways = self.model.boolean_dic_based_on_dicts(
             self.wpo_eol_pathways, True, False,
             self.model.bans_enacted[self.t_state])
-        self.eol_pathway, self.eol_second_choice = \
-            self.model.theory_planned_behavior_model(
-                self.model.tpb_eol_coeff, self.eol_att_level_ce_path,
-                self.eol_att_level_conv_path, self.wpo_eol_pathways,
-                self.model.choices_circularity, 'eol_pathway', self.pos,
-                self.eol_pathways_costs, self.eol_pathways_barriers,
-                self.t_state, self.model.regulations_enacted)
+        # Agents' attributes that should not be updated every step
+        if not self.agent_attributes_updated:
+            self.eol_pathway, self.eol_second_choice = \
+                self.model.theory_planned_behavior_model(
+                    self.model.tpb_eol_coeff, self.eol_att_level_ce_path,
+                    self.eol_att_level_conv_path, self.wpo_eol_pathways,
+                    self.model.choices_circularity, self.model.grid_wpo,
+                    'eol_pathway', self.pos, self.eol_pathways_costs,
+                    self.eol_pathways_barriers, self.t_state,
+                    self.model.regulations_enacted)
+            if self.model.early_failure_share * self.p_cap < self.cum_waste:
+                self.agent_attributes_updated = True
 
     def report_agent_variable_once_or_every_step(self):
         """
@@ -339,7 +347,7 @@ class WindPlantOwner(Agent):
         multiple scheduler, step needs to pass the global scheduler.
         """
         if self.internal_clock == self.model.clock:
-            self.update_agent_variables()
+            self.update_agent_variables_every_or_specific_step()
             self.report_agent_variable_once_or_every_step()
             self.remove_agent()
             self.internal_clock += 1

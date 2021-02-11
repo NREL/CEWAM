@@ -160,7 +160,12 @@ class WindABM(Model):
                  # TODO: make sure that all data using tons are in metric
                  #  tons and not in US tons
                  lifetime_extension_years=[5, 10],
-                 le_feasibility=0.55
+                 le_feasibility=0.55,
+                 # TODO: report this parameter and source in Memo report
+                 #  https://doi.org/10.1016/j.resconrec.2021.105439 assumption
+                 #  is that early failure blades might be treated differently
+                 #  than EOL blades
+                 early_failure_share=0.03
                  ):
         """
         Initiate model.
@@ -226,6 +231,7 @@ class WindABM(Model):
         :param lifetime_extension_years: number of years a turbine lifetime is
         extended (years)
         :param le_feasibility: feasibility ratio of lifetime extension
+        :param early_failure_share: share of early failure blade waste
         """
         # Variables from inputs (value defined externally):
         self.seed = seed
@@ -259,6 +265,7 @@ class WindABM(Model):
         self.rec_processes_revenues = rec_processes_revenues
         self.lifetime_extension_years = lifetime_extension_years
         self.le_feasibility = le_feasibility
+        self.early_failure_share = early_failure_share
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -336,7 +343,7 @@ class WindABM(Model):
         self.all_shortest_paths_or_trg = self.compute_all_distances(
             self.states, self.states_graph)
         # Creating agents and social networks:
-        self.schedule = RandomActivation(self)
+        self.schedule = BaseScheduler(self)
         self.G_rec, self.grid_rec, self.schedule_rec = \
             self.network_grid_schedule_agents(
                 sum(self.recyclers.values()),
@@ -399,13 +406,24 @@ class WindABM(Model):
             agent_reporters=agent_reporters)
 
     def network_grid_schedule_agents(self, num_nodes, node_degree,
-                                     rewiring_prob, num_agents, agent_type):
+                                     rewiring_prob, num_agents, agent_type,
+                                     **kwargs):
+        """
+        Creates the network of agents, links it to Mesa.space grid object, and
+        schedule the agents
+        :param num_nodes: number of nodes in the network
+        :param node_degree: average node degree in the network
+        :param rewiring_prob: probability of rewiring a given edge
+        :param num_agents: number og agents to schedule
+        :param agent_type: type of agents to schedule
+        :return: the network, the grid and the schedule
+        """
         network = self.creating_social_network(num_nodes, node_degree,
                                                rewiring_prob)
         grid = NetworkGrid(network)
-        schedule = BaseScheduler(self)
-        # schedule = RandomActivation(self)
-        self.creating_agents(num_agents, network, grid, schedule, agent_type)
+        schedule = RandomActivation(self)
+        self.creating_agents(num_agents, network, grid, schedule, agent_type,
+                             **kwargs)
         return network, grid, schedule,
 
     def compute_all_distances(self, states, graph):
@@ -458,8 +476,7 @@ class WindABM(Model):
         return distances_to_target
 
     @staticmethod
-    def creating_social_network(nodes, node_degree,
-                                rewiring_prob):
+    def creating_social_network(nodes, node_degree, rewiring_prob):
         """
         Set up model's social networks with the Watts & Strogatz algorithm.
         :param nodes: number of nodes in the graph
@@ -501,6 +518,7 @@ class WindABM(Model):
         :param schedule: Mesa scheduler of the agent type
         :param agent_type: name of the agent type, must be similar to the
         agent class's name
+        :param kwargs: additional parameters
         """
         for node in social_network:
             if node < num_agents:
@@ -624,6 +642,18 @@ class WindABM(Model):
 
     def roulette_wheel_choice(self, dic_frequencies, num_choices,
                               deterministic, list_choice):
+        """
+        Make a choice according to a roulette wheel process
+        :param dic_frequencies: a dictionary containing frequencies (determines
+        the size of the wedges in the roulette wheel)
+        :param num_choices: number of choices (number of roulette draws)
+        :param deterministic: if True randomly select the pick (where the ball
+        falls on the wheel), otherwise choose the pick as to distribute values
+        to exactly respect the dictionary's frequencies
+        :param list_choice: the list of choices distributed according to the
+        roulette wheel draws
+        :return: the list of choices list_choice
+        """
         cum_freq = self.dic_cumulative_frequencies(dic_frequencies)
         max_cum_freq = max(cum_freq.values())
         for i in range(num_choices):
@@ -686,15 +716,23 @@ class WindABM(Model):
             initial_dic[i] = initial_value_copy
         return initial_dic
 
-    # TODO: in docstring explain lists of keys are needed
-    def nested_init_dic(self, initial_value, *args):
+    def nested_init_dic(self, initial_value, list_keys1, list_keys2):
+        """
+        Creates a nested dictionary (2 levels) with an initial object
+        :param initial_value: the initial value for the nested dictionary, it
+        can be an integer, a list, a float, etc.
+        :param list_keys1: lists of keys for the nested dictionary
+        :param list_keys2: lists of keys for the nested dictionary
+        :return: nested dictionary with keys and values determined from inputs
+        """
         dic = {}
-        for i in range(len(args) - 1):
-            dic = self.initial_dic_from_key_list(args[i], initial_value)
+        list_lists = [list_keys1, list_keys2]
+        for i in range(len(list_lists) - 1):
+            dic = self.initial_dic_from_key_list(list_lists[i], initial_value)
             for key in dic.keys():
                 # noinspection PyTypeChecker
                 dic[key] = self.initial_dic_from_key_list(
-                    args[i + 1], initial_value)
+                    list_lists[i + 1], initial_value)
         return dic
 
     @staticmethod
@@ -729,6 +767,14 @@ class WindABM(Model):
 
     @staticmethod
     def remove_item_dic_from_boolean_dic(dic, boolean_dic):
+        """
+        Remove keys, values from a dictionary if the key in another dictionary
+        is false
+        :param dic: dictionary to modify
+        :param boolean_dic: dictionary of booleans, (with keys matching the
+        dictionary to modify)
+        :return: modified dictionary
+        """
         for key, value in boolean_dic.items():
             if not value:
                 dic.pop(key)
@@ -737,6 +783,16 @@ class WindABM(Model):
     @staticmethod
     def attitude(ce_att_level, conv_att_level, dic_choices,
                  choices_circularity):
+        """
+        Computes the  TPB attitude scores for each circular and non-circular
+        choices
+        :param ce_att_level: attitude level for circular choices
+        :param conv_att_level: attitude level for non circular choices
+        :param dic_choices: dictionary with the different choices
+        :param choices_circularity: dictionary associating choice and a boolean
+        with True when the choice is considered circular and False otherwise
+        :return: the attitude scores for each choice
+        """
         scores = {}
         circular_choices = {key: value for (key, value) in
                             choices_circularity.items() if value}
@@ -747,18 +803,26 @@ class WindABM(Model):
                 scores[key] = conv_att_level
         return scores
 
-    # TODO: DocString first lines: "Compute the subjective norms as measured by
-    #  the proportion of agents that have already adopted a given choice"
-    def subjective_norms(self, adopted_choice, position, dic_choices):
+    def subjective_norms(self, grid, adopted_choice, position, dic_choices):
+        """
+        Computes the TPB subjective norms scores for each circular and
+        non-circular choices as measured by the proportion of agents that have
+        already adopted a given choice
+        :param grid: network grid connecting agents
+        :param adopted_choice: name of the type of choice to be made (e.g., eol
+        choice)
+        :param position: position of the agent in the network
+        :param dic_choices: dictionary with the different choices
+        :return: the subjective norms scores for each choice
+        """
         scores = {}
-        neighbors_nodes = self.grid_wpo.get_neighbors(position,
-                                                      include_center=False)
+        neighbors_nodes = grid.get_neighbors(position, include_center=False)
         neighbors_nodes = [x for x in neighbors_nodes
-                           if not self.grid_wpo.is_cell_empty(x)]
+                           if not grid.is_cell_empty(x)]
         for key in dic_choices.keys():
             list_agent_w_key = [
                 agent for agent in
-                self.grid_wpo.get_cell_list_contents(neighbors_nodes) if
+                grid.get_cell_list_contents(neighbors_nodes) if
                 getattr(agent, adopted_choice) == key]
             score_key = self.safe_div(len(list_agent_w_key),
                                       len(neighbors_nodes))
@@ -766,6 +830,14 @@ class WindABM(Model):
         return scores
 
     def perceived_behavioral_control_and_barrier(self, value_choices):
+        """
+        Computes the TPB perceived behavioral control (or barriers) scores for
+        each circular and non-circular choices as measured by their percentage
+        of the maximum value (highest cost (or distance))
+        :param value_choices: the cost (or distance) of each choice
+        :return: the perceived behavioral control (or barriers) scores for
+        each choice
+        """
         scores = {}
         max_cost = max(abs(i) for i in value_choices.values())
         for key in value_choices.keys():
@@ -775,23 +847,60 @@ class WindABM(Model):
         return scores
 
     def pressure(self, state, regulations):
+        """
+        Computes the TPB pressure scores for each circular and non-circular
+        choices as measured by the weighted (by the distance to the agent)
+        average of states that have enacted some regulations
+        :param state: state of the agent
+        :param regulations: a nested dictionary of choices and states that
+        containing Booleans with True when the regulator in the state has
+        enacted regulation(s) for the given choice and False otherwise
+        :return: the pressure scores for each choice
+        """
         scores = {}
         all_or_trg_distances = self.all_shortest_paths_or_trg[state]
         max_dist = max(all_or_trg_distances)
         for key, value in regulations.items():
             list_state_w_regulation = [
                 key for key, val in value.items() if val]
-            weighted_avg = sum(
+            weighted_sum = sum(
                 [(max_dist - all_or_trg_distances[item]) / max_dist for
                  item in list_state_w_regulation])
-            scores[key] = weighted_avg
+            pressure_max = sum(
+                [(max_dist - all_or_trg_distances[item]) / max_dist for
+                 item in value.keys()])
+            scores[key] = weighted_sum / pressure_max
         return scores
 
     def theory_planned_behavior_model(
             self, tpb_weights, ce_att_level, conv_att_level, dic_choices,
-            choices_circularity, adopted_choice, position, cost_choices,
+            choices_circularity, grid, adopted_choice, position, cost_choices,
             barrier_choices, state, regulations):
-        scores_sn = self.subjective_norms(adopted_choice, position,
+        """
+        Compute the behavior scores for each choice depending on the elements
+        of the TPB: attitude, subjectives norms, perceived behavioral control,
+        barriers, and pressure; the behavior with the highest is adopted
+        while a second choice is also selected to account for limited technical
+        feasibility of some choices (e.g., lifetime extension)
+        :param tpb_weights: weights of the different factors in the TPB
+        :param ce_att_level: attitude level for circular choices
+        :param conv_att_level: attitude level for non circular choices
+        :param dic_choices: dictionary with the different choices
+        :param choices_circularity: dictionary associating choice and a boolean
+        with True when the choice is considered circular and False otherwise
+        :param grid: network grid connecting agents
+        :param adopted_choice: name of the type choice to be made (e.g., eol
+        choice)
+        :param position: position of the agent in the network
+        :param cost_choices: the cost of each choice
+        :param barrier_choices: the distance of each choice
+        :param state: state of the agent
+        :param regulations: a nested dictionary of choices and states that
+        containing Booleans with True when the regulator in the state has
+        enacted regulation(s) for the given choice and False otherwise
+        :return: the two behaviors with the highest scores
+        """
+        scores_sn = self.subjective_norms(grid, adopted_choice, position,
                                           dic_choices)
         scores_a = self.attitude(ce_att_level, conv_att_level, dic_choices,
                                  choices_circularity)
@@ -824,6 +933,17 @@ class WindABM(Model):
 
     @staticmethod
     def lifetime_extension(eol_pathway, initial_lifetime, le_feas_years):
+        """
+        Add a number of years to the average lifetime of turbines and compute
+        the share of turbines that can feasibly have their life extended in the
+        wind farm of wpo
+        :param eol_pathway: adopted eol pathway of the agent
+        :param initial_lifetime: initial average lifetime
+        :param le_feas_years: lifetime extension characteristics taken from
+        wind plant developer agents
+        :return: the initial lifetime with additional years if lifetime
+        extension is adopted and the share of turbines that are concerned
+        """
         feasibility = le_feas_years[0]
         years_extended = le_feas_years[1]
         if eol_pathway == 'lifetime_extension':
@@ -834,6 +954,16 @@ class WindABM(Model):
     @staticmethod
     def boolean_dic_based_on_dicts(dic_to_modify, value_to_change, modifier,
                                    *args):
+        """
+        Build a dictionary with Booleans based on values in other dictionaries;
+        other dictionaries should also be Booleans
+        :param dic_to_modify: the dictionary to modify
+        :param value_to_change: the value to change from the dictionaries
+        :param modifier: modify the value of the dictionary dic_to_modify
+        :param args: dictionaries which determine what values are modified in
+        dic_to_modify
+        :return: the modified dictionary
+        """
         for arg in args:
             if any(x == value_to_change for x in arg.values()):
                 for key, value in arg.items():
@@ -843,23 +973,49 @@ class WindABM(Model):
 
     @staticmethod
     def filter_list(input_list, filtered_out_value):
+        """
+        Filter out a given value from list
+        :param input_list: list from which the value should be filtered out
+        :param filtered_out_value: the value to filter out from list
+        :return: filtered out value
+        """
         output = list(filter(lambda x: x != filtered_out_value, input_list))
         return output
 
     @staticmethod
     def safe_div(x, y):
+        """
+        Division that return 0 if the denominator is equal to 0
+        :param x: numerator
+        :param y: denominator
+        :return: value of the division being 0 if the denominator is 0
+        """
         if y == 0:
             return 0
         return x / y
 
     @staticmethod
     def trunc_normal_distrib_draw(a, b, loc, scale):
+        """
+        Draw a value from a truncated normal distribution
+        :param a: minimum of the range from where to draw
+        :param b: maximum of the range from where to draw
+        :param loc: mean of the distribution
+        :param scale: standard deviation of the distribution
+        :return: drawn value
+        """
         distribution = truncnorm(a, b, loc, scale)
         draw = float(distribution.rvs(1))
         return draw
 
     @staticmethod
     def symetric_triang_distrib_draw(min_value, max_value):
+        """
+        Draw a value from a symetric triangular distribution
+        :param min_value: minimum of the range from where to draw
+        :param max_value: maximum of the range from where to draw
+        :return: drawn value
+        """
         mode = (max_value + min_value) / 2
         draw = np.random.triangular(min_value, mode, max_value)
         return draw

@@ -2,5 +2,6 @@
 __pycache__/
 arch
 results
+tests/results
 venv/
 github-recovery-codes.txt

@@ -9,7 +9,7 @@ Test functions in Wind_ABM_Run
 
 
 from unittest import TestCase
-from Wind_ABM_Run import run_model
+from Wind_ABM_Run import *
 import pandas as pd
 
 # TODO: complete with unittest for latest results (e.g., verify that wastes in
@@ -19,10 +19,15 @@ import pandas as pd
 class TestWindABMRun(TestCase):
     @classmethod
     def setUpClass(cls):
+        path = "C:/Users/jwalzber/PycharmProjects/WindABM/tests/results/"
         cls.number_run = 1
         cls.number_steps = 31
-        run_model(cls.number_run, cls.number_steps)
-        cls.results_model = pd.read_csv("Results_model_run_0.csv")
+        test_model = WindABM(eol_pathways={
+            "lifetime_extension": False, "dissolution": True,
+            "pyrolysis": True, "mechanical_recycling": True,
+            "cement_co_processing": True, "landfill": True})
+        run_model(cls.number_run, cls.number_steps, test_model)
+        cls.results_model = pd.read_csv(path + "Results_model_run_0.csv")
 
     def test_run_model_projected_capacity(self):
         """
@@ -39,6 +44,6 @@ class TestWindABMRun(TestCase):
         """Test that run model provides expected waste"""
         test_cum_waste = round(
             self.results_model.loc[
-                (self.number_steps - 1)]['Cumulative waste (tons)'])
+                (self.number_steps - 1)]['Cumulative waste (metric tons)'])
         cum_waste = 3936222
         self.assertAlmostEqual(test_cum_waste, cum_waste, delta=100)

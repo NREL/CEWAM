@@ -11,7 +11,7 @@ Test functions in Wind_ABM_WIndPlantOwner
 
 from unittest import TestCase
 from Wind_ABM_Model import WindABM
-from Wind_ABM_WindPlantOwner import WindPlantOwner
+import random
 
 
 class TestWindPlantOwner(TestCase):
@@ -47,10 +47,10 @@ class TestWindPlantOwner(TestCase):
         t_cap = 10
         result = coefficient * (rotor_diameter / 2)**power * \
             blades_per_rotor / t_cap
-        unique_id = 0
-        test_result = \
-            WindPlantOwner(unique_id, WindABM()).compute_mass_conv_factor(
-                rotor_diameter, coefficient, power, blades_per_rotor, t_cap)
+        test_model = WindABM()
+        agent = random.choice(test_model.schedule_wpo.agents)
+        test_result = agent.compute_mass_conv_factor(
+            rotor_diameter, coefficient, power, blades_per_rotor, t_cap)
         self.assertEqual(result, test_result)
 
     def test_update_agent_variables(self):
@@ -71,7 +71,7 @@ class TestWindPlantOwner(TestCase):
     def test_step(self):
         """Test that the wpo agents run steps without errors"""
         model = WindABM()
-        agent = WindPlantOwner(0, model)
+        agent = random.choice(model.schedule_wpo.agents)
         steps = 1
         agent.step()
         clock = agent.internal_clock
