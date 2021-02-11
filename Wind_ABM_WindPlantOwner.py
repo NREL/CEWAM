@@ -330,6 +330,11 @@ class WindPlantOwner(Agent):
         self.model.states_waste_eol_path[self.t_state][
             self.eol_second_choice] += self.waste * self.mass_conv_factor * \
             self.eol_second_choice_share
+        if self.eol_second_choice_share != 0:
+            self.model.eol_pathway_adoption[self.eol_pathway] += 1
+            self.model.eol_pathway_adoption[self.eol_second_choice] += 1
+        else:
+            self.model.eol_pathway_adoption[self.eol_pathway] += 1
 
     def remove_agent(self):
         """

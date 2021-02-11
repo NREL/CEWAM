@@ -53,7 +53,7 @@ class WindABM(Model):
                  recyclers={
                      "dissolution": 25, "pyrolysis": 25,
                      "mechanical_recycling": 25, "cement_co_processing": 25},
-                 landfills={"landfill": 100},
+                 landfills={"landfill": 48},
                  small_world_network={"node_degree": 15, "rewiring_prob": 0.1},
                  external_files={
                      "state_distances": "StatesAdjacencyMatrix.csv", "uswtdb":
@@ -329,6 +329,8 @@ class WindABM(Model):
         self.other_regulations_enacted = self.nested_init_dic(
             False, self.growth_rates.keys(), self.eol_pathways)
         self.le_characteristics = []
+        self.eol_pathway_adoption = self.initial_dic_from_key_list(
+            self.eol_pathways, 0)
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -390,10 +392,13 @@ class WindABM(Model):
             "Year": lambda a:
             self.clock + self.temporal_scope['simulation_start'],
             "Cumulative capacity (MW)": lambda a: self.all_cap,
-            "State cumulative capacity (MW)": lambda a: str(self.states_cap),
+            "State cumulative capacity (MW)": lambda a: self.states_cap,
             "Cumulative waste (metric tons)": lambda a: self.all_waste,
-            "State waste (metric tons)": lambda a: str(self.states_waste),
-            "Number wpo agents": lambda a: self.number_wpo_agent}
+            "State waste (metric tons)": lambda a: self.states_waste,
+            "State waste - eol pathways (metric tons)":
+                lambda a: self.states_waste_eol_path,
+            "Number wpo agents": lambda a: self.number_wpo_agent,
+            "eol pathway adoption": lambda a: self.eol_pathway_adoption}
         agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
@@ -1026,6 +1031,8 @@ class WindABM(Model):
         """
         self.number_wpo_agent = 0
         self.eol_pathway_dist_list = []
+        self.eol_pathway_adoption = self.initial_dic_from_key_list(
+            self.eol_pathways, 0)
 
     def reinitialize_global_variables_other_agents(self):
         """
