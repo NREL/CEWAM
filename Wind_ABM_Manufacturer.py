@@ -22,8 +22,12 @@ import operator
 from math import *
 import time
 
-# TODO: use the "cement_facility_locations.csv" for the cement agents
+# TODO:
+#  1) use the "cement_facility_locations.csv" for the cement agents
 #  C:\Users\jwalzber\Documents\Winter21\Wind_ABM\Modeling
+#  2) Silica quarries location to map on cement factories (look up in USGS)
+#  Will determined if cement factory accept waste
+
 
 
 class Manufacturer(Agent):

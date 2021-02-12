@@ -15,10 +15,6 @@ import random
 
 
 class TestWindPlantOwner(TestCase):
-    def test_sum_agent_variable_once_or_every_step(self):
-        """Function can't be formally tested here"""
-        pass
-
     def test_wind_power_capacity_state_distribution(self):
         """Verify that capacities are distributed as should be within the US"""
         schedule = WindABM().schedule_wpo
@@ -53,7 +49,157 @@ class TestWindPlantOwner(TestCase):
             rotor_diameter, coefficient, power, blades_per_rotor, t_cap)
         self.assertEqual(result, test_result)
 
-    def test_update_agent_variables(self):
+    def test_conversion_blade_to_ton(self):
+        """Test that conversion works properly"""
+        mass_conv_factor = 10
+        t_cap = 6
+        blades_per_rotor = 3
+        result = mass_conv_factor * t_cap / blades_per_rotor
+        agent = random.choice(WindABM().schedule_wpo.agents)
+        test = agent.conversion_blade_to_ton(mass_conv_factor, t_cap,
+                                             blades_per_rotor)
+        self.assertEqual(result, test)
+
+    def test_convert_developer_costs(self):
+        """Test that costs are converted for all value in dic"""
+        developer_costs = {'a': [(1, 2, 6)], 'b': [(3, 4, 12),
+                                                   (7, 8, 2)]}
+        conversion_factor = 2
+        result = {'a': [(1, 2, 3)], 'b': [(3, 4, 6), (7, 8, 1)]}
+        agent = random.choice(WindABM().schedule_wpo.agents)
+        test = agent.convert_developer_costs(
+            developer_costs, conversion_factor)
+        self.assertEqual(result, test)
+
+    def test_eol_distances(self):
+        """Test that eol distances are computed correctly"""
+        possible_destination_rec = {
+            'a': [(1, 'Colorado', 2), (1, 'California', 2)],
+            'b': [(1, 'Colorado', 2), (1, 'Washington', 2)]}
+        possible_destination_land = {
+            'c': [(1, 'Colorado', 2), (1, 'California', 2)]}
+        all_possible_distances = WindABM().all_shortest_paths_or_trg
+        agent = random.choice(WindABM().schedule_wpo.agents)
+        agent.t_state = 'Washington'
+        result = {
+            'a': [(1, 1409, 2), (1, 1045, 2)],
+            'b': [(1, 1409, 2), (1, 198, 2)],
+            'c': [(1, 1409, 2), (1, 1045, 2)]}
+        test = agent.eol_distances(
+            possible_destination_rec, possible_destination_land,
+            all_possible_distances)
+        for key, value in test.items():
+            list_distances = test[key]
+            list_distances = [(x, round(y), z) for x, y, z in list_distances]
+            test[key] = list_distances
+        self.assertEqual(test, result)
+
+    def test_transport_shred_costs(self):
+        """Test that costs are computed correctly"""
+        data = {'transport_cost_shreds': [1, 1.0001],
+                'shredding_costs': [2, 2.0001]}
+        distances = [(1, 1409, 2), (1, 1045, 2)]
+        result = [(1, 2 + 1 * 1409), (1, 2 + 1 * 1045)]
+        agent = random.choice(WindABM().schedule_wpo.agents)
+        test = agent.transport_shred_costs(data, distances)
+        test = [(x, round(y)) for x, y in test]
+        self.assertEqual(result, test)
+
+    def test_transport_segment_costs(self):
+        """Test that costs are computed correctly"""
+        data = {'transport_cost_segments': 1,
+                'cutting_costs': 1, 'length_segment': 1,
+                'segment_per_truck': 1}
+        distances = [(1, 1409, 2), (1, 1045, 2)]
+        result = [(1, 1 + 1 * 1409), (1, 1 + 1 * 1045)]
+        agent = random.choice(WindABM().schedule_wpo.agents)
+        agent.mass_conv_factor = 1
+        agent.t_cap = 1
+        agent.t_rd = 2
+        agent.model.blades_per_rotor = 1
+        test = agent.transport_segment_costs(data, distances)
+        test = [(x, round(y)) for x, y in test]
+        self.assertEqual(result, test)
+
+    def test_eol_transportation_costs(self):
+        """Test transportation costs"""
+        distances = {
+            'a': [(1, 1409, 2), (1, 1045, 2)],
+            'b': [(1, 1409, 2), (1, 198, 2)]}
+        agent = random.choice(WindABM().schedule_wpo.agents)
+        agent.model.eol_pathways = {'a': True, 'b': True, 'c': True}
+        agent.model.transport_shreds = {
+            'transport_cost_shreds': [1, 1.0001],
+            'shredding_costs': [1, 1.0001]}
+        agent.model.transport_segments = {
+            'transport_cost_segments': 1, 'cutting_costs': 1,
+            'length_segment': 1, 'segment_per_truck': 1}
+        agent.mass_conv_factor = 1
+        agent.t_cap = 1
+        agent.t_rd = 2
+        agent.model.blades_per_rotor = 1
+        agent.variables_developers_wpo = {'c': [(1, 1, 1)]}
+        result = (
+            {'a': [(1, 1410), (1, 1046)],
+             'b': [(1, 1410), (1, 199)]},
+            {'a': [(1, 1410), (1, 1046)],
+             'b': [(1, 1410), (1, 199)]},
+            {'c': [(1, 1)]})
+        test1, test2, test3 = agent.eol_transportation_costs(distances)
+        test = [test1, test2, test3]
+        for i in range(len(test)):
+            sub_test = test[i]
+            for key, value in sub_test.items():
+                list_costs = sub_test[key]
+                list_costs = [(x, round(y)) for x, y in list_costs]
+                sub_test[key] = list_costs
+            test[i] = sub_test
+        test = (test[0], test[1], test[2])
+        self.assertEqual(test, result)
+
+    def test_costs_eol_pathways(self):
+        """Test that costs are minimized"""
+        eol_tr_costs_shreds = {'a': [(1, 1), (2, 1)],
+                               'b': [(1, 1), (2, 1)],
+                               'c': [(1, 2), (2, 4)]}
+        eol_tr_costs_segment = {'a': [(1, 1), (2, 1)],
+                                'b': [(1, 1), (2, 1)],
+                                'c': [(1, 3), (2, 4)]}
+        eol_tr_costs_repair = {'d': [(1, 1)]}
+        variables_recyclers = {
+            'a': [(1, 'Colorado', 1), (2, 'California', 2)],
+            'b': [(1, 'Colorado', 2), (2, 'Washington', 1)]}
+        variables_landfills = {
+            'c': [(1, 'Colorado', 2), (2, 'California', 1)]}
+        variables_developers = {'d': [(1, 1, 1)]}
+        decommissioning_cost = 0
+        agent = random.choice(WindABM().schedule_wpo.agents)
+        agent.model.eol_pathways = {'a': True, 'b': True, 'c': True, 'd': True}
+        agent.model.eol_pathways_transport_mode = {
+            'a': 'undefined', 'b': 'undefined', 'c': 'undefined',
+            'd': 'transport_repair'}
+        result = {'a': 2, 'b': 2, 'c': 4, 'd': 2}
+        test = agent.costs_eol_pathways(
+            eol_tr_costs_shreds, eol_tr_costs_segment, eol_tr_costs_repair,
+            variables_recyclers, variables_landfills, variables_developers,
+            decommissioning_cost)
+        self.assertEqual(result, test)
+
+    def test_minimum_tr_proc_costs(self):
+        """Test that costs are minimized"""
+        process_costs = [(1, 'Colorado', 4), (2, 'California', 3),
+                         (3, 'Indiana', 2), (4, 'Washington', 1)]
+        transport_cost = [(1, 2), (2, 5), (3, 5), (4, 7)]
+        result = (1, 4 + 2)
+        agent = random.choice(WindABM().schedule_wpo.agents)
+        test = agent.minimum_tr_proc_costs(process_costs, transport_cost)
+        self.assertEqual(result, test)
+
+    def test_update_agent_variables_every_or_specific_step(self):
+        """Function can't be formally tested here"""
+        pass
+
+    def test_report_agent_variable_once_or_every_step(self):
         """Function can't be formally tested here"""
         pass
 

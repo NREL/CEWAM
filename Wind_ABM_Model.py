@@ -18,10 +18,13 @@ outputs.
 # Avoid calling the scheduler unless there are no other choices
 
 # TODO: Next steps - continue HERE
-#  1) Write unittests and docstrings (and rewrite more efficient functions if
-#  possible)
+#  1) Fix lifetime extension: waste should go to the second eol_choice
+#  2) set up a function to have agents change their choices if other decisions
+#  are made in the model: landfill ban or landfill closure
 #  2) Continue with other agents
 #    i) have the developers set up projected capacities
+#  3) For the memo: frame it for a paper already? Limit word count to 1000-2000
+#  words (PNAS?  look into it)
 
 from mesa import Model
 from Wind_ABM_WindPlantOwner import WindPlantOwner
@@ -235,6 +238,8 @@ class WindABM(Model):
         """
         # Variables from inputs (value defined externally):
         self.seed = seed
+        np.random.seed(self.seed)
+        random.seed(self.seed)
         self.manufacturers = manufacturers
         self.developers = developers
         self.recyclers = recyclers
@@ -392,13 +397,13 @@ class WindABM(Model):
             "Year": lambda a:
             self.clock + self.temporal_scope['simulation_start'],
             "Cumulative capacity (MW)": lambda a: self.all_cap,
-            "State cumulative capacity (MW)": lambda a: self.states_cap,
+            "State cumulative capacity (MW)": lambda a: str(self.states_cap),
             "Cumulative waste (metric tons)": lambda a: self.all_waste,
-            "State waste (metric tons)": lambda a: self.states_waste,
+            "State waste (metric tons)": lambda a: str(self.states_waste),
             "State waste - eol pathways (metric tons)":
-                lambda a: self.states_waste_eol_path,
+                lambda a: str(self.states_waste_eol_path),
             "Number wpo agents": lambda a: self.number_wpo_agent,
-            "eol pathway adoption": lambda a: self.eol_pathway_adoption}
+            "eol pathway adoption": lambda a: str(self.eol_pathway_adoption)}
         agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
@@ -424,7 +429,7 @@ class WindABM(Model):
         :return: the network, the grid and the schedule
         """
         network = self.creating_social_network(num_nodes, node_degree,
-                                               rewiring_prob)
+                                               rewiring_prob, self.seed)
         grid = NetworkGrid(network)
         schedule = RandomActivation(self)
         self.creating_agents(num_agents, network, grid, schedule, agent_type,
@@ -481,16 +486,18 @@ class WindABM(Model):
         return distances_to_target
 
     @staticmethod
-    def creating_social_network(nodes, node_degree, rewiring_prob):
+    def creating_social_network(nodes, node_degree, rewiring_prob, seed):
         """
         Set up model's social networks with the Watts & Strogatz algorithm.
         :param nodes: number of nodes in the graph
         :param node_degree: node degree of the equivalent regular lattice
         :param rewiring_prob: probability of rewiring a given edge
+        :param seed: random seed for the small-world network
         :return social_network: a graph representing agents' social network
         """
         social_network = nx.watts_strogatz_graph(nodes, node_degree,
-                                                 rewiring_prob)
+                                                 rewiring_prob,
+                                                 seed=random.seed(seed))
         return social_network
 
     @staticmethod

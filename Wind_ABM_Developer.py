@@ -18,7 +18,7 @@ from mesa import Agent
 
 # TODO: lifetime extension:
 #  1) Assign costs and revenue for lifetime extension
-#  2) set up projected capacities
+#  2) set up projected capacities instead of wpo
 
 class Developer(Agent):
     def __init__(self, unique_id, model, **kwargs):

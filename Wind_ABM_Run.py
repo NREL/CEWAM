@@ -26,24 +26,31 @@ This module run the model according to user inputs.
 #    .rename_axis('State')
 #    .reset_index())
 #  w.head()
-
+#  4) I can compile file before running - use: "python -m nuitka
+#  Wind_ABM_Run.py --include-module=Wind_ABM_Model
+#  --include-module=Wind_ABM_WindPlantOwner [and other modules]" in Anaconda
+#  prompt
+#  5) Test that random seed works with this model; it does not seem to
 
 from Wind_ABM_Model import *
 import time
 
 
-def run_model(number_run, number_steps, model_instance):
+def run_model(number_run, number_steps, **kwargs):
     """
     Run model and collect outputs at each time steps. Creates a new file for
     each run. Use a new seed for random generation at each run.
     :param number_run number of replicates for one model configuration
     :param number_steps duration of the simulation(s) in years
-    :param model_instance: model and its configuration for the simulation(s)
+    :param kwargs: configuration of the model for the simulation(s)
     """
     for j in range(number_run):
         t0 = time.time()
-        model_instance.seed = j
-        model_instance.temporal_scope['simulation_end'] = (2020 + number_steps)
+        model_instance = WindABM(seed=j, temporal_scope={
+            'pre_simulation': 2000, 'simulation_start': 2020,
+            'simulation_end': (2020 + number_steps)})
+        for key, value in kwargs.items():
+            setattr(model_instance, key, value)
         for i in range((model_instance.temporal_scope['simulation_end'] -
                         model_instance.temporal_scope['simulation_start'])):
             model_instance.step()
@@ -57,7 +64,5 @@ def run_model(number_run, number_steps, model_instance):
         print(t1 - t0)
 
 
-# default temporal scope: 2020-2051
-model = WindABM()
-
-run_model(1, 31, model)
+parameters = {}
+run_model(1, 31, **parameters)

@@ -39,8 +39,10 @@ class Regulator(Agent):
         self.other_regulations = self.model.initial_dic_from_key_list(
             self.model.eol_pathways, False)
 
+    # TODO: change mock_up for real function below
     def mock_up(self):
-        pass
+        if self.regulator_state == "Washington" and self.model.clock == 9:
+            self.bans['landfill'] = True
 
     def update_agent_variables(self):
         """

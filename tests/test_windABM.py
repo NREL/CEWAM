@@ -69,7 +69,7 @@ class TestWindABM(TestCase):
         theo_avg_node_degree = WindABM().small_world_network["node_degree"]
         rewiring_prob = WindABM().small_world_network["rewiring_prob"]
         graph = WindABM().creating_social_network(
-            number_node, theo_avg_node_degree, rewiring_prob)
+            number_node, theo_avg_node_degree, rewiring_prob, None)
         graph_node_degrees = graph.degree()
         graph_avg_node_degree = sum(dict(graph_node_degrees).values()) / \
             number_node
@@ -99,7 +99,7 @@ class TestWindABM(TestCase):
         theo_avg_node_degree = WindABM().small_world_network["node_degree"]
         rewiring_prob = WindABM().small_world_network["rewiring_prob"]
         graph = WindABM().creating_social_network(
-            number_node, theo_avg_node_degree, rewiring_prob)
+            number_node, theo_avg_node_degree, rewiring_prob, None)
         schedule = RandomActivation(self)
         grid = NetworkGrid(graph)
 
@@ -130,7 +130,7 @@ class TestWindABM(TestCase):
         theo_avg_node_degree = 2
         rewiring_prob = 0
         graph = test_model.creating_social_network(
-            max_num_agents, theo_avg_node_degree, rewiring_prob)
+            max_num_agents, theo_avg_node_degree, rewiring_prob, None)
         schedule = RandomActivation(self)
         grid = NetworkGrid(graph)
 
