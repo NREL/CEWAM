@@ -13,9 +13,6 @@ from Wind_ABM_Run import *
 import pandas as pd
 import ast
 
-# TODO: complete with unittest for latest results (e.g., verify that wastes in
-#  all eol pathway tally to all waste reported in other global variable)
-
 
 class TestWindABMRun(TestCase):
     @classmethod
@@ -24,10 +21,13 @@ class TestWindABMRun(TestCase):
         cls.number_run = 1
         cls.number_steps = 31
         test_parameters = {'eol_pathways': {
-            "lifetime_extension": False, "dissolution": True,
+            "lifetime_extension": False, "dissolution": False,
             "pyrolysis": True, "mechanical_recycling": True,
             "cement_co_processing": True, "landfill": True}}
-        run_model(cls.number_run, cls.number_steps, **test_parameters)
+        test_model = WindABMRun(
+            number_run=cls.number_run, number_steps=cls.number_steps,
+            **test_parameters)
+        test_model.run_model()
         cls.results_model = pd.read_csv(path + "Results_model_run_0.csv")
 
     def test_run_model_projected_capacity(self):
@@ -103,7 +103,7 @@ class TestWindABMRun(TestCase):
         """Test that run model provides expected number of agents"""
         test = self.results_model.loc[(self.number_steps - 1)][
             'Number wpo agents']
-        result = 2181
+        result = 2178
         self.assertEqual(result, test)
 
     def test_wind_project_state_sum_tot(self):

@@ -18,9 +18,6 @@ outputs.
 # Avoid calling the scheduler unless there are no other choices
 
 # TODO: Next steps - continue HERE
-#  1) Fix lifetime extension: waste should go to the second eol_choice
-#  2) set up a function to have agents change their choices if other decisions
-#  are made in the model: landfill ban or landfill closure
 #  2) Continue with other agents
 #    i) have the developers set up projected capacities
 #  3) For the memo: frame it for a paper already? Limit word count to 1000-2000
@@ -92,7 +89,7 @@ class WindABM(Model):
                      'simulation_end': 2051},
                  blades_per_rotor=3,
                  eol_pathways={
-                     "lifetime_extension": True, "dissolution": True,
+                     "lifetime_extension": True, "dissolution": False,
                      "pyrolysis": True, "mechanical_recycling": True,
                      "cement_co_processing": True, "landfill": True},
                  eol_pathways_dist_init={

@@ -13,6 +13,8 @@ decisions, for instance, regarding EOL management.
 from mesa import Agent
 import random
 
+# TODO: dissolution pathway activate only if wpo has thermoplastic blades
+
 
 class WindPlantOwner(Agent):
     def __init__(self, unique_id, model, **kwargs):
@@ -115,6 +117,7 @@ class WindPlantOwner(Agent):
         self.eol_second_choice_share = 0
         self.wpo_eol_pathways = self.model.eol_pathways
         self.le_characteristics = random.choice(self.model.le_characteristics)
+        self.regulation_new_decision = False
 
     @staticmethod
     def compute_mass_conv_factor(rotor_diameter, coefficient, power,
@@ -337,6 +340,29 @@ class WindPlantOwner(Agent):
         minimum_tr_proc_cost = min(list_tot_cost, key=lambda t: t[1])
         return minimum_tr_proc_cost
 
+    @staticmethod
+    def report_variables_if_lifetime_extended_or_else(
+            eol_pathway, eol_second_choice, reporter_waste, reporter_adoption,
+            state, waste, mass_conv_factor):
+        if eol_pathway == 'lifetime_extension':
+            reporter_waste[state][eol_second_choice] += waste * \
+                                                        mass_conv_factor
+            reporter_adoption[eol_pathway] += 1
+            reporter_adoption[eol_second_choice] += 1
+        else:
+            reporter_waste[state][eol_pathway] += waste * \
+                                                        mass_conv_factor
+            reporter_adoption[eol_pathway] += 1
+
+    def regulations_consequences(self):
+        self.wpo_eol_pathways = self.model.boolean_dic_based_on_dicts(
+            self.wpo_eol_pathways, True, False,
+            self.model.bans_enacted[self.t_state])
+        for value in self.model.regulations_enacted.values():
+            if value[self.t_state] and not self.regulation_new_decision:
+                self.agent_attributes_updated = False
+                self.regulation_new_decision = True
+
     def update_agent_variables_every_or_specific_step(self):
         """
         Update instance (agent) variables
@@ -362,9 +388,7 @@ class WindPlantOwner(Agent):
             self.eol_tr_cost_repair, self.model.variables_recyclers,
             self.model.variables_landfills, self.variables_developers_wpo,
             self.decommissioning_cost)
-        self.wpo_eol_pathways = self.model.boolean_dic_based_on_dicts(
-            self.wpo_eol_pathways, True, False,
-            self.model.bans_enacted[self.t_state])
+        self.regulations_consequences()
         # Agents' attributes that should not be updated every step
         if not self.agent_attributes_updated:
             self.eol_pathway, self.eol_second_choice = \
@@ -394,17 +418,10 @@ class WindPlantOwner(Agent):
         self.model.all_waste += self.waste * self.mass_conv_factor
         self.model.number_wpo_agent += 1
         self.model.eol_pathway_dist_list.append(self.eol_pathway)
-        self.model.states_waste_eol_path[self.t_state][self.eol_pathway] += \
-            self.waste * self.mass_conv_factor * (
-                    1 - self.eol_second_choice_share)
-        self.model.states_waste_eol_path[self.t_state][
-            self.eol_second_choice] += self.waste * self.mass_conv_factor * \
-            self.eol_second_choice_share
-        if self.eol_second_choice_share != 0:
-            self.model.eol_pathway_adoption[self.eol_pathway] += 1
-            self.model.eol_pathway_adoption[self.eol_second_choice] += 1
-        else:
-            self.model.eol_pathway_adoption[self.eol_pathway] += 1
+        self.report_variables_if_lifetime_extended_or_else(
+            self.eol_pathway, self.eol_second_choice,
+            self.model.states_waste_eol_path, self.model.eol_pathway_adoption,
+            self.t_state, self.waste, self.mass_conv_factor)
 
     def remove_agent(self):
         """
