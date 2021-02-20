@@ -9,6 +9,9 @@ This module run the model according to user inputs.
 """
 
 # TODO:
+#  0) Change panda frame output to transform dictionary in independent
+#  variables and time how long it take (if too long I can just do it
+#  externally)
 #  1) Consider value added of using df['Dictionary'].apply(pd.Series)] to
 #  transform reported dictionary in pandas columns (Should it be a
 #  post-simulation treatment or not?) when creating data frames from data
@@ -83,4 +86,4 @@ class WindABMRun:
 
 
 # Comment line below when running WindWBMRun tests
-# WindABMRun().run_model()
+WindABMRun().run_model()

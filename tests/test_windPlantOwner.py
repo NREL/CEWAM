@@ -14,10 +14,16 @@ import random
 
 
 class TestWindPlantOwner(TestCase):
+    def setUp(self):
+        self.t_model_inst = WindABM(eol_pathways={
+            "lifetime_extension": True, "dissolution": True,
+            "pyrolysis": True, "mechanical_recycling": True,
+            "cement_co_processing": True, "landfill": True})
+
     def test_wind_power_capacity_state_distribution(self):
         """Verify that capacities are distributed as should be within the US"""
-        schedule = WindABM().schedule_wpo
-        test_uswtdb = WindABM().uswtdb.drop(['p_name'], axis=1)
+        schedule = self.t_model_inst.schedule_wpo
+        test_uswtdb = self.t_model_inst.uswtdb.drop(['p_name'], axis=1)
         test_uswtdb = test_uswtdb.groupby(['t_state']).sum()
         value = []
         test_score = []
@@ -42,7 +48,7 @@ class TestWindPlantOwner(TestCase):
         t_cap = 10
         result = coefficient * (rotor_diameter / 2)**power * \
             blades_per_rotor / t_cap
-        test_model = WindABM()
+        test_model = self.t_model_inst
         agent = random.choice(test_model.schedule_wpo.agents)
         test_result = agent.compute_mass_conv_factor(
             rotor_diameter, coefficient, power, blades_per_rotor, t_cap)
@@ -54,7 +60,7 @@ class TestWindPlantOwner(TestCase):
         t_cap = 6
         blades_per_rotor = 3
         result = mass_conv_factor * t_cap / blades_per_rotor
-        agent = random.choice(WindABM().schedule_wpo.agents)
+        agent = random.choice(self.t_model_inst.schedule_wpo.agents)
         test = agent.conversion_blade_to_ton(mass_conv_factor, t_cap,
                                              blades_per_rotor)
         self.assertEqual(result, test)
@@ -65,7 +71,7 @@ class TestWindPlantOwner(TestCase):
                                                    (7, 8, 2)]}
         conversion_factor = 2
         result = {'a': [(1, 2, 3)], 'b': [(3, 4, 6), (7, 8, 1)]}
-        agent = random.choice(WindABM().schedule_wpo.agents)
+        agent = random.choice(self.t_model_inst.schedule_wpo.agents)
         test = agent.convert_developer_costs(
             developer_costs, conversion_factor)
         self.assertEqual(result, test)
@@ -77,8 +83,8 @@ class TestWindPlantOwner(TestCase):
             'b': [(1, 'Colorado', 2), (1, 'Washington', 2)]}
         possible_destination_land = {
             'c': [(1, 'Colorado', 2), (1, 'California', 2)]}
-        all_possible_distances = WindABM().all_shortest_paths_or_trg
-        agent = random.choice(WindABM().schedule_wpo.agents)
+        all_possible_distances = self.t_model_inst.all_shortest_paths_or_trg
+        agent = random.choice(self.t_model_inst.schedule_wpo.agents)
         agent.t_state = 'Washington'
         result = {
             'a': [(1, 1409, 2), (1, 1045, 2)],
@@ -99,7 +105,7 @@ class TestWindPlantOwner(TestCase):
                 'shredding_costs': [2, 2.0001]}
         distances = [(1, 1409, 2), (1, 1045, 2)]
         result = [(1, 2 + 1 * 1409), (1, 2 + 1 * 1045)]
-        agent = random.choice(WindABM().schedule_wpo.agents)
+        agent = random.choice(self.t_model_inst.schedule_wpo.agents)
         test = agent.transport_shred_costs(data, distances)
         test = [(x, round(y)) for x, y in test]
         self.assertEqual(result, test)
@@ -111,7 +117,7 @@ class TestWindPlantOwner(TestCase):
                 'segment_per_truck': 1}
         distances = [(1, 1409, 2), (1, 1045, 2)]
         result = [(1, 1 + 1 * 1409), (1, 1 + 1 * 1045)]
-        agent = random.choice(WindABM().schedule_wpo.agents)
+        agent = random.choice(self.t_model_inst.schedule_wpo.agents)
         agent.mass_conv_factor = 1
         agent.t_cap = 1
         agent.t_rd = 2
@@ -125,7 +131,7 @@ class TestWindPlantOwner(TestCase):
         distances = {
             'a': [(1, 1409, 2), (1, 1045, 2)],
             'b': [(1, 1409, 2), (1, 198, 2)]}
-        agent = random.choice(WindABM().schedule_wpo.agents)
+        agent = random.choice(self.t_model_inst.schedule_wpo.agents)
         agent.model.eol_pathways = {'a': True, 'b': True, 'c': True}
         agent.model.transport_shreds = {
             'transport_cost_shreds': [1, 1.0001],
@@ -172,7 +178,7 @@ class TestWindPlantOwner(TestCase):
             'c': [(1, 'Colorado', 2), (2, 'California', 1)]}
         variables_developers = {'d': [(1, 1, 1)]}
         decommissioning_cost = 0
-        agent = random.choice(WindABM().schedule_wpo.agents)
+        agent = random.choice(self.t_model_inst.schedule_wpo.agents)
         agent.model.eol_pathways = {'a': True, 'b': True, 'c': True, 'd': True}
         agent.model.eol_pathways_transport_mode = {
             'a': 'undefined', 'b': 'undefined', 'c': 'undefined',
@@ -190,9 +196,44 @@ class TestWindPlantOwner(TestCase):
                          (3, 'Indiana', 2), (4, 'Washington', 1)]
         transport_cost = [(1, 2), (2, 5), (3, 5), (4, 7)]
         result = (1, 4 + 2)
-        agent = random.choice(WindABM().schedule_wpo.agents)
+        agent = random.choice(self.t_model_inst.schedule_wpo.agents)
         test = agent.minimum_tr_proc_costs(process_costs, transport_cost)
         self.assertEqual(result, test)
+
+    def test_report_variables_if_lifetime_extended_or_else(self):
+        """Test that waste is directed correctly"""
+        eol_pathway1 = "lifetime_extension"
+        eol_second_choice1 = "b"
+        state1 = 'Colorado'
+        waste1 = 1
+        eol_pathway2 = "c"
+        eol_second_choice2 = "b"
+        state2 = 'Washington'
+        waste2 = 2
+        reporter_waste = {
+            'Colorado': {'lifetime_extension': 0, 'b': 0, 'c': 0},
+            'Washington': {'lifetime_extension': 0, 'b': 0, 'c': 0}}
+        reporter_adoption = {'lifetime_extension': 0, 'b': 0, 'c': 0}
+        mass_conv_factor = 2
+        agent = random.choice(self.t_model_inst.schedule_wpo.agents)
+        # noinspection PyUnusedLocal
+        test1 = agent.report_variables_if_lifetime_extended_or_else(
+            eol_pathway1, eol_second_choice1, reporter_waste,
+            reporter_adoption, state1, waste1, mass_conv_factor)
+        # noinspection PyUnusedLocal
+        test2 = agent.report_variables_if_lifetime_extended_or_else(
+            eol_pathway2, eol_second_choice2, reporter_waste,
+            reporter_adoption, state2, waste2, mass_conv_factor)
+        test = [reporter_waste, reporter_adoption]
+        results = [{
+            'Colorado': {'lifetime_extension': 0, 'b': 2, 'c': 0},
+            'Washington': {'lifetime_extension': 0, 'b': 0, 'c': 4}},
+            {'lifetime_extension': 1, 'b': 1, 'c': 1}]
+        self.assertCountEqual(test, results)
+
+    def test_regulations_consequences(self):
+        """Function can't be formally tested here"""
+        pass
 
     def test_update_agent_variables_every_or_specific_step(self):
         """Function can't be formally tested here"""
@@ -204,7 +245,7 @@ class TestWindPlantOwner(TestCase):
 
     def test_remove_agent(self):
         """Test that agent is removed"""
-        test_model = WindABM()
+        test_model = self.t_model_inst
         num_agents = len(test_model.schedule_wpo.agents)
         agent = test_model.schedule_wpo.agents[0]
         agent.p_cap_waste = 0
@@ -215,7 +256,7 @@ class TestWindPlantOwner(TestCase):
 
     def test_step(self):
         """Test that the wpo agents run steps without errors"""
-        model = WindABM()
+        model = self.t_model_inst
         agent = random.choice(model.schedule_wpo.agents)
         steps = 1
         agent.step()

@@ -9,9 +9,6 @@ This module contains the Developer class. Developers make several
 decisions, for instance, what type blade to choose for a given wind turbine.
 """
 
-# Notes:
-# Remove unused library imports
-
 
 from mesa import Agent
 
@@ -19,6 +16,7 @@ from mesa import Agent
 # TODO: lifetime extension:
 #  1) Assign costs and revenue for lifetime extension
 #  2) set up projected capacities instead of wpo
+#  3) use doi:10.1088/1757-899X/429/1/012024 to write about green procurement
 
 class Developer(Agent):
     def __init__(self, unique_id, model, **kwargs):
@@ -55,6 +53,13 @@ class Developer(Agent):
     def mock_up(self):
         pass
 
+    def install_additional_cap(self):
+        if not self.model.all_additional_cap_installed:
+            self.model.additional_cap = self.model.cumulative_capacity_growth(
+                self.model.states_cap, self.model.growth_rates,
+                self.model.additional_cap)
+            self.model.all_additional_cap_installed = True
+
     def update_agent_variables(self):
         """
         Update instance (agent) variables
@@ -73,6 +78,7 @@ class Developer(Agent):
         """
         if self.internal_clock == self.model.clock:
             self.mock_up()
+            self.install_additional_cap()
             self.update_agent_variables()
             self.internal_clock += 1
         else:

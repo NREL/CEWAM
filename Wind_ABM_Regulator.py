@@ -41,8 +41,9 @@ class Regulator(Agent):
 
     # TODO: change mock_up for real function below
     def mock_up(self):
-        if self.regulator_state == "Washington" and self.model.clock == 9:
-            self.bans['landfill'] = True
+        # if self.regulator_state == "Washington" and self.model.clock == 9:
+        #    self.bans['landfill'] = True
+        pass
 
     def update_agent_variables(self):
         """

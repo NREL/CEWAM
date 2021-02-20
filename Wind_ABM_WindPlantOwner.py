@@ -315,7 +315,11 @@ class WindPlantOwner(Agent):
                     key=lambda t: t[1])
             # in the tuple (x, y): x = agent id, y = transport + process net
             # costs
-            costs_eol_pathways[key] = tr_proc_costs[1] + decommissioning_cost
+            if key == 'lifetime_extension':
+                costs_eol_pathways[key] = tr_proc_costs[1]
+            else:
+                costs_eol_pathways[key] = tr_proc_costs[1] + \
+                                          decommissioning_cost
         return costs_eol_pathways
 
     @staticmethod
@@ -344,6 +348,20 @@ class WindPlantOwner(Agent):
     def report_variables_if_lifetime_extended_or_else(
             eol_pathway, eol_second_choice, reporter_waste, reporter_adoption,
             state, waste, mass_conv_factor):
+        """
+        Report waste according to the eol pathway - if lifetime extension is
+        adopted, waste is reported to the secondary pathway, otherwise it is
+        reported in the primary pathway
+        :param eol_pathway: primary pathway adopted by wpo
+        :param eol_second_choice: secondary pathway adopted by wpo
+        :param reporter_waste: nested dictionary reporter of waste amount in
+        the state of the wpo and the pathway adopted for eol blades
+        :param reporter_adoption: dictionary of the number of wpo that have
+        adopted each eol pathway
+        :param state: the state of the wpo
+        :param waste: the waste of the wpo (in MW)
+        :param mass_conv_factor: the conversion factor (metric ton / MW)
+        """
         if eol_pathway == 'lifetime_extension':
             reporter_waste[state][eol_second_choice] += waste * \
                                                         mass_conv_factor
@@ -355,6 +373,10 @@ class WindPlantOwner(Agent):
             reporter_adoption[eol_pathway] += 1
 
     def regulations_consequences(self):
+        """
+        Signal the update_agent_variables_every_or_specific_step function that
+        wpo eol pathway need to be updated with regards to new regulations
+        """
         self.wpo_eol_pathways = self.model.boolean_dic_based_on_dicts(
             self.wpo_eol_pathways, True, False,
             self.model.bans_enacted[self.t_state])

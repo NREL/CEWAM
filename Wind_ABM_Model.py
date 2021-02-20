@@ -10,18 +10,27 @@ module also defines inputs (default values can be changed by user) and collect
 outputs.
 """
 
-# Notes:
-# A machine learning metamodel could be used to calibrate the ABM quicker
-# Reinforcement learning could be used in the future
-# Do unittests before each commit (if doesn't pass unittest mention
-# in commit comment)
-# Avoid calling the scheduler unless there are no other choices
 
 # TODO: Next steps - continue HERE
-#  2) Continue with other agents
-#    i) have the developers set up projected capacities
-#  3) For the memo: frame it for a paper already? Limit word count to 1000-2000
-#  words (PNAS?  look into it)
+#  1) Continue with other agents - follow memo (including agent order)
+#    i) developer
+#      * -- HERE -- adoption of thermoplastic blades with TPB
+#      * limit adoption to amount of manufactured thermoplastic blades (use
+#        the fact that TPB return two values (the second value simply being
+#        thermoplastic blades))
+#      * set up function(s) to distribute additional wind plant owners to the
+#        wind plant developers and have wind plant owners know what type of
+#        blades they get depending on the decision of their wind plant
+#        developer; use the model module to transfer information between agents
+#      * check mock-up functions for the lifetime extension and refine if
+#        needed
+#    ii) recycler
+#    iii) manufacturer
+#    iv) landfill
+#    v) regulator
+#  2) Use a machine learning metamodel to calibrate the ABM quicker
+#  3) A reinforcement learning could be used in the future (long term)
+#  4) Avoid calling the scheduler unless there are no other choices
 
 from mesa import Model
 from Wind_ABM_WindPlantOwner import WindPlantOwner
@@ -53,7 +62,7 @@ class WindABM(Model):
                  recyclers={
                      "dissolution": 25, "pyrolysis": 25,
                      "mechanical_recycling": 25, "cement_co_processing": 25},
-                 landfills={"landfill": 48},
+                 landfills={"landfill": 47},
                  small_world_network={"node_degree": 15, "rewiring_prob": 0.1},
                  external_files={
                      "state_distances": "StatesAdjacencyMatrix.csv", "uswtdb":
@@ -97,7 +106,7 @@ class WindABM(Model):
                      "pyrolysis": 0.005, "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
                  tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.3, 'w_sn': 0.56,
-                                'w_pbc': -0.11, 'w_p': 0.11, 'w_b': -0.21},
+                                'w_pbc': -0.13, 'w_p': 0.11, 'w_b': -0.21},
                  attitude_parameters={
                      'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
@@ -120,8 +129,7 @@ class WindABM(Model):
                      "cement_co_processing": [0, 1E-6]},
                  landfill_costs={
                      'Alabama': 33.41, 'Arizona': 43.39, 'Arkansas': 40.23,
-                     'California': 55.56, 'Colorado': 62.04,
-                     'Connecticut': 200.00, 'Delaware': 85.00,
+                     'California': 55.56, 'Colorado': 62.04, 'Delaware': 85.00,
                      'Florida': 55.08, 'Georgia': 48.77, 'Idaho': 68.71,
                      'Illinois': 51.78, 'Indiana': 47.91, 'Iowa': 48.47,
                      'Kansas': 39.32, 'Kentucky': 29.82, 'Louisiana': 33.28,
@@ -159,7 +167,7 @@ class WindABM(Model):
                          [242, 302.5], "cement_co_processing": [0, 1E-6]},
                  # TODO: make sure that all data using tons are in metric
                  #  tons and not in US tons
-                 lifetime_extension_years=[5, 10],
+                 lifetime_extension_years=[5, 15],
                  le_feasibility=0.55,
                  # TODO: report this parameter and source in Memo report
                  #  https://doi.org/10.1016/j.resconrec.2021.105439 assumption
@@ -333,6 +341,8 @@ class WindABM(Model):
         self.le_characteristics = []
         self.eol_pathway_adoption = self.initial_dic_from_key_list(
             self.eol_pathways, 0)
+        self.landfill_state_list = list(self.landfill_costs.keys())
+        self.all_additional_cap_installed = False
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -1054,8 +1064,7 @@ class WindABM(Model):
         """
         Update model variables
         """
-        self.additional_cap = self.cumulative_capacity_growth(
-            self.states_cap, self.growth_rates, self.additional_cap)
+        self.all_additional_cap_installed = False
         self.list_agent_states = \
             self.additional_agent_state(self.additional_cap,
                                         self.p_install_growth)

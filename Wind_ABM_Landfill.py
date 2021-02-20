@@ -31,8 +31,7 @@ class Landfill(Agent):
         # TODO: replace mock-up values by actual values and function of
         #  landfill agents
         self.landfill_type = list(self.model.landfills.keys())[0]
-        self.landfill_state = self.mock_up_random_state(
-            self.model.growth_rates)
+        self.landfill_state = self.model.landfill_state_list.pop()
         self.landfill_cost = self.model.landfill_costs[self.landfill_state]
         self.model.variables_landfills[self.landfill_type].append(
             (self.unique_id, self.landfill_state, self.landfill_cost))
@@ -42,11 +41,8 @@ class Landfill(Agent):
         pass
 
     @staticmethod
-    def mock_up_random_state(dic_to_shuffle):
-        list_to_shuffle = list(dic_to_shuffle.keys())
-        random.shuffle(list_to_shuffle)
-        pick = list_to_shuffle[0]
-        return pick
+    def mock_up_landfill_state(dic_to_choose_from):
+        pass
 
     @staticmethod
     def closure_update(other_regulations, landfill_state):

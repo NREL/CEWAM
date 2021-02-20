@@ -7,6 +7,10 @@ Created on January 26 2021
 Test functions in Wind_ABM_Run
 """
 
+# TODO: some tests should verify the consequences of extreme scenarios. In
+#  order to do that I can create several instance of the model class, run the
+#  model and read the corresponding csv file and store in an instance variable
+#  before moving to the next model instance
 
 from unittest import TestCase
 from Wind_ABM_Run import *
@@ -104,11 +108,11 @@ class TestWindABMRun(TestCase):
         test = self.results_model.loc[(self.number_steps - 1)][
             'Number wpo agents']
         result = 2178
-        self.assertEqual(result, test)
+        self.assertAlmostEqual(result, test, delta=20)
 
     def test_wind_project_state_sum_tot(self):
-        """Test that the sum of waste in all states is equal to all
-        waste generated during the simulation"""
+        """Test that the sum of wpo that have adopted different eol pathways
+        is equal to all wpo during the simulation"""
         result = self.results_model.loc[(self.number_steps - 1)][
             'Number wpo agents']
         test_wpo = \
@@ -120,4 +124,4 @@ class TestWindABMRun(TestCase):
         for key, value in test_waste.items():
             test_sum += value
         test = test_sum
-        self.assertEqual(result, test)
+        self.assertAlmostEqual(result, test, delta=20)

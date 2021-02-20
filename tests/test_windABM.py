@@ -22,6 +22,12 @@ import statistics
 
 
 class TestWindABM(TestCase):
+    def setUp(self):
+        self.t_model_inst = WindABM(eol_pathways={
+            "lifetime_extension": True, "dissolution": True,
+            "pyrolysis": True, "mechanical_recycling": True,
+            "cement_co_processing": True, "landfill": True})
+
     def test_network_grid_schedule_agents(self):
         """Test that network has the right number of nodes, that the grid and
         the schedule contains the appropriate number of agents, and that the
@@ -31,8 +37,9 @@ class TestWindABM(TestCase):
         rewiring_prob = 0.1
         num_agents = 50
         agent_type = Recycler
-        network, grid, schedule = WindABM().network_grid_schedule_agents(
-            num_nodes, node_degree, rewiring_prob, num_agents, agent_type)
+        network, grid, schedule = \
+            self.t_model_inst.network_grid_schedule_agents(
+                num_nodes, node_degree, rewiring_prob, num_agents, agent_type)
         results = [100, 50, 50]
         count = 0
         for i in range(num_nodes):
@@ -45,8 +52,9 @@ class TestWindABM(TestCase):
     def test_compute_all_distances(self):
         """Test that distances are computed correctly"""
         states = ["Colorado", "Florida", "Michigan"]
-        graph = WindABM().states_graph
-        output_distances = WindABM().compute_all_distances(states, graph)
+        graph = self.t_model_inst.states_graph
+        output_distances = self.t_model_inst.compute_all_distances(
+            states, graph)
         test_values = round(output_distances.sum(axis=1))
         results = [67591, 81621, 68469]
         self.assertCountEqual(test_values.tolist(), results)
@@ -54,21 +62,23 @@ class TestWindABM(TestCase):
     def test_shortest_paths(self):
         """Test that it find the shortest paths"""
         sum_distances = []
-        test_graph = WindABM().states_graph
+        test_graph = self.t_model_inst.states_graph
         targets = ["Washington", "Arkansas", "New York"]
         for i in targets:
             distances = []
-            distances = WindABM().shortest_paths(test_graph, [i], distances)
+            distances = self.t_model_inst.shortest_paths(
+                test_graph, [i], distances)
             sum_distances.append(round(sum(distances)))
         results = [104283, 55705, 72433]
         self.assertCountEqual(sum_distances, results)
 
     def test_creating_social_network_avg_node_degree(self):
         """Test that the network is built with the right average node degree"""
-        number_node = WindABM().uswtdb.shape[0]
-        theo_avg_node_degree = WindABM().small_world_network["node_degree"]
-        rewiring_prob = WindABM().small_world_network["rewiring_prob"]
-        graph = WindABM().creating_social_network(
+        number_node = self.t_model_inst.uswtdb.shape[0]
+        theo_avg_node_degree = \
+            self.t_model_inst.small_world_network["node_degree"]
+        rewiring_prob = self.t_model_inst.small_world_network["rewiring_prob"]
+        graph = self.t_model_inst.creating_social_network(
             number_node, theo_avg_node_degree, rewiring_prob, None)
         graph_node_degrees = graph.degree()
         graph_avg_node_degree = sum(dict(graph_node_degrees).values()) / \
@@ -88,17 +98,18 @@ class TestWindABM(TestCase):
         coefficient = 2
         result = (simulation_end - simulation_start) * \
             coefficient + initial_nodes
-        test_result = WindABM().compute_max_network_size(
+        test_result = self.t_model_inst.compute_max_network_size(
             mock_up_database, simulation_start, simulation_end, coefficient)
         self.assertEqual(result, test_result)
 
     def test_creating_agent(self):
         """Test that agents are created with all attributes"""
         test_param = {"unit": 1, "unit2": 2}
-        number_node = WindABM().uswtdb.shape[0]
-        theo_avg_node_degree = WindABM().small_world_network["node_degree"]
-        rewiring_prob = WindABM().small_world_network["rewiring_prob"]
-        graph = WindABM().creating_social_network(
+        number_node = self.t_model_inst.uswtdb.shape[0]
+        theo_avg_node_degree = \
+            self.t_model_inst.small_world_network["node_degree"]
+        rewiring_prob = self.t_model_inst.small_world_network["rewiring_prob"]
+        graph = self.t_model_inst.creating_social_network(
             number_node, theo_avg_node_degree, rewiring_prob, None)
         schedule = RandomActivation(self)
         grid = NetworkGrid(graph)
@@ -111,8 +122,8 @@ class TestWindABM(TestCase):
                 """
                 self.test_var = kwargs
 
-        WindABM().creating_agents(number_node, graph, grid, schedule,
-                                  TestAgent, **test_param)
+        self.t_model_inst.creating_agents(
+            number_node, graph, grid, schedule, TestAgent, **test_param)
         sum_test = 0
         for a in schedule.agents:
             sum_test += a.test_var["unit"] + a.test_var["unit2"]
@@ -124,7 +135,7 @@ class TestWindABM(TestCase):
         test_param = {"unit": 1, "unit2": 0}
         max_num_agents = 15
         num_agents = 5
-        test_model = WindABM()
+        test_model = self.t_model_inst
         test_model.additional_id = (max_num_agents - num_agents) + \
             test_model.first_wpo_id
         theo_avg_node_degree = 2
@@ -154,11 +165,12 @@ class TestWindABM(TestCase):
         """Test that the sum of projects' cumulative capacity corresponds to
         projects > 1999, with a cumulative capacity different from 0 and
         limited to the contiguous US"""
-        uswtdb_test = WindABM().wind_plant_owner_data(
-            WindABM().external_files['uswtdb'], WindABM().state_abrev,
-            WindABM().cap_to_diameter_model,
-            WindABM().temporal_scope['simulation_start'],
-            WindABM().temporal_scope['pre_simulation'])
+        uswtdb_test = self.t_model_inst.wind_plant_owner_data(
+            self.t_model_inst.external_files['uswtdb'],
+            self.t_model_inst.state_abrev,
+            self.t_model_inst.cap_to_diameter_model,
+            self.t_model_inst.temporal_scope['simulation_start'],
+            self.t_model_inst.temporal_scope['pre_simulation'])
         result = 110316  # sum of p_cap
         sum_test = round(uswtdb_test['p_cap'].sum())
         self.assertEqual(sum_test, result)
@@ -169,7 +181,8 @@ class TestWindABM(TestCase):
             list(zip([1, 2, 3, 4], ['CO', 'CO', 'CO', 'CO'])),
             columns=['p_year', 't_state'])
         result = 1
-        test_result = WindABM().p_install_growth_model(mock_up_database)
+        test_result = \
+            self.t_model_inst.p_install_growth_model(mock_up_database)
         self.assertEqual(test_result, result)
 
     def test_cumulative_capacity_growth(self):
@@ -180,7 +193,7 @@ class TestWindABM(TestCase):
         result = list(states_cap.values())
         gr = list(growth_rates.values())
         result = [x * y for x, y in zip(result, gr)]
-        additional_cap = WindABM().cumulative_capacity_growth(
+        additional_cap = self.t_model_inst.cumulative_capacity_growth(
             states_cap, growth_rates, additional_cap)
         additional_cap = list(additional_cap.values())
         self.assertCountEqual(result, additional_cap)
@@ -195,8 +208,8 @@ class TestWindABM(TestCase):
                   "Washington", "Washington", "Oregon", "Washington",
                   "Colorado", "Oregon"]
         result = Counter(result)['Washington']
-        test_result = WindABM().additional_agent_state(additional_cap,
-                                                       p_install_growth)
+        test_result = self.t_model_inst.additional_agent_state(
+            additional_cap, p_install_growth)
         test_result = Counter(test_result)['Washington']
         self.assertAlmostEqual(test_result, result, delta=2)
 
@@ -207,8 +220,8 @@ class TestWindABM(TestCase):
         deterministic = True
         list_choice = []
         result = ['a'] * 6 + ['b'] * 3 + ['c'] * 3 + ['d'] * 0 + ['e'] * 4
-        test = WindABM().roulette_wheel_choice(dic_frequencies, num_choices,
-                                               deterministic, list_choice)
+        test = self.t_model_inst.roulette_wheel_choice(
+            dic_frequencies, num_choices, deterministic, list_choice)
         self.assertCountEqual(result, test)
 
     def test_dic_with_list_item_frequency(self):
@@ -216,7 +229,7 @@ class TestWindABM(TestCase):
         test_list = ['Washington', 'Colorado', 'Oregon', 'Colorado',
                      'Washington', 'Washington']
         result = {"Oregon": 1, "Colorado": 2, "Washington": 3}
-        test_result = WindABM().dic_with_list_item_frequency(test_list)
+        test_result = self.t_model_inst.dic_with_list_item_frequency(test_list)
         self.assertDictEqual(result, test_result)
 
     def test_waste_generation(self):
@@ -227,7 +240,7 @@ class TestWindABM(TestCase):
         clock = 2
         avg_lifetime = 3
         weibull_shape_factor = 3
-        test_result = round(WindABM().waste_generation(
+        test_result = round(self.t_model_inst.waste_generation(
             start_year, clock, installation_year, p_cap_waste, avg_lifetime,
             weibull_shape_factor), 2)
         result = 2.56
@@ -237,7 +250,7 @@ class TestWindABM(TestCase):
         """Test that the function create the appropriate dictionary"""
         test_list = ["Colorado", "Washington", "California"]
         result = {"Colorado": 0, "Washington": 0, "California": 0}
-        test_result = WindABM().initial_dic_from_key_list(test_list, 0)
+        test_result = self.t_model_inst.initial_dic_from_key_list(test_list, 0)
         self.assertDictEqual(result, test_result)
 
     def test_nested_init_dic(self):
@@ -245,7 +258,7 @@ class TestWindABM(TestCase):
         initial_value = 'Test'
         dic1 = ['a', 'b']
         dic2 = ['c', 'd', 'e']
-        test = WindABM().nested_init_dic(initial_value, dic1, dic2)
+        test = self.t_model_inst.nested_init_dic(initial_value, dic1, dic2)
         result = {'a': {'c': 'Test', 'd': 'Test', 'e': 'Test'},
                   'b': {'c': 'Test', 'd': 'Test', 'e': 'Test'}}
         self.assertEqual(test, result)
@@ -255,7 +268,7 @@ class TestWindABM(TestCase):
         pick = 0.3
         cum_prob_dic = {'test1': 0.1, 'test2': 0.2, 'test3': 0.7, 'test4': 1}
         result = 'test3'
-        test = WindABM().roulette_wheel(pick, cum_prob_dic)
+        test = self.t_model_inst.roulette_wheel(pick, cum_prob_dic)
         self.assertEqual(result, test)
 
     def test_dic_cumulative_frequencies(self):
@@ -263,7 +276,7 @@ class TestWindABM(TestCase):
         dic_frequencies = {'a': 200, 'b': 300, 'c': 100, 'd': 53, 'e': 0,
                            'f': 656}
         result = {'a': 200, 'b': 500, 'c': 600, 'd': 653, 'e': 653, 'f': 1309}
-        test = WindABM().dic_cumulative_frequencies(dic_frequencies)
+        test = self.t_model_inst.dic_cumulative_frequencies(dic_frequencies)
         self.assertEqual(result, test)
 
     def test_remove_item_dic_from_boolean_dic(self):
@@ -271,7 +284,8 @@ class TestWindABM(TestCase):
         dic = {'a': 3, 'b': 4, 'c': 5}
         boolean_dic = {'a': False, 'b': False, 'c': False}
         result = {}
-        test = WindABM().remove_item_dic_from_boolean_dic(dic, boolean_dic)
+        test = self.t_model_inst.remove_item_dic_from_boolean_dic(
+            dic, boolean_dic)
         self.assertEqual(result, test)
 
     def test_attitude(self):
@@ -281,8 +295,8 @@ class TestWindABM(TestCase):
         dic_choices = {'a': None, 'b': None, 'c': None}
         choices_circularity = {'a': True, 'b': False, 'c': True, 'd': False}
         result = {'a': 0.6, 'b': 0.55, 'c': 0.6}
-        test = WindABM().attitude(ce_att_level, conv_att_level, dic_choices,
-                                  choices_circularity)
+        test = self.t_model_inst.attitude(
+            ce_att_level, conv_att_level, dic_choices, choices_circularity)
         self.assertEqual(result, test)
 
     def test_subjective_norms(self):
@@ -300,14 +314,15 @@ class TestWindABM(TestCase):
                 """
                 self.test_var = 'a'
 
-        network, grid, schedule = WindABM().network_grid_schedule_agents(
-            num_nodes, node_degree, rewiring_prob, num_agents, TestAgent)
+        network, grid, schedule = \
+            self.t_model_inst.network_grid_schedule_agents(
+                num_nodes, node_degree, rewiring_prob, num_agents, TestAgent)
         dic_choices = {'a': True, 'b': True, 'c': True}
         agent = schedule.agents[0]
         position = agent.pos
         result = {'a': 1, 'b': 0, 'c': 0}
-        test = WindABM().subjective_norms(grid, 'test_var', position,
-                                          dic_choices)
+        test = self.t_model_inst.subjective_norms(
+            grid, 'test_var', position, dic_choices)
         self.assertEqual(result, test)
 
     def test_perceived_behavioral_control_and_barriers(self):
@@ -315,7 +330,7 @@ class TestWindABM(TestCase):
         computed"""
         value_choices = {'a': -1, 'b': 9, 'c': 10}
         result = {'a': 0, 'b': 0.9, 'c': 1}
-        test = WindABM().perceived_behavioral_control_and_barrier(
+        test = self.t_model_inst.perceived_behavioral_control_and_barrier(
             value_choices)
         self.assertEqual(result, test)
 
@@ -329,7 +344,7 @@ class TestWindABM(TestCase):
                        'c': {'Colorado': True, 'California': True,
                              'Washington': True}}
         result = {'a': 0.45, 'b': 0, 'c': 1}
-        test = WindABM().pressure(state, regulations)
+        test = self.t_model_inst.pressure(state, regulations)
         test = {key: round(value, 2) for key, value in test.items()}
         self.assertEqual(result, test)
 
@@ -354,8 +369,9 @@ class TestWindABM(TestCase):
                 """
                 self.test_var = 'a'
 
-        network, grid, schedule = WindABM().network_grid_schedule_agents(
-            num_nodes, node_degree, rewiring_prob, num_agents, TestAgent)
+        network, grid, schedule = \
+            self.t_model_inst.network_grid_schedule_agents(
+                num_nodes, node_degree, rewiring_prob, num_agents, TestAgent)
         dic_choices = {'a': True, 'b': True, 'c': True}
         agent = schedule.agents[0]
         position = agent.pos
@@ -381,7 +397,7 @@ class TestWindABM(TestCase):
         test_dic.pop(choice1)
         choice2 = max(test_dic, key=test_dic.get)
         result = (choice1, choice2)
-        test1, test2 = WindABM().theory_planned_behavior_model(
+        test1, test2 = self.t_model_inst.theory_planned_behavior_model(
             tpb_weights, ce_att_level, conv_att_level, dic_choices,
             choices_circularity, grid, 'test_var', position, cost_choices,
             barrier_choices, state, regulations)
@@ -395,7 +411,7 @@ class TestWindABM(TestCase):
         initial_lifetime = 10
         le_feas_years = (0.2, 2)
         result = (12, 0.8)
-        test1, test2 = WindABM().lifetime_extension(
+        test1, test2 = self.t_model_inst.lifetime_extension(
             eol_pathway, initial_lifetime, le_feas_years)
         test = (test1, test2)
         self.assertEqual(result, test)
@@ -409,7 +425,7 @@ class TestWindABM(TestCase):
         dic1 = {'a': True, 'b': False}
         dic2 = {'b': True, 'c': False, 'd': True}
         result = {'a': False, 'b': False, 'c': True, 'd': False}
-        test = WindABM().boolean_dic_based_on_dicts(
+        test = self.t_model_inst.boolean_dic_based_on_dicts(
             dic_to_modify, value_to_change, modifier, dic1, dic2)
         self.assertEqual(result, test)
 
@@ -418,7 +434,7 @@ class TestWindABM(TestCase):
         input_list = [1, 2, 'Test', 4, 5]
         filtered_out_value = 'Test'
         result = [1, 2, 4, 5]
-        test = WindABM().filter_list(input_list, filtered_out_value)
+        test = self.t_model_inst.filter_list(input_list, filtered_out_value)
         self.assertEqual(result, test)
 
     def test_safe_div(self):
@@ -426,7 +442,7 @@ class TestWindABM(TestCase):
         x = 1
         y = 0
         result = 0
-        test = WindABM().safe_div(x, y)
+        test = self.t_model_inst.safe_div(x, y)
         self.assertEqual(result, test)
 
     def test_trunc_normal_distrib_draw(self):
@@ -439,7 +455,8 @@ class TestWindABM(TestCase):
         scale = 0.1
         values = []
         for i in range(10):
-            draw = WindABM().trunc_normal_distrib_draw(a, b, loc, scale)
+            draw = self.t_model_inst.trunc_normal_distrib_draw(
+                a, b, loc, scale)
             values.append(draw)
         mean = sum(values) / len(values)
         std = statistics.stdev(values)
@@ -456,7 +473,7 @@ class TestWindABM(TestCase):
         mean = (b - a) / 2
         values = []
         for i in range(10):
-            draw = WindABM().symetric_triang_distrib_draw(a, b)
+            draw = self.t_model_inst.symetric_triang_distrib_draw(a, b)
             values.append(draw)
         test_mean = sum(values) / len(values)
         self.assertGreater(min(values), a)
@@ -477,7 +494,7 @@ class TestWindABM(TestCase):
 
     def test_step(self):
         """Test that the model run steps without errors"""
-        model = WindABM()
+        model = self.t_model_inst
         steps = 2
         clock = 0
         for i in range(steps):
