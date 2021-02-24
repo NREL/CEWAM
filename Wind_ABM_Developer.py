@@ -15,9 +15,7 @@ import random
 
 
 # TODO: lifetime extension:
-#  1) Assign costs and revenue for lifetime extension
-#  2) set up projected capacities instead of wpo
-#  3) use doi:10.1088/1757-899X/429/1/012024 to write about green procurement
+#  1) use doi:10.1088/1757-899X/429/1/012024 to write about green procurement
 
 class Developer(Agent):
     def __init__(self, unique_id, model, **kwargs):
@@ -98,6 +96,48 @@ class Developer(Agent):
                 self.model.additional_cap)
             self.model.all_additional_cap_installed = True
 
+    def assign_wpo_blade_type(self, assigned_wpo, bt_costs, tp_blade_demanded,
+                              tp_blade_supply, dissolution_available):
+        for i in range(len(assigned_wpo)):
+            wpo_unique_id = assigned_wpo[i][0]
+            wpo_blade_mass_conv_factor = assigned_wpo[i][1]
+            wpo_p_cap = assigned_wpo[i][2]
+            converted_bt_costs = self.convert_blade_cost(
+                bt_costs, wpo_blade_mass_conv_factor)
+            wpo_blade_type = self.model.theory_planned_behavior_model(
+                self.model.tpb_bt_coeff, self.bt_att_level_ce,
+                self.bt_att_level_conv, self.dev_blade_types,
+                self.model.choices_circularity, self.model.grid_dev,
+                'blade_type', self.pos, converted_bt_costs, self.bt_barriers,
+                self.state_dev, self.model.regulations_enacted)[0]
+            tp_blade_demanded, dissolution_available = \
+                self.balance_demand_to_supply(
+                    wpo_blade_type, wpo_p_cap, tp_blade_demanded,
+                    tp_blade_supply, wpo_unique_id, dissolution_available)
+        return tp_blade_demanded, dissolution_available
+
+    @staticmethod
+    def balance_demand_to_supply(wpo_blade_type, wpo_p_cap, tp_blade_demanded,
+                                 tp_blade_supply, wpo_unique_id,
+                                 dissolution_available):
+        if wpo_blade_type == 'thermoplastic':
+            tp_blade_demanded += wpo_p_cap
+        if tp_blade_demanded < tp_blade_supply:
+            dissolution_available[wpo_unique_id] = {
+                'dissolution': True}
+        else:
+            dissolution_available[wpo_unique_id] = {
+                'dissolution': False}
+        return tp_blade_demanded, dissolution_available
+
+    @staticmethod
+    def convert_blade_cost(bt_costs, conversion_factor):
+        converted_costs = {}
+        for key, value in bt_costs.items():
+            converted_value = bt_costs[key] / conversion_factor
+            converted_costs[key] = converted_value
+        return converted_costs
+
     def update_agent_variables(self):
         """
         Update instance (agent) variables
@@ -108,19 +148,17 @@ class Developer(Agent):
                 self.model.lifetime_extension_years[1])
         self.model.le_characteristics.append((self.le_feasibility,
                                               self.lifetime_extension_years))
-        # List of tuples: x=wpo.unique_id, y=wpo.blade_mass_conv_factor
+        # List of tuples: x=wpo.unique_id, y=wpo.blade_mass_conv_factor,
+        # z=wpo.p_cap
         self.assigned_wpo = self.model.assign_agents_to_each_other(
             self.model.variables_additional_wpo,
             sum(self.model.developers.values()), self.model.p_install_growth,
-            self.assigned_wpo, True)
-        # TODO: uncomment when ready
-        self.blade_type, self.bt_second_choice = \
-            self.model.theory_planned_behavior_model(
-                self.model.tpb_bt_coeff, self.bt_att_level_ce,
-                self.bt_att_level_conv, self.dev_blade_types,
-                self.model.choices_circularity, self.model.grid_dev,
-                'blade_type', self.pos, self.bt_costs, self.bt_barriers,
-                self.state_dev, self.model.regulations_enacted)
+            [], True)
+        self.model.tp_blade_demanded, self.model.dissolution_available = \
+            self.assign_wpo_blade_type(
+                self.assigned_wpo, self.bt_costs,
+                self.model.tp_blade_demanded, self.model.tp_blade_manufactured,
+                self.model.dissolution_available)
 
     def step(self):
         """

@@ -188,8 +188,9 @@ class WindABM(Model):
                  #  than EOL blades
                  early_failure_share=0.03,
                  blade_types={"thermoset": True, "thermoplastic": True},
-                 blade_types_dist_init={"thermoset": 1.0,
-                                        "thermoplastic": 0.0},
+                 # TODO: 1-0
+                 blade_types_dist_init={"thermoset": 0.5,
+                                        "thermoplastic": 0.5},
                  tpb_bt_coeff={'w_bi': 1.00, 'w_a': 0.30, 'w_sn': 0.21,
                                'w_pbc': -0.32, 'w_p': 0.00, 'w_b': 0.00},
                  attitude_bt_parameters={
@@ -392,6 +393,9 @@ class WindABM(Model):
             self.recyclers, sum(self.recyclers.values()), True, [])
         self.list_manufacturer_types = self.roulette_wheel_choice(
             self.manufacturers, sum(self.manufacturers.values()), True, [])
+        self.tp_blade_manufactured = 0
+        self.tp_blade_demanded = 0
+        self.dissolution_available = {}
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -1126,7 +1130,7 @@ class WindABM(Model):
         self.eol_pathway_adoption = self.initial_dic_from_key_list(
             self.eol_pathways.keys(), 0)
 
-    def reinitialize_global_variables_rec_land_reg(self):
+    def reinitialize_global_variables_rec_land_reg_dev(self):
         """
         Re-initialize yearly variables
         """
@@ -1137,12 +1141,15 @@ class WindABM(Model):
         self.regulations_enacted = self.nested_init_dic(
             False, self.choices_circularity, self.growth_rates.keys())
         self.le_characteristics = []
+        self.dissolution_available = {}
 
-    def reinitialize_global_variables_dev(self):
+    def reinitialize_global_variables_dev_man(self):
         """
         Re-initialize yearly variables
         """
         self.variables_additional_wpo = []
+        self.tp_blade_manufactured = 0
+        self.tp_blade_demanded = 0
 
     def update_model_variables(self):
         """
@@ -1167,10 +1174,10 @@ class WindABM(Model):
         self.data_collector.collect(self)
         self.reinitialize_global_variables_wpo()
         self.schedule_wpo.step()
-        self.reinitialize_global_variables_rec_land_reg()
+        self.reinitialize_global_variables_rec_land_reg_dev()
         self.schedule_man.step()
         self.schedule_dev.step()
-        self.reinitialize_global_variables_dev()
+        self.reinitialize_global_variables_dev_man()
         self.schedule_rec.step()
         self.schedule_land.step()
         self.schedule_reg.step()

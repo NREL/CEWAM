@@ -31,6 +31,7 @@ class Manufacturer(Agent):
 
         self.internal_clock = 0
         self.manufacturer_type = self.model.list_manufacturer_types.pop()
+        self.yearly_tp_blade_manufactured = 0
         # Original equipment manufacturer only (wind_blade manufacturer type)
         if self.manufacturer_type == 'wind_blade':
             self.thermoset_blade_cost = \
@@ -46,6 +47,21 @@ class Manufacturer(Agent):
     def mock_up(self):
         pass
 
+    def update_agent_variables(self):
+        """
+        Update instance (agent) variables
+        """
+        # TODO: mock-up below to replace by real function
+        if self.model.clock > 5 and self.manufacturer_type == 'wind_blade':
+            self.yearly_tp_blade_manufactured = 500
+
+    def report_agent_variables(self):
+        """
+        Report instance (agent) variables
+        """
+        self.model.tp_blade_manufactured += \
+            self.yearly_tp_blade_manufactured
+
     def step(self):
         """
         Evolution of agent at each step. As Mesa is not built for having
@@ -53,6 +69,8 @@ class Manufacturer(Agent):
         """
         if self.internal_clock == self.model.clock:
             self.mock_up()
+            self.update_agent_variables()
+            self.report_agent_variables()
             self.internal_clock += 1
         else:
             pass

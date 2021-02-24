@@ -120,7 +120,7 @@ class WindPlantOwner(Agent):
         # Additional agents - variables for developers
         if self.unique_id > self.initial_agents:
             self.model.variables_additional_wpo.append(
-                (self.unique_id, self.blade_mass_conv_factor))
+                (self.unique_id, self.blade_mass_conv_factor, self.p_cap))
 
     @staticmethod
     def compute_mass_conv_factor(rotor_diameter, coefficient, power,
@@ -380,6 +380,8 @@ class WindPlantOwner(Agent):
         Signal the update_agent_variables_every_or_specific_step function that
         wpo eol pathway need to be updated with regards to new regulations
         """
+        # TODO: continue HERE: have dissolution appear with the use of
+        #  model dissolution_available dictionary.
         self.wpo_eol_pathways = self.model.boolean_dic_based_on_dicts(
             self.wpo_eol_pathways, True, False,
             self.model.bans_enacted[self.t_state])
