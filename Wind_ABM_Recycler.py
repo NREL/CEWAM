@@ -37,9 +37,7 @@ class Recycler(Agent):
         #  recyclers state
         self.recycler_state = self.mock_up_random_state(
             self.model.growth_rates)
-        self.recycler_type = self.model.roulette_wheel_choice(
-            self.model.recyclers, sum(self.model.recyclers.values()),
-            True, []).pop()
+        self.recycler_type = self.model.list_recycler_types.pop()
         self.init_recycler_cost = self.model.symetric_triang_distrib_draw(
             self.model.rec_processes_costs[self.recycler_type][0],
             self.model.rec_processes_costs[self.recycler_type][1])

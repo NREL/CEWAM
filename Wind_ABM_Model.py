@@ -14,7 +14,7 @@ outputs.
 # TODO: Next steps - continue HERE
 #  1) Continue with other agents - follow memo (including agent order)
 #    i) developer
-#      * -- HERE -- adoption of thermoplastic blades with TPB
+#      ** Continue HERE, below **
 #      * limit adoption to amount of manufactured thermoplastic blades (use
 #        the fact that TPB return two values (the second value simply being
 #        thermoplastic blades))
@@ -24,7 +24,10 @@ outputs.
 #        developer; use the model module to transfer information between agents
 #      * check mock-up functions for the lifetime extension and refine if
 #        needed
+#      * unittests
 #    ii) recycler
+#      * unittests: for recycler and other agents similar to recycler write
+#      unittests to check initial distribution of types
 #    iii) manufacturer
 #    iv) landfill
 #    v) regulator
@@ -57,13 +60,22 @@ import copy
 class WindABM(Model):
     def __init__(self,
                  seed=None,
-                 manufacturers=100,
-                 developers={'lifetime_extension': 100},
+                 manufacturers={
+                     "wind_blade": 7, "plastics_n_boards": 100, "cement": 97},
+                 developers={'lifetime_extension': 10},
                  recyclers={
                      "dissolution": 25, "pyrolysis": 25,
                      "mechanical_recycling": 25, "cement_co_processing": 25},
                  landfills={"landfill": 47},
-                 small_world_network={"node_degree": 15, "rewiring_prob": 0.1},
+                 small_world_networks={
+                     "wind_plant_owners": {
+                         "node_degree": 15, "rewiring_prob": 0.1},
+                     "developers": {"node_degree": 5, "rewiring_prob": 0.1},
+                     "recyclers": {"node_degree": 15, "rewiring_prob": 0.1},
+                     "manufacturers": {"node_degree": 15,
+                                       "rewiring_prob": 0.1},
+                     "landfills": {"node_degree": 4, "rewiring_prob": 0.1},
+                     "regulators": {"node_degree": 4, "rewiring_prob": 0.1}},
                  external_files={
                      "state_distances": "StatesAdjacencyMatrix.csv", "uswtdb":
                      "uswtdb_v3_3_20210114.csv"},
@@ -105,9 +117,9 @@ class WindABM(Model):
                      "lifetime_extension": 0.005, "dissolution": 0.0,
                      "pyrolysis": 0.005, "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
-                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.3, 'w_sn': 0.56,
+                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.30, 'w_sn': 0.56,
                                 'w_pbc': -0.13, 'w_p': 0.11, 'w_b': -0.21},
-                 attitude_parameters={
+                 attitude_eol_parameters={
                      'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
                  # TODO: complete dic with circular choices from other
@@ -116,7 +128,8 @@ class WindABM(Model):
                  choices_circularity={
                      "lifetime_extension": True, "dissolution": True,
                      "pyrolysis": True, "mechanical_recycling": True,
-                     "cement_co_processing": True, "landfill": False},
+                     "cement_co_processing": True, "landfill": False,
+                     "thermoset": False, "thermoplastic": True},
                  # TODO: all $/blade need to be converted into $/tons based
                  #  on agents characteristics OR even better: use $/ton
                  #  directly
@@ -173,7 +186,17 @@ class WindABM(Model):
                  #  https://doi.org/10.1016/j.resconrec.2021.105439 assumption
                  #  is that early failure blades might be treated differently
                  #  than EOL blades
-                 early_failure_share=0.03
+                 early_failure_share=0.03,
+                 blade_types={"thermoset": True, "thermoplastic": True},
+                 blade_types_dist_init={"thermoset": 1.0,
+                                        "thermoplastic": 0.0},
+                 tpb_bt_coeff={'w_bi': 1.00, 'w_a': 0.30, 'w_sn': 0.21,
+                               'w_pbc': -0.32, 'w_p': 0.00, 'w_b': 0.00},
+                 attitude_bt_parameters={
+                     'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
+                     'max': 1},
+                 blade_costs={"thermoset": [50E3, 500E3],
+                              "thermoplastic_rate": 0.953}
                  ):
         """
         Initiate model.
@@ -182,9 +205,9 @@ class WindABM(Model):
         :param developers: number of developers
         :param recyclers: number of reyclers for each recycler type
         :param landfills: number of landfills
-        :param small_world_network: characteristics of the small-world network
-        (if rewiring prob set to 0: regular lattice, if set to 1: random
-        network)
+        :param small_world_networks: characteristics of the small-world 
+        networks representing social relationships within agent types (if 
+        rewiring prob set to 0: regular lattice, if set to 1: random network)
         :param external_files: dictionary mapping files to their variables
         :param growth_rates: states' wind capacity growth rates
         :param average_lifetime: wind turbines' average lifetime (years)
@@ -205,9 +228,9 @@ class WindABM(Model):
         adoption in the population
         :param tpb_eol_coeff: regression coefficient in the theory of planned 
         behavior (TPB) model of eol behavior adoption
-        :param attitude_parameters: parameters for a truncated normal 
+        :param attitude_eol_parameters: parameters for a truncated normal 
         distribution representing attitude among the population toward circular
-        economy (CE) behaviors and to then infer non-circular behaviors
+        economy (CE) eol behaviors and to then infer non-circular behaviors
         :param choices_circularity: dictionary qualifying choices in terms of 
         circularity, this may affect agents decision (e.g., agents may hold a 
         different attitude depending on the choice circularity
@@ -240,6 +263,15 @@ class WindABM(Model):
         extended (years)
         :param le_feasibility: feasibility ratio of lifetime extension
         :param early_failure_share: share of early failure blade waste
+        :param blade_types: type of blade available to wind plant developer 
+        agents
+        :param blade_types_dist_init: initial distribution of blade types (bt)
+        adoption in the population
+        :param attitude_bt_parameters: parameters for a truncated normal 
+        distribution representing attitude among the population toward circular
+        economy (CE) bt behaviors and to then infer non-circular behaviors
+        :param blade_costs: costs of different blade types ($/blade), 
+        thermoplastic blades are 4.7% less expensive than thermoset blades 
         """
         # Variables from inputs (value defined externally):
         self.seed = seed
@@ -249,7 +281,7 @@ class WindABM(Model):
         self.developers = developers
         self.recyclers = recyclers
         self.landfills = landfills
-        self.small_world_network = small_world_network
+        self.small_world_networks = small_world_networks
         self.external_files = external_files
         self.growth_rates = growth_rates
         self.average_lifetime = average_lifetime
@@ -261,7 +293,7 @@ class WindABM(Model):
         self.eol_pathways = eol_pathways
         self.eol_pathways_dist_init = eol_pathways_dist_init
         self.tpb_eol_coeff = tpb_eol_coeff
-        self.attitude_parameters = attitude_parameters
+        self.attitude_eol_parameters = attitude_eol_parameters
         self.choices_circularity = choices_circularity
         self.decommissioning_cost = decommissioning_cost
         self.lifetime_extension_costs = lifetime_extension_costs
@@ -276,6 +308,11 @@ class WindABM(Model):
         self.lifetime_extension_years = lifetime_extension_years
         self.le_feasibility = le_feasibility
         self.early_failure_share = early_failure_share
+        self.blade_types = blade_types
+        self.blade_types_dist_init = blade_types_dist_init
+        self.tpb_bt_coeff = tpb_bt_coeff
+        self.attitude_bt_parameters = attitude_bt_parameters
+        self.blade_costs = blade_costs
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -319,6 +356,11 @@ class WindABM(Model):
                                                   self.eol_pathways),
             self.uswtdb.shape[0], True, [])
         self.list_init_eol_second_choice = self.list_init_eol_pathways.copy()
+        self.list_init_blade_types = self.roulette_wheel_choice(
+            self.remove_item_dic_from_boolean_dic(self.blade_types_dist_init,
+                                                  self.blade_types),
+            sum(self.developers.values()), True, [])
+        self.list_init_bt_second_choice = self.list_init_blade_types.copy()
         self.list_add_agent_eol_path = []
         self.eol_pathway_dist_list = []
         self.eol_pathway_dist_dic = {}
@@ -330,19 +372,26 @@ class WindABM(Model):
             self.landfills.keys(), [])
         self.variables_developers = self.initial_dic_from_key_list(
             self.developers.keys(), [])
+        self.variables_manufacturers = self.initial_dic_from_key_list(
+            self.manufacturers.keys(), [])
+        self.variables_additional_wpo = []
         self.regulators = len(self.growth_rates.keys())
         self.regulator_states_list = list(self.growth_rates.keys())
         self.regulations_enacted = self.nested_init_dic(
-            False, self.eol_pathways, self.growth_rates.keys())
+            False, self.choices_circularity, self.growth_rates.keys())
         self.bans_enacted = self.nested_init_dic(
-            False, self.growth_rates.keys(), self.eol_pathways)
+            False, self.growth_rates.keys(), self.choices_circularity)
         self.other_regulations_enacted = self.nested_init_dic(
-            False, self.growth_rates.keys(), self.eol_pathways)
+            False, self.growth_rates.keys(), self.choices_circularity)
         self.le_characteristics = []
         self.eol_pathway_adoption = self.initial_dic_from_key_list(
-            self.eol_pathways, 0)
+            self.eol_pathways.keys(), 0)
         self.landfill_state_list = list(self.landfill_costs.keys())
         self.all_additional_cap_installed = False
+        self.list_recycler_types = self.roulette_wheel_choice(
+            self.recyclers, sum(self.recyclers.values()), True, [])
+        self.list_manufacturer_types = self.roulette_wheel_choice(
+            self.manufacturers, sum(self.manufacturers.values()), True, [])
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -351,7 +400,7 @@ class WindABM(Model):
         self.states_graph = nx.from_numpy_matrix(self.state_dis_matrix)
         nodes_states_dic = \
             dict(zip(list(self.states_graph.nodes),
-                     list(pd.read_csv("StatesAdjacencyMatrix.csv"))))
+                     list(self.state_distances)))
         self.states_graph = nx.relabel_nodes(self.states_graph,
                                              nodes_states_dic)
         self.all_shortest_paths_or_trg = self.compute_all_distances(
@@ -361,26 +410,32 @@ class WindABM(Model):
         self.G_rec, self.grid_rec, self.schedule_rec = \
             self.network_grid_schedule_agents(
                 sum(self.recyclers.values()),
-                self.small_world_network["node_degree"],
-                self.small_world_network["rewiring_prob"],
+                self.small_world_networks["recyclers"]["node_degree"],
+                self.small_world_networks["recyclers"]["rewiring_prob"],
                 sum(self.recyclers.values()), Recycler)
         self.G_land, self.grid_land, self.schedule_land = \
             self.network_grid_schedule_agents(
                 sum(self.landfills.values()),
-                self.small_world_network["node_degree"],
-                self.small_world_network["rewiring_prob"],
+                self.small_world_networks["landfills"]["node_degree"],
+                self.small_world_networks["landfills"]["rewiring_prob"],
                 sum(self.landfills.values()), Landfill)
+        self.G_man, self.grid_man, self.schedule_man = \
+            self.network_grid_schedule_agents(
+                sum(self.manufacturers.values()),
+                self.small_world_networks["manufacturers"]["node_degree"],
+                self.small_world_networks["manufacturers"]["rewiring_prob"],
+                sum(self.manufacturers.values()), Manufacturer)
         self.G_dev, self.grid_dev, self.schedule_dev = \
             self.network_grid_schedule_agents(
                 sum(self.developers.values()),
-                self.small_world_network["node_degree"],
-                self.small_world_network["rewiring_prob"],
+                self.small_world_networks["developers"]["node_degree"],
+                self.small_world_networks["developers"]["rewiring_prob"],
                 sum(self.developers.values()), Developer)
         self.G_reg, self.grid_reg, self.schedule_reg = \
             self.network_grid_schedule_agents(
                 self.regulators,
-                self.small_world_network["node_degree"],
-                self.small_world_network["rewiring_prob"],
+                self.small_world_networks["regulators"]["node_degree"],
+                self.small_world_networks["regulators"]["rewiring_prob"],
                 self.regulators, Regulator)
         self.first_wpo_id = self.unique_id
         self.G_wpo, self.grid_wpo, self.schedule_wpo = \
@@ -389,16 +444,12 @@ class WindABM(Model):
                     self.uswtdb, self.temporal_scope['simulation_start'],
                     self.temporal_scope['simulation_end'],
                     self.p_install_growth),
-                self.small_world_network["node_degree"],
-                self.small_world_network["rewiring_prob"],
+                self.small_world_networks[
+                    "wind_plant_owners"]["node_degree"],
+                self.small_world_networks[
+                    "wind_plant_owners"]["rewiring_prob"],
                 self.uswtdb.shape[0], WindPlantOwner)
         self.additional_id = self.first_wpo_id + self.uswtdb.shape[0]
-        self.G_man, self.grid_man, self.schedule_man = \
-            self.network_grid_schedule_agents(
-                self.manufacturers,
-                self.small_world_network["node_degree"],
-                self.small_world_network["rewiring_prob"],
-                self.manufacturers, Manufacturer)
         # Create data collectors:
         model_reporters = {
             "Year": lambda a:
@@ -971,6 +1022,29 @@ class WindABM(Model):
             return initial_lifetime, 0
 
     @staticmethod
+    def assign_agents_to_each_other(list_variables_to_assign, number_agent,
+                                    number_assigned_agent, list_agent_assigned,
+                                    exclusive_assignment):
+        agents_to_assign = int(np.ceil(number_assigned_agent / number_agent))
+        for i in range(agents_to_assign):
+            if list_variables_to_assign:
+                # A tuple is appended to the list with x, y... variables of
+                # assigned agents
+                if exclusive_assignment:
+                    agent_assigned = list_variables_to_assign.pop()
+                else:
+                    agent_assigned = random.choice(list_variables_to_assign)
+                list_agent_assigned.append(agent_assigned)
+        return list_agent_assigned
+
+    @staticmethod
+    def random_pick_dic_key(dic_to_pick_key_from):
+        list_to_shuffle = list(dic_to_pick_key_from.keys())
+        random.shuffle(list_to_shuffle)
+        pick = list_to_shuffle[0]
+        return pick
+
+    @staticmethod
     def boolean_dic_based_on_dicts(dic_to_modify, value_to_change, modifier,
                                    *args):
         """
@@ -993,13 +1067,17 @@ class WindABM(Model):
     @staticmethod
     def filter_list(input_list, filtered_out_value):
         """
-        Filter out a given value from list
+        Filter out a given value from list if list contains more than 1 value,
+        otherwise return input list (avoids empty lists)
         :param input_list: list from which the value should be filtered out
         :param filtered_out_value: the value to filter out from list
         :return: filtered out value
         """
         output = list(filter(lambda x: x != filtered_out_value, input_list))
-        return output
+        if output:
+            return output
+        else:
+            return input_list
 
     @staticmethod
     def safe_div(x, y):
@@ -1046,9 +1124,9 @@ class WindABM(Model):
         self.number_wpo_agent = 0
         self.eol_pathway_dist_list = []
         self.eol_pathway_adoption = self.initial_dic_from_key_list(
-            self.eol_pathways, 0)
+            self.eol_pathways.keys(), 0)
 
-    def reinitialize_global_variables_other_agents(self):
+    def reinitialize_global_variables_rec_land_reg(self):
         """
         Re-initialize yearly variables
         """
@@ -1057,8 +1135,14 @@ class WindABM(Model):
         self.variables_landfills = self.initial_dic_from_key_list(
             self.landfills.keys(), [])
         self.regulations_enacted = self.nested_init_dic(
-            False, self.eol_pathways, self.growth_rates.keys())
+            False, self.choices_circularity, self.growth_rates.keys())
         self.le_characteristics = []
+
+    def reinitialize_global_variables_dev(self):
+        """
+        Re-initialize yearly variables
+        """
+        self.variables_additional_wpo = []
 
     def update_model_variables(self):
         """
@@ -1083,9 +1167,10 @@ class WindABM(Model):
         self.data_collector.collect(self)
         self.reinitialize_global_variables_wpo()
         self.schedule_wpo.step()
-        self.reinitialize_global_variables_other_agents()
+        self.reinitialize_global_variables_rec_land_reg()
         self.schedule_man.step()
         self.schedule_dev.step()
+        self.reinitialize_global_variables_dev()
         self.schedule_rec.step()
         self.schedule_land.step()
         self.schedule_reg.step()

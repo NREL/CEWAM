@@ -14,18 +14,10 @@ decisions, for instance, regarding the design of wind blades.
 
 
 from mesa import Agent
-import numpy as np
-import random
-from collections import OrderedDict
-from scipy.stats import truncnorm
-import operator
-from math import *
-import time
 
 # TODO:
 #  1) Silica quarries location to map on cement factories (look up in USGS)
 #  Will determined if cement factory accept waste
-
 
 
 class Manufacturer(Agent):
@@ -38,6 +30,18 @@ class Manufacturer(Agent):
             setattr(self, key, value)
 
         self.internal_clock = 0
+        self.manufacturer_type = self.model.list_manufacturer_types.pop()
+        # Original equipment manufacturer only (wind_blade manufacturer type)
+        if self.manufacturer_type == 'wind_blade':
+            self.thermoset_blade_cost = \
+                self.model.symetric_triang_distrib_draw(
+                    self.model.blade_costs["thermoset"][0],
+                    self.model.blade_costs["thermoset"][1])
+            self.thermoplastic_blade_cost = self.model.blade_costs[
+                "thermoplastic_rate"] * self.thermoset_blade_cost
+            self.model.variables_manufacturers[self.manufacturer_type].append(
+                (self.unique_id, self.thermoset_blade_cost,
+                 self.thermoplastic_blade_cost))
 
     def mock_up(self):
         pass

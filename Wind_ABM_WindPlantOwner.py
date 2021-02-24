@@ -63,7 +63,6 @@ class WindPlantOwner(Agent):
             self.t_rd = self.model.uswtdb.groupby('t_state').mean().loc[
                                self.t_state]['t_rd']
             self.eol_pathway = self.model.list_add_agent_eol_path.pop()
-            self.eol_second_choice = 'landfill'
             self.internal_clock = self.model.clock + 1
         # All agents
         self.mass_conv_factor = self.compute_mass_conv_factor(
@@ -78,26 +77,26 @@ class WindPlantOwner(Agent):
         self.agent_attributes_counted = False
         self.agent_attributes_updated = False
         self.eol_att_level_ce_path = self.model.trunc_normal_distrib_draw(
-            (self.model.attitude_parameters['min'] -
-             self.model.attitude_parameters['mean']) /
-            self.model.attitude_parameters['standard_deviation'],
-            (self.model.attitude_parameters['max'] -
-             self.model.attitude_parameters['mean']) /
-            self.model.attitude_parameters['standard_deviation'],
-            self.model.attitude_parameters['mean'],
-            self.model.attitude_parameters['standard_deviation'])
+            (self.model.attitude_eol_parameters['min'] -
+             self.model.attitude_eol_parameters['mean']) /
+            self.model.attitude_eol_parameters['standard_deviation'],
+            (self.model.attitude_eol_parameters['max'] -
+             self.model.attitude_eol_parameters['mean']) /
+            self.model.attitude_eol_parameters['standard_deviation'],
+            self.model.attitude_eol_parameters['mean'],
+            self.model.attitude_eol_parameters['standard_deviation'])
         self.eol_att_level_conv_path = self.model.trunc_normal_distrib_draw(
-            (self.model.attitude_parameters['min'] -
-             self.model.attitude_parameters['mean']) /
-            self.model.attitude_parameters['standard_deviation'],
-            (self.model.attitude_parameters['max'] -
-             self.model.attitude_parameters['mean']) /
-            self.model.attitude_parameters['standard_deviation'],
-            (self.model.attitude_parameters['max'] -
-             self.model.attitude_parameters['mean']),
-            self.model.attitude_parameters['standard_deviation'])
+            (self.model.attitude_eol_parameters['min'] -
+             self.model.attitude_eol_parameters['mean']) /
+            self.model.attitude_eol_parameters['standard_deviation'],
+            (self.model.attitude_eol_parameters['max'] -
+             self.model.attitude_eol_parameters['mean']) /
+            self.model.attitude_eol_parameters['standard_deviation'],
+            (self.model.attitude_eol_parameters['max'] -
+             self.model.attitude_eol_parameters['mean']),
+            self.model.attitude_eol_parameters['standard_deviation'])
         self.waste_eol_path = self.model.initial_dic_from_key_list(
-            self.model.eol_pathways, 0)
+            self.model.eol_pathways.keys(), 0)
         self.variables_developers_wpo = self.convert_developer_costs(
             self.model.variables_developers, self.blade_mass_conv_factor)
         self.eol_pathways_barriers = self.model.initial_dic_from_key_list(
@@ -115,9 +114,13 @@ class WindPlantOwner(Agent):
         self.eol_second_choice = random.choice(self.model.filter_list(
             self.model.list_init_eol_second_choice, self.eol_pathway))
         self.eol_second_choice_share = 0
-        self.wpo_eol_pathways = self.model.eol_pathways
+        self.wpo_eol_pathways = self.model.eol_pathways.copy()
         self.le_characteristics = random.choice(self.model.le_characteristics)
         self.regulation_new_decision = False
+        # Additional agents - variables for developers
+        if self.unique_id > self.initial_agents:
+            self.model.variables_additional_wpo.append(
+                (self.unique_id, self.blade_mass_conv_factor))
 
     @staticmethod
     def compute_mass_conv_factor(rotor_diameter, coefficient, power,
