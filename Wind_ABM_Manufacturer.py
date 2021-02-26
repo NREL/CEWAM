@@ -52,8 +52,8 @@ class Manufacturer(Agent):
         Update instance (agent) variables
         """
         # TODO: mock-up below to replace by real function
-        if self.model.clock > 5 and self.manufacturer_type == 'wind_blade':
-            self.yearly_tp_blade_manufactured = 500
+        if self.model.clock > 3 and self.manufacturer_type == 'wind_blade':
+            self.yearly_tp_blade_manufactured = 1000
 
     def report_agent_variables(self):
         """

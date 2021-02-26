@@ -13,8 +13,6 @@ decisions, for instance, regarding EOL management.
 from mesa import Agent
 import random
 
-# TODO: dissolution pathway activate only if wpo has thermoplastic blades
-
 
 class WindPlantOwner(Agent):
     def __init__(self, unique_id, model, **kwargs):
@@ -120,7 +118,8 @@ class WindPlantOwner(Agent):
         # Additional agents - variables for developers
         if self.unique_id > self.initial_agents:
             self.model.variables_additional_wpo.append(
-                (self.unique_id, self.blade_mass_conv_factor, self.p_cap))
+                (self.unique_id, self.blade_mass_conv_factor, self.p_cap,
+                 self.t_state))
 
     @staticmethod
     def compute_mass_conv_factor(rotor_diameter, coefficient, power,
@@ -375,16 +374,20 @@ class WindPlantOwner(Agent):
                                                         mass_conv_factor
             reporter_adoption[eol_pathway] += 1
 
-    def regulations_consequences(self):
+    def other_agents_consequences(self):
         """
         Signal the update_agent_variables_every_or_specific_step function that
-        wpo eol pathway need to be updated with regards to new regulations
+        wpo eol pathway need to be updated with regards to new information from
+        other agents
         """
-        # TODO: continue HERE: have dissolution appear with the use of
-        #  model dissolution_available dictionary.
         self.wpo_eol_pathways = self.model.boolean_dic_based_on_dicts(
             self.wpo_eol_pathways, True, False,
             self.model.bans_enacted[self.t_state])
+        if bool(self.model.dissolution_available) and self.unique_id in \
+                self.model.dissolution_available:
+            self.wpo_eol_pathways = self.model.boolean_dic_based_on_dicts(
+                self.wpo_eol_pathways, True, True,
+                self.model.dissolution_available[self.unique_id])
         for value in self.model.regulations_enacted.values():
             if value[self.t_state] and not self.regulation_new_decision:
                 self.agent_attributes_updated = False
@@ -415,7 +418,7 @@ class WindPlantOwner(Agent):
             self.eol_tr_cost_repair, self.model.variables_recyclers,
             self.model.variables_landfills, self.variables_developers_wpo,
             self.decommissioning_cost)
-        self.regulations_consequences()
+        self.other_agents_consequences()
         # Agents' attributes that should not be updated every step
         if not self.agent_attributes_updated:
             self.eol_pathway, self.eol_second_choice = \

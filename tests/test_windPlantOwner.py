@@ -4,9 +4,8 @@ Created on December 31 2020
 
 @author Julien Walzberg - Julien.Walzberg@nrel.gov
 
-Test functions in Wind_ABM_WIndPlantOwner
+Test functions in Wind_ABM_WindPlantOwner
 """
-
 
 from unittest import TestCase
 from Wind_ABM_Model import WindABM

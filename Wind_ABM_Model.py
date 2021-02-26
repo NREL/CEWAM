@@ -13,27 +13,31 @@ outputs.
 
 # TODO: Next steps - continue HERE
 #  1) Continue with other agents - follow memo (including agent order)
-#    i) developer
-#      ** Continue HERE, below **
-#      * limit adoption to amount of manufactured thermoplastic blades (use
-#        the fact that TPB return two values (the second value simply being
-#        thermoplastic blades))
-#      * set up function(s) to distribute additional wind plant owners to the
-#        wind plant developers and have wind plant owners know what type of
-#        blades they get depending on the decision of their wind plant
-#        developer; use the model module to transfer information between agents
-#      * check mock-up functions for the lifetime extension and refine if
-#        needed
-#      * unittests
-#    ii) recycler
-#      * unittests: for recycler and other agents similar to recycler write
-#      unittests to check initial distribution of types
-#    iii) manufacturer
-#    iv) landfill
-#    v) regulator
-#  2) Use a machine learning metamodel to calibrate the ABM quicker
-#  3) A reinforcement learning could be used in the future (long term)
-#  4) Avoid calling the scheduler unless there are no other choices
+#    i) recycler
+#      * Learning effect
+#      * Recycling process (materials recovery)
+#      * Unittests
+#    ii) manufacturer
+#      * TPB decision to manufacture thermoplastic blades
+#      * Manufacturing waste
+#      * Unittests
+#    iii) landfill
+#      * Capacity assessment
+#      * Unittests
+#    iv) regulator
+#      * Regulation enactment depending on landfill capacity
+#      * Unittests
+#  2) More unittests:
+#    i) for recycler and other agents similar to recycler write
+#    unittests to check initial distribution of types
+#    ii) also try to build unittests to check that outputs are correct
+#    ("mini extreme scenario" to test that the model output intermediate
+#    variables (like adoption of pathways and such correctly)
+#  3) Use a machine learning metamodel to calibrate the ABM quicker
+#  4) A reinforcement learning could be used in the future (long term)
+#  5) Avoid calling the scheduler unless there are no other choices
+#  6) lifetime extension: use doi:10.1088/1757-899X/429/1/012024 to write about
+#  green procurement
 
 from mesa import Model
 from Wind_ABM_WindPlantOwner import WindPlantOwner
@@ -79,6 +83,9 @@ class WindABM(Model):
                  external_files={
                      "state_distances": "StatesAdjacencyMatrix.csv", "uswtdb":
                      "uswtdb_v3_3_20210114.csv"},
+                 # TODO: growth rates from 95-by-35.Adv and
+                 #  95-by-35+Elec.Adv+DR scenarios in: C:\Users\jwalzber\
+                 #  Documents\Winter21\Wind_ABM\Modeling\Data\ProjectedCapacity
                  growth_rates={
                      'Alabama': 0.39, 'Arizona': 0.09, 'Arkansas': 0.47,
                      'California': 0.05, 'Colorado': 0.02, 'Connecticut': 0.24,
@@ -188,9 +195,8 @@ class WindABM(Model):
                  #  than EOL blades
                  early_failure_share=0.03,
                  blade_types={"thermoset": True, "thermoplastic": True},
-                 # TODO: 1-0
-                 blade_types_dist_init={"thermoset": 0.5,
-                                        "thermoplastic": 0.5},
+                 blade_types_dist_init={"thermoset": 1.0,
+                                        "thermoplastic": 0.0},
                  tpb_bt_coeff={'w_bi': 1.00, 'w_a': 0.30, 'w_sn': 0.21,
                                'w_pbc': -0.32, 'w_p': 0.00, 'w_b': 0.00},
                  attitude_bt_parameters={
@@ -366,7 +372,7 @@ class WindABM(Model):
         self.eol_pathway_dist_list = []
         self.eol_pathway_dist_dic = {}
         self.states_waste_eol_path = self.nested_init_dic(
-            0, self.growth_rates.keys(), self.eol_pathways)
+            0, self.growth_rates.keys(), self.eol_pathways.keys())
         self.variables_recyclers = self.initial_dic_from_key_list(
             self.recyclers.keys(), [])
         self.variables_landfills = self.initial_dic_from_key_list(
@@ -379,11 +385,11 @@ class WindABM(Model):
         self.regulators = len(self.growth_rates.keys())
         self.regulator_states_list = list(self.growth_rates.keys())
         self.regulations_enacted = self.nested_init_dic(
-            False, self.choices_circularity, self.growth_rates.keys())
+            False, self.choices_circularity.keys(), self.growth_rates.keys())
         self.bans_enacted = self.nested_init_dic(
-            False, self.growth_rates.keys(), self.choices_circularity)
+            False, self.growth_rates.keys(), self.choices_circularity.keys())
         self.other_regulations_enacted = self.nested_init_dic(
-            False, self.growth_rates.keys(), self.choices_circularity)
+            False, self.growth_rates.keys(), self.choices_circularity.keys())
         self.le_characteristics = []
         self.eol_pathway_adoption = self.initial_dic_from_key_list(
             self.eol_pathways.keys(), 0)
@@ -396,6 +402,8 @@ class WindABM(Model):
         self.tp_blade_manufactured = 0
         self.tp_blade_demanded = 0
         self.dissolution_available = {}
+        self.blade_type_capacities = self.nested_init_dic(
+            0, self.growth_rates.keys(), self.blade_types.keys())
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -465,7 +473,9 @@ class WindABM(Model):
             "State waste - eol pathways (metric tons)":
                 lambda a: str(self.states_waste_eol_path),
             "Number wpo agents": lambda a: self.number_wpo_agent,
-            "eol pathway adoption": lambda a: str(self.eol_pathway_adoption)}
+            "eol pathway adoption": lambda a: str(self.eol_pathway_adoption),
+            "Blade type adoption (MW)":
+                lambda a: str(self.blade_type_capacities)}
         agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
@@ -1027,9 +1037,26 @@ class WindABM(Model):
 
     @staticmethod
     def assign_agents_to_each_other(list_variables_to_assign, number_agent,
-                                    number_assigned_agent, list_agent_assigned,
+                                    number_agent_assigned, list_agent_assigned,
                                     exclusive_assignment):
-        agents_to_assign = int(np.ceil(number_assigned_agent / number_agent))
+        """
+        Function to assign agents of different types to each others, thereby
+        representing relationships between agents of different types (e.g.,
+        contractual or B2B, B2C relations); with this function, the variables
+        from an agent that are needed by another can be accessed by the latter
+        :param list_variables_to_assign: list of tuples of variables of
+        agent of one type to assign to another type of agent
+        :param number_agent: number of agents that will get agent variables
+        from the other agent type
+        :param number_agent_assigned: number of agent to assign to the other
+        agent type
+        :param list_agent_assigned: the output list of assigned agent variables
+        :param exclusive_assignment: determine if the assigned agent can only
+        be assigned once or not
+        :return: the output list of assigned agent variables (list of tuples)
+        """
+        agents_to_assign = int(
+            np.ceil(number_agent_assigned / number_agent))
         for i in range(agents_to_assign):
             if list_variables_to_assign:
                 # A tuple is appended to the list with x, y... variables of
@@ -1043,6 +1070,11 @@ class WindABM(Model):
 
     @staticmethod
     def random_pick_dic_key(dic_to_pick_key_from):
+        """
+        Randomly select a key in a dictionary
+        :param dic_to_pick_key_from: dictionary from which to select key
+        :return: the selected key
+        """
         list_to_shuffle = list(dic_to_pick_key_from.keys())
         random.shuffle(list_to_shuffle)
         pick = list_to_shuffle[0]
@@ -1121,6 +1153,11 @@ class WindABM(Model):
         draw = np.random.triangular(min_value, mode, max_value)
         return draw
 
+    @staticmethod
+    def most_common_element_list(input_list):
+        output = max(set(input_list), key=input_list.count)
+        return output
+
     def reinitialize_global_variables_wpo(self):
         """
         Re-initialize yearly variables
@@ -1139,7 +1176,7 @@ class WindABM(Model):
         self.variables_landfills = self.initial_dic_from_key_list(
             self.landfills.keys(), [])
         self.regulations_enacted = self.nested_init_dic(
-            False, self.choices_circularity, self.growth_rates.keys())
+            False, self.choices_circularity.keys(), self.growth_rates.keys())
         self.le_characteristics = []
         self.dissolution_available = {}
 

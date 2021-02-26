@@ -125,3 +125,21 @@ class TestWindABMRun(TestCase):
             test_sum += value
         test = test_sum
         self.assertAlmostEqual(result, test, delta=20)
+
+    def test_state_blade_type_sum_tot_cap(self):
+        """Test that the sum of capacities in all states for both blade type
+        is equal to all cumulative installed capacity during the simulation"""
+        result = round(
+            self.results_model.loc[
+                (self.number_steps - 1)]['Cumulative capacity (MW)'] -
+            self.results_model.loc[1]['Cumulative capacity (MW)'])
+        test_cap = \
+            self.results_model.loc[
+                (self.number_steps - 1)]['Blade type adoption (MW)']
+        test_cap = ast.literal_eval(test_cap)
+        test_sum = 0
+        for key, value in test_cap.items():
+            for key2 in value.keys():
+                test_sum += value[key2]
+        test = test_sum
+        self.assertAlmostEqual(result, test, delta=100)

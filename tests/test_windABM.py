@@ -31,12 +31,13 @@ class TestWindABM(TestCase):
     def test_network_grid_schedule_agents(self):
         """Test that network has the right number of nodes, that the grid and
         the schedule contains the appropriate number of agents, and that the
-        schedule"""
+        schedule is right"""
         num_nodes = 100
         node_degree = 5
         rewiring_prob = 0.1
         num_agents = 50
         agent_type = Recycler
+        self.t_model_inst.list_recycler_types = ['pyrolysis'] * num_agents
         network, grid, schedule = \
             self.t_model_inst.network_grid_schedule_agents(
                 num_nodes, node_degree, rewiring_prob, num_agents, agent_type)
@@ -76,8 +77,10 @@ class TestWindABM(TestCase):
         """Test that the network is built with the right average node degree"""
         number_node = self.t_model_inst.uswtdb.shape[0]
         theo_avg_node_degree = \
-            self.t_model_inst.small_world_network["node_degree"]
-        rewiring_prob = self.t_model_inst.small_world_network["rewiring_prob"]
+            self.t_model_inst.small_world_networks[
+                "wind_plant_owners"]["node_degree"]
+        rewiring_prob = self.t_model_inst.small_world_networks[
+                "wind_plant_owners"]["rewiring_prob"]
         graph = self.t_model_inst.creating_social_network(
             number_node, theo_avg_node_degree, rewiring_prob, None)
         graph_node_degrees = graph.degree()
@@ -107,8 +110,10 @@ class TestWindABM(TestCase):
         test_param = {"unit": 1, "unit2": 2}
         number_node = self.t_model_inst.uswtdb.shape[0]
         theo_avg_node_degree = \
-            self.t_model_inst.small_world_network["node_degree"]
-        rewiring_prob = self.t_model_inst.small_world_network["rewiring_prob"]
+            self.t_model_inst.small_world_networks[
+                "wind_plant_owners"]["node_degree"]
+        rewiring_prob = self.t_model_inst.small_world_networks[
+                "wind_plant_owners"]["rewiring_prob"]
         graph = self.t_model_inst.creating_social_network(
             number_node, theo_avg_node_degree, rewiring_prob, None)
         schedule = RandomActivation(self)
@@ -416,6 +421,30 @@ class TestWindABM(TestCase):
         test = (test1, test2)
         self.assertEqual(result, test)
 
+    def test_assign_agents_to_each_other(self):
+        """Test exclusive assignment and the use of the pop function"""
+        list_variables_to_assign = [(1, 2), (3, 4), (5, 6)]
+        number_agent = 4
+        number_agent_assigned = 3
+        list_agent_assigned = [(1, 2)]
+        exclusive_assignment = True
+        results = [(1, 2), (5, 6)]
+        test = self.t_model_inst.assign_agents_to_each_other(
+            list_variables_to_assign, number_agent, number_agent_assigned,
+            list_agent_assigned, exclusive_assignment)
+        self.assertCountEqual(results, test)
+
+    def test_random_pick_dic_key(self):
+        """Test that pick key randomly"""
+        test_dic = {'1': 2, '3': 4}
+        values = []
+        for i in range(100):
+            draw = float(self.t_model_inst.random_pick_dic_key(test_dic))
+            values.append(draw)
+        test_mean = sum(values) / len(values)
+        mean = 2
+        self.assertAlmostEqual(mean, test_mean, delta=0.5)
+
     def test_boolean_dic_based_on_dicts(self):
         """Test that Booleans in a dictionary are modified according to other
         Boolean dictionaries"""
@@ -478,7 +507,7 @@ class TestWindABM(TestCase):
         test_mean = sum(values) / len(values)
         self.assertGreater(min(values), a)
         self.assertLess(max(values), b)
-        self.assertAlmostEqual(mean, test_mean, delta=0.1)
+        self.assertAlmostEqual(mean, test_mean, delta=0.15)
 
     def test_re_initialize_global_variables_wpo(self):
         """Function can't be formally tested here"""
