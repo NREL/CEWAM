@@ -115,6 +115,8 @@ class WindPlantOwner(Agent):
         self.wpo_eol_pathways = self.model.eol_pathways.copy()
         self.le_characteristics = random.choice(self.model.le_characteristics)
         self.regulation_new_decision = False
+        self.eol_unique_ids_selected = self.model.initial_dic_from_key_list(
+            self.model.eol_pathways.keys(), 0)
         # Additional agents - variables for developers
         if self.unique_id > self.initial_agents:
             self.model.variables_additional_wpo.append(
@@ -313,10 +315,11 @@ class WindPlantOwner(Agent):
                 tr_proc_costs_segments = self.minimum_tr_proc_costs(
                     process_costs_key, transport_cost_segments)
                 tr_proc_costs = min(
-                    [tr_proc_costs_shreds + tr_proc_costs_segments],
+                    [tr_proc_costs_shreds, tr_proc_costs_segments],
                     key=lambda t: t[1])
             # in the tuple (x, y): x = agent id, y = transport + process net
             # costs
+            self.eol_unique_ids_selected[key] = tr_proc_costs[0]
             if key == 'lifetime_extension':
                 costs_eol_pathways[key] = tr_proc_costs[1]
             else:
@@ -348,18 +351,21 @@ class WindPlantOwner(Agent):
 
     @staticmethod
     def report_variables_if_lifetime_extended_or_else(
-            eol_pathway, eol_second_choice, reporter_waste, reporter_adoption,
-            state, waste, mass_conv_factor):
+            eol_pathway, eol_second_choice, eol_unique_ids_selected,
+            reporter_waste, reporter_adoption, reporter_recycler, state, waste,
+            mass_conv_factor):
         """
         Report waste according to the eol pathway - if lifetime extension is
         adopted, waste is reported to the secondary pathway, otherwise it is
         reported in the primary pathway
         :param eol_pathway: primary pathway adopted by wpo
         :param eol_second_choice: secondary pathway adopted by wpo
+        :param eol_unique_ids_selected:
         :param reporter_waste: nested dictionary reporter of waste amount in
         the state of the wpo and the pathway adopted for eol blades
         :param reporter_adoption: dictionary of the number of wpo that have
         adopted each eol pathway
+        :param reporter_recycler:
         :param state: the state of the wpo
         :param waste: the waste of the wpo (in MW)
         :param mass_conv_factor: the conversion factor (metric ton / MW)
@@ -369,10 +375,14 @@ class WindPlantOwner(Agent):
                                                         mass_conv_factor
             reporter_adoption[eol_pathway] += 1
             reporter_adoption[eol_second_choice] += 1
+            reporter_recycler[eol_unique_ids_selected[eol_second_choice]] += \
+                waste * mass_conv_factor
         else:
             reporter_waste[state][eol_pathway] += waste * \
                                                         mass_conv_factor
             reporter_adoption[eol_pathway] += 1
+            reporter_recycler[eol_unique_ids_selected[eol_pathway]] += \
+                waste * mass_conv_factor
 
     def other_agents_consequences(self):
         """
@@ -450,7 +460,8 @@ class WindPlantOwner(Agent):
         self.model.eol_pathway_dist_list.append(self.eol_pathway)
         self.report_variables_if_lifetime_extended_or_else(
             self.eol_pathway, self.eol_second_choice,
-            self.model.states_waste_eol_path, self.model.eol_pathway_adoption,
+            self.eol_unique_ids_selected, self.model.states_waste_eol_path,
+            self.model.eol_pathway_adoption, self.model.waste_rec_land,
             self.t_state, self.waste, self.mass_conv_factor)
 
     def remove_agent(self):

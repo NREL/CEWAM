@@ -67,6 +67,8 @@ class WindABM(Model):
                  manufacturers={
                      "wind_blade": 7, "plastics_n_boards": 100, "cement": 97},
                  developers={'lifetime_extension': 10},
+                 # TODO: "dissolution": 7, "pyrolysis": 2,
+                 #  "mechanical_recycling": 3, "cement_co_processing": 1
                  recyclers={
                      "dissolution": 25, "pyrolysis": 25,
                      "mechanical_recycling": 25, "cement_co_processing": 25},
@@ -75,11 +77,11 @@ class WindABM(Model):
                      "wind_plant_owners": {
                          "node_degree": 15, "rewiring_prob": 0.1},
                      "developers": {"node_degree": 5, "rewiring_prob": 0.1},
-                     "recyclers": {"node_degree": 15, "rewiring_prob": 0.1},
+                     "recyclers": {"node_degree": 5, "rewiring_prob": 0.1},
                      "manufacturers": {"node_degree": 15,
                                        "rewiring_prob": 0.1},
-                     "landfills": {"node_degree": 4, "rewiring_prob": 0.1},
-                     "regulators": {"node_degree": 4, "rewiring_prob": 0.1}},
+                     "landfills": {"node_degree": 5, "rewiring_prob": 0.1},
+                     "regulators": {"node_degree": 5, "rewiring_prob": 0.1}},
                  external_files={
                      "state_distances": "StatesAdjacencyMatrix.csv", "uswtdb":
                      "uswtdb_v3_3_20210114.csv"},
@@ -127,7 +129,7 @@ class WindABM(Model):
                  tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.30, 'w_sn': 0.56,
                                 'w_pbc': -0.13, 'w_p': 0.11, 'w_b': -0.21},
                  attitude_eol_parameters={
-                     'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
+                     'mean': 0.9, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
                  # TODO: complete dic with circular choices from other
                  #  decision than eol (e.g., conventional vs thermoplastic
@@ -203,7 +205,14 @@ class WindABM(Model):
                      'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
                  blade_costs={"thermoset": [50E3, 500E3],
-                              "thermoplastic_rate": 0.953}
+                              "thermoplastic_rate": 0.953},
+                 recyclers_states={
+                     "dissolution": ["Texas", "Oklahoma", "North Carolina",
+                                     "South Carolina", "Tennessee", "Ohio",
+                                     "Ohio"],
+                     "pyrolysis": ["South Carolina", "Tennessee"],
+                     "mechanical_recycling": ["Iowa", "Texas", "Florida"],
+                     "cement_co_processing": ["Missouri"]}
                  ):
         """
         Initiate model.
@@ -278,7 +287,9 @@ class WindABM(Model):
         distribution representing attitude among the population toward circular
         economy (CE) bt behaviors and to then infer non-circular behaviors
         :param blade_costs: costs of different blade types ($/blade), 
-        thermoplastic blades are 4.7% less expensive than thermoset blades 
+        thermoplastic blades are 4.7% less expensive than thermoset blades
+        :param recyclers_states: state where the recycling facilities are 
+        located
         """
         # Variables from inputs (value defined externally):
         self.seed = seed
@@ -320,6 +331,7 @@ class WindABM(Model):
         self.tpb_bt_coeff = tpb_bt_coeff
         self.attitude_bt_parameters = attitude_bt_parameters
         self.blade_costs = blade_costs
+        self.recyclers_states = recyclers_states
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -404,6 +416,7 @@ class WindABM(Model):
         self.dissolution_available = {}
         self.blade_type_capacities = self.nested_init_dic(
             0, self.growth_rates.keys(), self.blade_types.keys())
+        self.waste_rec_land = {}
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -1035,10 +1048,9 @@ class WindABM(Model):
         else:
             return initial_lifetime, 0
 
-    @staticmethod
-    def assign_agents_to_each_other(list_variables_to_assign, number_agent,
-                                    number_agent_assigned, list_agent_assigned,
-                                    exclusive_assignment):
+    def assign_agents_to_each_other(self, list_variables_to_assign,
+                                    number_agent, number_agent_assigned,
+                                    list_agent_assigned, exclusive_assignment):
         """
         Function to assign agents of different types to each others, thereby
         representing relationships between agents of different types (e.g.,
@@ -1061,12 +1073,18 @@ class WindABM(Model):
             if list_variables_to_assign:
                 # A tuple is appended to the list with x, y... variables of
                 # assigned agents
-                if exclusive_assignment:
-                    agent_assigned = list_variables_to_assign.pop()
-                else:
-                    agent_assigned = random.choice(list_variables_to_assign)
+                agent_assigned = self.assign_elements_from_list(
+                    list_variables_to_assign, exclusive_assignment)
                 list_agent_assigned.append(agent_assigned)
         return list_agent_assigned
+
+    @staticmethod
+    def assign_elements_from_list(list_elements, exclusive_assignment):
+        if exclusive_assignment:
+            element = list_elements.pop()
+        else:
+            element = random.choice(list_elements)
+        return element
 
     @staticmethod
     def random_pick_dic_key(dic_to_pick_key_from):
@@ -1166,6 +1184,9 @@ class WindABM(Model):
         self.eol_pathway_dist_list = []
         self.eol_pathway_adoption = self.initial_dic_from_key_list(
             self.eol_pathways.keys(), 0)
+        # TODO: Another possible option: a = dict.fromkeys(a, 0)
+        self.waste_rec_land = self.initial_dic_from_key_list(
+            self.waste_rec_land.keys(), 0)
 
     def reinitialize_global_variables_rec_land_reg_dev(self):
         """

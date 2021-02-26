@@ -86,4 +86,4 @@ class WindABMRun:
 
 
 # Comment line below when running WindWBMRun tests
-# WindABMRun().run_model()
+WindABMRun().run_model()

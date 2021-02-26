@@ -14,12 +14,6 @@ decisions, for instance, what type of recycling to perform.
 
 
 from mesa import Agent
-import random
-
-# TODO: separate pre-processing (e.g., done by Veolia) and actual co-processing
-#  (done by cement factories) in terms of activity and agents. In this way
-#  the number (and locations) of co-processing facilities can be different
-#  from the number of cement factories
 
 
 class Recycler(Agent):
@@ -30,14 +24,14 @@ class Recycler(Agent):
         """
         for key, value in kwargs.items():
             setattr(self, key, value)
-
+        # Variables internal to the class -
         self.internal_clock = 0
-
-        # TODO: replace mock-up values below by a function to determine
-        #  recyclers state
-        self.recycler_state = self.mock_up_random_state(
-            self.model.growth_rates)
         self.recycler_type = self.model.list_recycler_types.pop()
+        # TODO: uncomment below and delete other recycler_state lines
+        # self.recycler_state = self.model.assign_elements_from_list(
+        #    self.model.recyclers_states[self.recycler_type], True)
+        self.recycler_state = self.model.assign_elements_from_list(
+            list(self.model.growth_rates.keys()), False)
         self.init_recycler_cost = self.model.symetric_triang_distrib_draw(
             self.model.rec_processes_costs[self.recycler_type][0],
             self.model.rec_processes_costs[self.recycler_type][1])
@@ -48,16 +42,14 @@ class Recycler(Agent):
             (self.unique_id, self.recycler_state, (self.init_recycler_cost -
                                                    self.recycler_revenue)))
         self.recycler_cost = 0
+        self.init_recycled_quantity = 0
+        self.recycled_quantity = 0
+        self.model.waste_rec_land[self.unique_id] = 0
 
-    def mock_up(self):
-        pass
-
-    @staticmethod
-    def mock_up_random_state(dic_to_shuffle):
-        list_to_shuffle = list(dic_to_shuffle.keys())
-        random.shuffle(list_to_shuffle)
-        pick = list_to_shuffle[0]
-        return pick
+    def initial_recycling_quantity(self, clock, unique_id, simulation_start,
+                                   waste_rec_land):
+        if (clock + simulation_start) == simulation_start:
+            self.init_recycled_quantity = waste_rec_land[unique_id]
 
     def update_agent_variables(self):
         """
@@ -65,7 +57,13 @@ class Recycler(Agent):
         """
         # TODO: build learning effect function and update recycler costs
         #  instead of having self.init_recycler_cost
+        self.initial_recycling_quantity(
+            self.model.clock, self.unique_id,
+            self.model.temporal_scope['simulation_start'],
+            self.model.waste_rec_land)
+        self.recycled_quantity = self.model.waste_rec_land[self.unique_id]
         self.recycler_cost = self.init_recycler_cost
+        # TODO continue HERE: learning effect function
 
     def report_agent_variables(self):
         """
@@ -80,7 +78,6 @@ class Recycler(Agent):
         multiple scheduler, step needs to pass the global scheduler.
         """
         if self.internal_clock == self.model.clock:
-            self.mock_up()
             self.update_agent_variables()
             self.report_agent_variables()
             self.internal_clock += 1

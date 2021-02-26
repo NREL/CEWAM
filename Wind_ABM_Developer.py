@@ -106,10 +106,13 @@ class Developer(Agent):
         :param tp_blade_supply: number of blade supplied by manufacturer (MW)
         :param dissolution_available: dictionary of boolean to indicate wpo
         have thermoplastic blades and thus can opt for dissolution
-        :param blade_type_capacities:
-        :param wpo_bt_list:
+        :param blade_type_capacities: model reporter of new installed capacity
+        by blade type in each state
+        :param wpo_bt_list: list of blade type from each wpo
         :return: the blade demanded up to (and including) current developer,
-        dictionary with boolean to indicate wpo have thermoplastic blades
+        dictionary with boolean to indicate wpo have thermoplastic blades, the
+        new installed capacity by blade type in each state, and a list of blade
+        type from each wpo
         """
         for i in range(len(assigned_wpo)):
             wpo_unique_id = assigned_wpo[i][0]
@@ -152,13 +155,16 @@ class Developer(Agent):
         (MW) up to the current developer
         :param tp_blade_supply: number of blade supplied by manufacturer (MW)
         :param wpo_unique_id: unique id of wpo
-        :param wpo_t_state:
+        :param wpo_t_state: state of the wpo
         :param dissolution_available: nested dictionary with first key being
         the wpo unique id and second key being the dissolution process
-        :param blade_type_capacities:
-        :param bt_second_choice:
-        :return: the blade demanded up to (and including) current developer
-        nested dictionary dissolution_available
+        :param blade_type_capacities: model reporter of new installed capacity
+        by blade type in each state
+        :param bt_second_choice: second highest score choice in the TPB, which
+        replaces wpo_blade_type if supply of thermoplastic blade is limited
+        :return: the blade demanded up to (and including) current developer,
+        nested dictionary dissolution_available, and the new installed capacity
+        by blade type in each state
         """
         if wpo_blade_type == 'thermoplastic':
             tp_blade_demanded += wpo_p_cap

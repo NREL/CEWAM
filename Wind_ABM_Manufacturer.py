@@ -18,6 +18,7 @@ from mesa import Agent
 # TODO:
 #  1) Silica quarries location to map on cement factories (look up in USGS)
 #  Will determined if cement factory accept waste
+#  2) Locate manufacturer but don't include transport costs here
 
 
 class Manufacturer(Agent):

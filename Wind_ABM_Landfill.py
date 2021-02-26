@@ -36,6 +36,7 @@ class Landfill(Agent):
         self.model.variables_landfills[self.landfill_type].append(
             (self.unique_id, self.landfill_state, self.landfill_cost))
         self.closure = False
+        self.model.waste_rec_land[self.unique_id] = 0
 
     def mock_up(self):
         pass
