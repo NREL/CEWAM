@@ -23,10 +23,18 @@ import statistics
 
 class TestWindABM(TestCase):
     def setUp(self):
-        self.t_model_inst = WindABM(eol_pathways={
-            "lifetime_extension": True, "dissolution": True,
-            "pyrolysis": True, "mechanical_recycling": True,
-            "cement_co_processing": True, "landfill": True})
+        self.t_model_inst = WindABM(
+            eol_pathways={
+                "lifetime_extension": True, "dissolution": True,
+                "pyrolysis": True, "mechanical_recycling": True,
+                "cement_co_processing": True, "landfill": True},
+            recyclers_states={
+                "dissolution": ["Texas", "Oklahoma", "North Carolina",
+                                "South Carolina", "Tennessee", "Ohio",
+                                "Ohio"] * 100,
+                "pyrolysis": ["South Carolina", "Tennessee"] * 100,
+                "mechanical_recycling": ["Iowa", "Texas", "Florida"] * 100,
+                "cement_co_processing": ["Missouri"] * 100})
 
     def test_network_grid_schedule_agents(self):
         """Test that network has the right number of nodes, that the grid and
@@ -434,6 +442,20 @@ class TestWindABM(TestCase):
             list_agent_assigned, exclusive_assignment)
         self.assertCountEqual(results, test)
 
+    def test_assign_elements_from_list(self):
+        """Test that elements are assigned depending on the Boolean value"""
+        list_elements = [1, 1, 1]
+        exclusive_assignment = False
+        test1 = self.t_model_inst.assign_elements_from_list(
+            list_elements, exclusive_assignment)
+        list_elements = [1, 2, 3]
+        exclusive_assignment = True
+        test2 = self.t_model_inst.assign_elements_from_list(
+            list_elements, exclusive_assignment)
+        test = [test1, test2]
+        result = [1, 3]
+        self.assertCountEqual(test, result)
+
     def test_random_pick_dic_key(self):
         """Test that pick key randomly"""
         test_dic = {'1': 2, '3': 4}
@@ -508,6 +530,13 @@ class TestWindABM(TestCase):
         self.assertGreater(min(values), a)
         self.assertLess(max(values), b)
         self.assertAlmostEqual(mean, test_mean, delta=0.15)
+
+    def test_most_common_element_list(self):
+        """Test that the most common element is returned"""
+        input_list = ['test', 'test', 'test2', 'test3',  'test2', 'test']
+        test = self.t_model_inst.most_common_element_list(input_list)
+        result = 'test'
+        self.assertEqual(result, test)
 
     def test_re_initialize_global_variables_wpo(self):
         """Function can't be formally tested here"""

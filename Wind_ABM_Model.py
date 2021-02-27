@@ -14,8 +14,6 @@ outputs.
 # TODO: Next steps - continue HERE
 #  1) Continue with other agents - follow memo (including agent order)
 #    i) recycler
-#      * Learning effect
-#      * Recycling process (materials recovery)
 #      * Unittests
 #    ii) manufacturer
 #      * TPB decision to manufacture thermoplastic blades
@@ -38,6 +36,9 @@ outputs.
 #  5) Avoid calling the scheduler unless there are no other choices
 #  6) lifetime extension: use doi:10.1088/1757-899X/429/1/012024 to write about
 #  green procurement
+#  7) (Optional) Improving code:
+#    i) The "initial_dic_from_key_list" function could be replaced by:
+#    a = dict.fromkeys(a, 0)
 
 from mesa import Model
 from Wind_ABM_WindPlantOwner import WindPlantOwner
@@ -67,11 +68,9 @@ class WindABM(Model):
                  manufacturers={
                      "wind_blade": 7, "plastics_n_boards": 100, "cement": 97},
                  developers={'lifetime_extension': 10},
-                 # TODO: "dissolution": 7, "pyrolysis": 2,
-                 #  "mechanical_recycling": 3, "cement_co_processing": 1
                  recyclers={
-                     "dissolution": 25, "pyrolysis": 25,
-                     "mechanical_recycling": 25, "cement_co_processing": 25},
+                     "dissolution": 7, "pyrolysis": 2,
+                     "mechanical_recycling": 3, "cement_co_processing": 1},
                  landfills={"landfill": 47},
                  small_world_networks={
                      "wind_plant_owners": {
@@ -212,7 +211,23 @@ class WindABM(Model):
                                      "Ohio"],
                      "pyrolysis": ["South Carolina", "Tennessee"],
                      "mechanical_recycling": ["Iowa", "Texas", "Florida"],
-                     "cement_co_processing": ["Missouri"]}
+                     "cement_co_processing": ["Missouri"]},
+                 learning_parameter={
+                     "dissolution": [0.39, 0.52], "pyrolysis": [0.39, 0.52],
+                     "mechanical_recycling": [0.39, 0.52],
+                     "cement_co_processing": [0, 1E-6]},
+                 blade_mass_fractions={
+                     "steel": 0.05, "plastic": 0.09, "resin": 0.30,
+                     "glass_fiber": 0.56},
+                 rec_recovery_fractions={
+                     "dissolution": {"steel": 1, "plastic": 1, "resin": 1,
+                                     "glass_fiber": 1},
+                     "pyrolysis": {"steel": 1, "plastic": 0, "resin": 0,
+                                   "glass_fiber": 0.5},
+                     "mechanical_recycling": {"steel": 1, "plastic": 1,
+                                              "resin": 1, "glass_fiber": 1},
+                     "cement_co_processing": {"steel": 1, "plastic": 0,
+                                              "resin": 0, "glass_fiber": 1}}
                  ):
         """
         Initiate model.
@@ -283,6 +298,8 @@ class WindABM(Model):
         agents
         :param blade_types_dist_init: initial distribution of blade types (bt)
         adoption in the population
+        :param tpb_bt_coeff: regression coefficient in the theory of planned 
+        behavior (TPB) model of blade type adoption
         :param attitude_bt_parameters: parameters for a truncated normal 
         distribution representing attitude among the population toward circular
         economy (CE) bt behaviors and to then infer non-circular behaviors
@@ -290,6 +307,11 @@ class WindABM(Model):
         thermoplastic blades are 4.7% less expensive than thermoset blades
         :param recyclers_states: state where the recycling facilities are 
         located
+        :param learning_parameter: learning parameters used to model the 
+        learning effect for each recycling process
+        :param blade_mass_fractions: material mass fractions of blades
+        :param rec_recovery_fractions: material recovery fractions for each 
+        recycling process
         """
         # Variables from inputs (value defined externally):
         self.seed = seed
@@ -332,6 +354,9 @@ class WindABM(Model):
         self.attitude_bt_parameters = attitude_bt_parameters
         self.blade_costs = blade_costs
         self.recyclers_states = recyclers_states
+        self.learning_parameter = learning_parameter
+        self.blade_mass_fractions = blade_mass_fractions
+        self.rec_recovery_fractions = rec_recovery_fractions
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -417,6 +442,10 @@ class WindABM(Model):
         self.blade_type_capacities = self.nested_init_dic(
             0, self.growth_rates.keys(), self.blade_types.keys())
         self.waste_rec_land = {}
+        self.average_recycler_costs = self.initial_dic_from_key_list(
+            self.eol_pathways.keys(), 0)
+        self.recovered_materials = self.initial_dic_from_key_list(
+            self.blade_mass_fractions.keys(), 0)
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -488,7 +517,11 @@ class WindABM(Model):
             "Number wpo agents": lambda a: self.number_wpo_agent,
             "eol pathway adoption": lambda a: str(self.eol_pathway_adoption),
             "Blade type adoption (MW)":
-                lambda a: str(self.blade_type_capacities)}
+                lambda a: str(self.blade_type_capacities),
+            "Average recycling costs ($/metric ton)":
+                lambda a: str(self.average_recycler_costs),
+            "Recovered materials (metric tons)":
+                lambda a: str(self.recovered_materials)}
         agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
@@ -1080,6 +1113,15 @@ class WindABM(Model):
 
     @staticmethod
     def assign_elements_from_list(list_elements, exclusive_assignment):
+        """
+        Choose an element from a list, either randomly or the last element of
+        the list (and remove it from the list)
+        :param list_elements: list of elements to choose from
+        :param exclusive_assignment: if True the element is returned and
+        removed from the list, if False the element is randomly chosen from the
+        list and the list is left intact
+        :return: the chosen element
+        """
         if exclusive_assignment:
             element = list_elements.pop()
         else:
@@ -1173,6 +1215,13 @@ class WindABM(Model):
 
     @staticmethod
     def most_common_element_list(input_list):
+        """
+        Return the most common element in a list (mode), in case of a draw the
+        element that first appear in the list is returned
+        :param input_list: list from which the most common element needs to
+        be determined
+        :return: the most common element
+        """
         output = max(set(input_list), key=input_list.count)
         return output
 
@@ -1184,7 +1233,6 @@ class WindABM(Model):
         self.eol_pathway_dist_list = []
         self.eol_pathway_adoption = self.initial_dic_from_key_list(
             self.eol_pathways.keys(), 0)
-        # TODO: Another possible option: a = dict.fromkeys(a, 0)
         self.waste_rec_land = self.initial_dic_from_key_list(
             self.waste_rec_land.keys(), 0)
 
@@ -1201,13 +1249,15 @@ class WindABM(Model):
         self.le_characteristics = []
         self.dissolution_available = {}
 
-    def reinitialize_global_variables_dev_man(self):
+    def reinitialize_global_variables_dev_man_rec(self):
         """
         Re-initialize yearly variables
         """
         self.variables_additional_wpo = []
         self.tp_blade_manufactured = 0
         self.tp_blade_demanded = 0
+        self.average_recycler_costs = self.initial_dic_from_key_list(
+            self.eol_pathways.keys(), 0)
 
     def update_model_variables(self):
         """
@@ -1235,7 +1285,7 @@ class WindABM(Model):
         self.reinitialize_global_variables_rec_land_reg_dev()
         self.schedule_man.step()
         self.schedule_dev.step()
-        self.reinitialize_global_variables_dev_man()
+        self.reinitialize_global_variables_dev_man_rec()
         self.schedule_rec.step()
         self.schedule_land.step()
         self.schedule_reg.step()

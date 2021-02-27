@@ -12,6 +12,11 @@ Test functions in Wind_ABM_Run
 #  model and read the corresponding csv file and store in an instance variable
 #  before moving to the next model instance
 
+# TODO - Continue HERE: Add tests to check the new reporters in the
+#  Wind ABM model (average recycling costs (check first values before learning
+#  effect) and recovered materials) and test that everything work. Then set up
+#  recycler tests
+
 from unittest import TestCase
 from Wind_ABM_Run import *
 import pandas as pd

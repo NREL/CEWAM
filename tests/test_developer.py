@@ -14,10 +14,18 @@ import random
 
 class TestDeveloper(TestCase):
     def setUp(self):
-        self.t_model_inst = WindABM(eol_pathways={
-            "lifetime_extension": True, "dissolution": True,
-            "pyrolysis": True, "mechanical_recycling": True,
-            "cement_co_processing": True, "landfill": True})
+        self.t_model_inst = WindABM(
+            eol_pathways={
+                "lifetime_extension": True, "dissolution": True,
+                "pyrolysis": True, "mechanical_recycling": True,
+                "cement_co_processing": True, "landfill": True},
+            recyclers_states={
+                "dissolution": ["Texas", "Oklahoma", "North Carolina",
+                                "South Carolina", "Tennessee", "Ohio",
+                                "Ohio"] * 100,
+                "pyrolysis": ["South Carolina", "Tennessee"] * 100,
+                "mechanical_recycling": ["Iowa", "Texas", "Florida"] * 100,
+                "cement_co_processing": ["Missouri"] * 100})
 
     def test_additional_cap(self):
         """Function can't be formally tested here"""

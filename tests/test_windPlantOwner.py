@@ -14,10 +14,18 @@ import random
 
 class TestWindPlantOwner(TestCase):
     def setUp(self):
-        self.t_model_inst = WindABM(eol_pathways={
-            "lifetime_extension": True, "dissolution": True,
-            "pyrolysis": True, "mechanical_recycling": True,
-            "cement_co_processing": True, "landfill": True})
+        self.t_model_inst = WindABM(
+            eol_pathways={
+                "lifetime_extension": True, "dissolution": True,
+                "pyrolysis": True, "mechanical_recycling": True,
+                "cement_co_processing": True, "landfill": True},
+            recyclers_states={
+                "dissolution": ["Texas", "Oklahoma", "North Carolina",
+                                "South Carolina", "Tennessee", "Ohio",
+                                "Ohio"] * 100,
+                "pyrolysis": ["South Carolina", "Tennessee"] * 100,
+                "mechanical_recycling": ["Iowa", "Texas", "Florida"] * 100,
+                "cement_co_processing": ["Missouri"] * 100})
 
     def test_wind_power_capacity_state_distribution(self):
         """Verify that capacities are distributed as should be within the US"""
@@ -207,27 +215,31 @@ class TestWindPlantOwner(TestCase):
         waste1 = 1
         eol_pathway2 = "c"
         eol_second_choice2 = "b"
+        eol_unique_ids_selected = {'lifetime_extension': 0, 'b': 1, 'c': 2}
         state2 = 'Washington'
         waste2 = 2
         reporter_waste = {
             'Colorado': {'lifetime_extension': 0, 'b': 0, 'c': 0},
             'Washington': {'lifetime_extension': 0, 'b': 0, 'c': 0}}
         reporter_adoption = {'lifetime_extension': 0, 'b': 0, 'c': 0}
+        waste_rec_land = {0: 0, 1: 0, 2: 0}
         mass_conv_factor = 2
         agent = random.choice(self.t_model_inst.schedule_wpo.agents)
         # noinspection PyUnusedLocal
         test1 = agent.report_variables_if_lifetime_extended_or_else(
-            eol_pathway1, eol_second_choice1, reporter_waste,
-            reporter_adoption, state1, waste1, mass_conv_factor)
+            eol_pathway1, eol_second_choice1, eol_unique_ids_selected,
+            reporter_waste, reporter_adoption, waste_rec_land, state1, waste1,
+            mass_conv_factor)
         # noinspection PyUnusedLocal
         test2 = agent.report_variables_if_lifetime_extended_or_else(
-            eol_pathway2, eol_second_choice2, reporter_waste,
-            reporter_adoption, state2, waste2, mass_conv_factor)
-        test = [reporter_waste, reporter_adoption]
+            eol_pathway2, eol_second_choice2, eol_unique_ids_selected,
+            reporter_waste, reporter_adoption, waste_rec_land, state2, waste2,
+            mass_conv_factor)
+        test = [reporter_waste, reporter_adoption, waste_rec_land]
         results = [{
             'Colorado': {'lifetime_extension': 0, 'b': 2, 'c': 0},
             'Washington': {'lifetime_extension': 0, 'b': 0, 'c': 4}},
-            {'lifetime_extension': 1, 'b': 1, 'c': 1}]
+            {'lifetime_extension': 1, 'b': 1, 'c': 1}, {0: 0, 1: 2, 2: 4}]
         self.assertCountEqual(test, results)
 
     def test_regulations_consequences(self):
