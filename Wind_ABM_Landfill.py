@@ -14,7 +14,10 @@ decisions, for instance, to accept Wind Blades or not.
 
 
 from mesa import Agent
-import random
+
+# TODO: the percentage for regulator to act should be determined from EPA
+#  database looking at the landfill that already closed and what was their
+#  amount of waste left / the initial capacity
 
 
 class Landfill(Agent):

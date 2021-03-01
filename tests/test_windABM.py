@@ -23,33 +23,26 @@ import statistics
 
 class TestWindABM(TestCase):
     def setUp(self):
-        self.t_model_inst = WindABM(
-            eol_pathways={
-                "lifetime_extension": True, "dissolution": True,
-                "pyrolysis": True, "mechanical_recycling": True,
-                "cement_co_processing": True, "landfill": True},
-            recyclers_states={
-                "dissolution": ["Texas", "Oklahoma", "North Carolina",
-                                "South Carolina", "Tennessee", "Ohio",
-                                "Ohio"] * 100,
-                "pyrolysis": ["South Carolina", "Tennessee"] * 100,
-                "mechanical_recycling": ["Iowa", "Texas", "Florida"] * 100,
-                "cement_co_processing": ["Missouri"] * 100})
+        self.t_model_inst = WindABM()
 
     def test_network_grid_schedule_agents(self):
         """Test that network has the right number of nodes, that the grid and
         the schedule contains the appropriate number of agents, and that the
         schedule is right"""
-        num_nodes = 100
+        num_nodes = 10
         node_degree = 5
         rewiring_prob = 0.1
-        num_agents = 50
+        num_agents = 5
         agent_type = Recycler
-        self.t_model_inst.list_recycler_types = ['pyrolysis'] * num_agents
+        self.t_model_inst.list_recycler_types = ['dissolution'] * num_agents
+        self.t_model_inst.recyclers_states = {
+            "dissolution": ["Texas", "Oklahoma", "North Carolina",
+                            "South Carolina", "Tennessee", "Ohio",
+                            "Ohio"]}
         network, grid, schedule = \
             self.t_model_inst.network_grid_schedule_agents(
                 num_nodes, node_degree, rewiring_prob, num_agents, agent_type)
-        results = [100, 50, 50]
+        results = [10, 5, 5]
         count = 0
         for i in range(num_nodes):
             if grid.is_cell_empty(i):

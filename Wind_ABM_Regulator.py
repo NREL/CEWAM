@@ -17,6 +17,9 @@ from mesa import Agent
 
 # TODO:
 #  1) build regulation enacting
+#  2) the percentage for regulator to act should be determined from EPA
+#  database looking at the landfill that already closed and what was their
+#  amount of waste left / the initial capacity
 
 
 class Regulator(Agent):

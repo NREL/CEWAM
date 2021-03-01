@@ -52,12 +52,9 @@ class WindABMRun:
         """
         self.number_run = number_run
         self.number_steps = number_steps
-        self.model_instance = model_in(seed=self.number_run, temporal_scope={
-                'pre_simulation': 2000, 'simulation_start': 2020,
-                'simulation_end': (2020 + self.number_steps)})
+        self.model_in = model_in
         self.kwargs = kwargs
-        for key, value in self.kwargs.items():
-            setattr(self.model_instance, key, value)
+        self.model_instance = None
 
     def set_up_run_model(self):
         """
@@ -66,6 +63,12 @@ class WindABMRun:
         at each run.
         """
         for j in range(self.number_run):
+            t0 = time.time()
+            self.model_instance = self.model_in(seed=j ,temporal_scope={
+                'pre_simulation': 2000, 'simulation_start': 2020,
+                'simulation_end': (2020 + self.number_steps)})
+            for key, value in self.kwargs.items():
+                setattr(self.model_instance, key, value)
             for i in range(
                     (self.model_instance.temporal_scope['simulation_end'] -
                      self.model_instance.temporal_scope['simulation_start'])):
@@ -76,14 +79,14 @@ class WindABMRun:
                 self.model_instance.data_collector.get_agent_vars_dataframe()
             results_model.to_csv("results\\Results_model_run_%s.csv" % j)
             results_agents.to_csv("results\\Results_agents_run_%s.csv" % j)
+            t1 = time.time()
+            print('Replicate', (j + 1), 'out of', self.number_run,
+                  ' with run time of:', t1 - t0)
 
     def run_model(self):
         """Run the set up model"""
-        t0 = time.time()
         self.set_up_run_model()
-        t1 = time.time()
-        print(t1 - t0)
 
 
 # Comment line below when running WindWBMRun tests
-# WindABMRun().run_model()
+WindABMRun().run_model()

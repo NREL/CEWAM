@@ -13,8 +13,6 @@ outputs.
 
 # TODO: Next steps - continue HERE
 #  1) Continue with other agents - follow memo (including agent order)
-#    i) recycler
-#      * Unittests
 #    ii) manufacturer
 #      * TPB decision to manufacture thermoplastic blades
 #      * Manufacturing waste
@@ -117,8 +115,9 @@ class WindABM(Model):
                      'pre_simulation': 2000, 'simulation_start': 2020,
                      'simulation_end': 2051},
                  blades_per_rotor=3,
+                 # TODO
                  eol_pathways={
-                     "lifetime_extension": True, "dissolution": False,
+                     "lifetime_extension": True, "dissolution": True,
                      "pyrolysis": True, "mechanical_recycling": True,
                      "cement_co_processing": True, "landfill": True},
                  eol_pathways_dist_init={
@@ -128,13 +127,13 @@ class WindABM(Model):
                  tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.30, 'w_sn': 0.56,
                                 'w_pbc': -0.13, 'w_p': 0.11, 'w_b': -0.21},
                  attitude_eol_parameters={
-                     'mean': 0.9, 'standard_deviation': 0.1, 'min': 0,
+                     'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
                  # TODO: complete dic with circular choices from other
                  #  decision than eol (e.g., conventional vs thermoplastic
                  #  blades)
                  choices_circularity={
-                     "lifetime_extension": True, "dissolution": True,
+                     "lifetime_extension": True, "dissolution": False,
                      "pyrolysis": True, "mechanical_recycling": True,
                      "cement_co_processing": True, "landfill": False,
                      "thermoset": False, "thermoplastic": True},
@@ -213,9 +212,10 @@ class WindABM(Model):
                      "mechanical_recycling": ["Iowa", "Texas", "Florida"],
                      "cement_co_processing": ["Missouri"]},
                  learning_parameter={
-                     "dissolution": [0.39, 0.52], "pyrolysis": [0.39, 0.52],
-                     "mechanical_recycling": [0.39, 0.52],
-                     "cement_co_processing": [0, 1E-6]},
+                     "dissolution": [-0.52, -0.39],
+                     "pyrolysis": [-0.52, -0.39],
+                     "mechanical_recycling": [-0.52, -0.39],
+                     "cement_co_processing": [-1E-6, -0]},
                  blade_mass_fractions={
                      "steel": 0.05, "plastic": 0.09, "resin": 0.30,
                      "glass_fiber": 0.56},
@@ -314,49 +314,51 @@ class WindABM(Model):
         recycling process
         """
         # Variables from inputs (value defined externally):
-        self.seed = seed
+        self.seed = copy.deepcopy(seed)
         np.random.seed(self.seed)
         random.seed(self.seed)
-        self.manufacturers = manufacturers
-        self.developers = developers
-        self.recyclers = recyclers
-        self.landfills = landfills
-        self.small_world_networks = small_world_networks
-        self.external_files = external_files
-        self.growth_rates = growth_rates
-        self.average_lifetime = average_lifetime
-        self.weibull_shape_factor = weibull_shape_factor
-        self.blade_size_to_mass_model = blade_size_to_mass_model
-        self.cap_to_diameter_model = cap_to_diameter_model
-        self.temporal_scope = temporal_scope
-        self.blades_per_rotor = blades_per_rotor
-        self.eol_pathways = eol_pathways
-        self.eol_pathways_dist_init = eol_pathways_dist_init
-        self.tpb_eol_coeff = tpb_eol_coeff
-        self.attitude_eol_parameters = attitude_eol_parameters
-        self.choices_circularity = choices_circularity
-        self.decommissioning_cost = decommissioning_cost
-        self.lifetime_extension_costs = lifetime_extension_costs
-        self.rec_processes_costs = rec_processes_costs
-        self.landfill_costs = landfill_costs
-        self.transport_shreds = transport_shreds
-        self.transport_segments = transport_segments
-        self.transport_repair = transport_repair
-        self.eol_pathways_transport_mode = eol_pathways_transport_mode
-        self.lifetime_extension_revenues = lifetime_extension_revenues
-        self.rec_processes_revenues = rec_processes_revenues
-        self.lifetime_extension_years = lifetime_extension_years
-        self.le_feasibility = le_feasibility
-        self.early_failure_share = early_failure_share
-        self.blade_types = blade_types
-        self.blade_types_dist_init = blade_types_dist_init
-        self.tpb_bt_coeff = tpb_bt_coeff
-        self.attitude_bt_parameters = attitude_bt_parameters
-        self.blade_costs = blade_costs
-        self.recyclers_states = recyclers_states
-        self.learning_parameter = learning_parameter
-        self.blade_mass_fractions = blade_mass_fractions
-        self.rec_recovery_fractions = rec_recovery_fractions
+        self.manufacturers = copy.deepcopy(manufacturers)
+        self.developers = copy.deepcopy(developers)
+        self.recyclers = copy.deepcopy(recyclers)
+        self.landfills = copy.deepcopy(landfills)
+        self.small_world_networks = copy.deepcopy(small_world_networks)
+        self.external_files = copy.deepcopy(external_files)
+        self.growth_rates = copy.deepcopy(growth_rates)
+        self.average_lifetime = copy.deepcopy(average_lifetime)
+        self.weibull_shape_factor = copy.deepcopy(weibull_shape_factor)
+        self.blade_size_to_mass_model = copy.deepcopy(blade_size_to_mass_model)
+        self.cap_to_diameter_model = copy.deepcopy(cap_to_diameter_model)
+        self.temporal_scope = copy.deepcopy(temporal_scope)
+        self.blades_per_rotor = copy.deepcopy(blades_per_rotor)
+        self.eol_pathways = copy.deepcopy(eol_pathways)
+        self.eol_pathways_dist_init = copy.deepcopy(eol_pathways_dist_init)
+        self.tpb_eol_coeff = copy.deepcopy(tpb_eol_coeff)
+        self.attitude_eol_parameters = copy.deepcopy(attitude_eol_parameters)
+        self.choices_circularity = copy.deepcopy(choices_circularity)
+        self.decommissioning_cost = copy.deepcopy(decommissioning_cost)
+        self.lifetime_extension_costs = copy.deepcopy(lifetime_extension_costs)
+        self.rec_processes_costs = copy.deepcopy(rec_processes_costs)
+        self.landfill_costs = copy.deepcopy(landfill_costs)
+        self.transport_shreds = copy.deepcopy(transport_shreds)
+        self.transport_segments = copy.deepcopy(transport_segments)
+        self.transport_repair = copy.deepcopy(transport_repair)
+        self.eol_pathways_transport_mode = copy.deepcopy(
+            eol_pathways_transport_mode)
+        self.lifetime_extension_revenues = copy.deepcopy(
+            lifetime_extension_revenues)
+        self.rec_processes_revenues = copy.deepcopy(rec_processes_revenues)
+        self.lifetime_extension_years = copy.deepcopy(lifetime_extension_years)
+        self.le_feasibility = copy.deepcopy(le_feasibility)
+        self.early_failure_share = copy.deepcopy(early_failure_share)
+        self.blade_types = copy.deepcopy(blade_types)
+        self.blade_types_dist_init = copy.deepcopy(blade_types_dist_init)
+        self.tpb_bt_coeff = copy.deepcopy(tpb_bt_coeff)
+        self.attitude_bt_parameters = copy.deepcopy(attitude_bt_parameters)
+        self.blade_costs = copy.deepcopy(blade_costs)
+        self.recyclers_states = copy.deepcopy(recyclers_states)
+        self.learning_parameter = copy.deepcopy(learning_parameter)
+        self.blade_mass_fractions = copy.deepcopy(blade_mass_fractions)
+        self.rec_recovery_fractions = copy.deepcopy(rec_recovery_fractions)
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -452,11 +454,11 @@ class WindABM(Model):
         self.state_dis_matrix = self.state_distances.to_numpy()
         self.states = self.state_distances.columns.to_list()
         self.states_graph = nx.from_numpy_matrix(self.state_dis_matrix)
-        nodes_states_dic = \
+        self.nodes_states_dic = \
             dict(zip(list(self.states_graph.nodes),
                      list(self.state_distances)))
         self.states_graph = nx.relabel_nodes(self.states_graph,
-                                             nodes_states_dic)
+                                             self.nodes_states_dic)
         self.all_shortest_paths_or_trg = self.compute_all_distances(
             self.states, self.states_graph)
         # Creating agents and social networks:
@@ -505,7 +507,7 @@ class WindABM(Model):
                 self.uswtdb.shape[0], WindPlantOwner)
         self.additional_id = self.first_wpo_id + self.uswtdb.shape[0]
         # Create data collectors:
-        model_reporters = {
+        self.model_reporters = {
             "Year": lambda a:
             self.clock + self.temporal_scope['simulation_start'],
             "Cumulative capacity (MW)": lambda a: self.all_cap,
@@ -522,7 +524,7 @@ class WindABM(Model):
                 lambda a: str(self.average_recycler_costs),
             "Recovered materials (metric tons)":
                 lambda a: str(self.recovered_materials)}
-        agent_reporters = {
+        self.agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
             "Cumulative waste (metric tons)": lambda a: getattr(
@@ -530,8 +532,8 @@ class WindABM(Model):
             "Mass conversion factor": lambda a:
             getattr(a, "mass_conv_factor", None)}
         self.data_collector = DataCollector(
-            model_reporters=model_reporters,
-            agent_reporters=agent_reporters)
+            model_reporters=self.model_reporters,
+            agent_reporters=self.agent_reporters)
 
     def network_grid_schedule_agents(self, num_nodes, node_degree,
                                      rewiring_prob, num_agents, agent_type,

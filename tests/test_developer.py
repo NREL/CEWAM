@@ -14,18 +14,7 @@ import random
 
 class TestDeveloper(TestCase):
     def setUp(self):
-        self.t_model_inst = WindABM(
-            eol_pathways={
-                "lifetime_extension": True, "dissolution": True,
-                "pyrolysis": True, "mechanical_recycling": True,
-                "cement_co_processing": True, "landfill": True},
-            recyclers_states={
-                "dissolution": ["Texas", "Oklahoma", "North Carolina",
-                                "South Carolina", "Tennessee", "Ohio",
-                                "Ohio"] * 100,
-                "pyrolysis": ["South Carolina", "Tennessee"] * 100,
-                "mechanical_recycling": ["Iowa", "Texas", "Florida"] * 100,
-                "cement_co_processing": ["Missouri"] * 100})
+        self.t_model_inst = WindABM()
 
     def test_additional_cap(self):
         """Function can't be formally tested here"""
@@ -96,7 +85,7 @@ class TestDeveloper(TestCase):
         pass
 
     def test_step(self):
-        """Test that the wpo agents run steps without errors"""
+        """Test that the developer agents run steps without errors"""
         model = self.t_model_inst
         agent = random.choice(model.schedule_dev.agents)
         steps = 1
