@@ -35,7 +35,7 @@ class Manufacturer(Agent):
         # Original equipment manufacturer only (wind_blade manufacturer type)
         if self.manufacturer_type == 'wind_blade':
             self.bt_costs = self.model.initial_dic_from_key_list(
-                self.model.blade_types, 0)
+                self.model.blade_types.keys(), 0)
             self.bt_costs['thermoset'] = \
                 self.model.symetric_triang_distrib_draw(
                     self.model.blade_costs["thermoset"][0],
@@ -72,6 +72,10 @@ class Manufacturer(Agent):
             self.man_blade_types = self.model.blade_types.copy()
             self.bt_barriers = self.model.initial_dic_from_key_list(
                 self.model.blade_types.keys(), 0)
+            self.development_years = []
+            self.development_tp_blade = False
+            self.bt_produced = self.model.initial_dic_from_key_list(
+                self.model.blade_types.keys(), 0)
 
     def new_blade_design_adoption(self, current_blade_type):
         if current_blade_type != 'thermoplastic':
@@ -89,12 +93,40 @@ class Manufacturer(Agent):
     #  blade after five years and then update the amount of redesigned blade
     #  produced
 
+    @staticmethod
+    def lag_time_redesign(development_years, lag_time_tp_blade_dev):
+        last_dev_years = development_years[-lag_time_tp_blade_dev:]
+        tp_dev_years = last_dev_years.count('thermoplastic')
+        if tp_dev_years == lag_time_tp_blade_dev:
+            development_decision = True
+        else:
+            development_decision = False
+        return development_decision
+
+    @staticmethod
+    def quantity_tp_blade_produced(development_tp_blade, bt_produced,
+                                   producer_market_share, tp_production_share,
+                                   additional_capacity):
+        if development_tp_blade:
+            tp_share = producer_market_share * tp_production_share
+        else:
+            tp_share = 0
+        total_capacity_installed = sum(additional_capacity.values())
+        bt_produced['thermoplastic'] += tp_share * total_capacity_installed
+        bt_produced['thermoset'] += (1 - tp_share) * total_capacity_installed
+        return bt_produced
+    # TODO: Continue HERE set up the use of the function in update agent
+    #  variable and check that function works
+
     def update_agent_variables(self):
         """
         Update instance (agent) variables
         """
         if self.manufacturer_type == 'wind_blade':
             self.blade_type = self.new_blade_design_adoption(self.blade_type)
+            self.development_years.append(self.blade_type)
+            self.development_tp_blade = self.lag_time_redesign(
+                self.development_years, self.model.lag_time_tp_blade_dev)
         # TODO: mock-up below to replace by real function
         if self.model.clock > 3 and self.manufacturer_type == 'wind_blade':
             self.yearly_tp_blade_manufactured = 1000

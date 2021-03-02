@@ -29,7 +29,9 @@ outputs.
 #    ii) also try to build unittests to check that outputs are correct
 #    ("mini extreme scenario" to test that the model output intermediate
 #    variables (like adoption of pathways and such correctly)
-#  3) Use a machine learning metamodel to calibrate the ABM quicker
+#  3) Use a machine learning metamodel to calibrate the ABM quicker -->
+#  calibrate with attitude values and if necessary TPB coefficients (within
+#  defined values for uncertainty assessment described in the memo report)
 #  4) A reinforcement learning could be used in the future (long term)
 #  5) Avoid calling the scheduler unless there are no other choices
 #  6) lifetime extension: use doi:10.1088/1757-899X/429/1/012024 to write about
@@ -230,12 +232,13 @@ class WindABM(Model):
                                               "resin": 1, "glass_fiber": 1},
                      "cement_co_processing": {"steel": 1, "plastic": 0,
                                               "resin": 0, "glass_fiber": 1}},
-                 bt_man_dist_init={"thermoset": 1.0, "thermoplastic": 0.0},
+                 bt_man_dist_init={"thermoset": 1, "thermoplastic": 0.0},
                  attitude_bt_man_parameters={
                      'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
                  tpb_bt_man_coeff={'w_bi': 1.00, 'w_a': 0.15, 'w_sn': 0.35,
-                                   'w_pbc': -0.24, 'w_p': 0.00, 'w_b': 0.00}
+                                   'w_pbc': -0.24, 'w_p': 0.00, 'w_b': 0.00},
+                 lag_time_tp_blade_dev=1
                  ):
         """
         Initiate model.
@@ -327,6 +330,8 @@ class WindABM(Model):
         economy (CE) bt behaviors and to then infer non-circular behaviors
         :param tpb_bt_man_coeff: regression coefficient in the theory of 
         planned behavior (TPB) model of new blade design adoption
+        :param lag_time_tp_blade_dev: number o years needed to develop
+        thermoplastic blades
         """
         # Variables from inputs (value defined externally):
         self.seed = copy.deepcopy(seed)
@@ -378,6 +383,7 @@ class WindABM(Model):
         self.attitude_bt_man_parameters = copy.deepcopy(
             attitude_bt_man_parameters)
         self.tpb_bt_man_coeff = copy.deepcopy(tpb_bt_man_coeff)
+        self.lag_time_tp_blade_dev = copy.deepcopy(lag_time_tp_blade_dev)
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
