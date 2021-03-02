@@ -64,7 +64,7 @@ class WindABMRun:
         """
         for j in range(self.number_run):
             t0 = time.time()
-            self.model_instance = self.model_in(seed=j ,temporal_scope={
+            self.model_instance = self.model_in(seed=j, temporal_scope={
                 'pre_simulation': 2000, 'simulation_start': 2020,
                 'simulation_end': (2020 + self.number_steps)})
             for key, value in self.kwargs.items():

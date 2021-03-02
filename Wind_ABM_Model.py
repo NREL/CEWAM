@@ -77,6 +77,8 @@ class WindABM(Model):
                      "recyclers": {"node_degree": 5, "rewiring_prob": 0.1},
                      "manufacturers": {"node_degree": 15,
                                        "rewiring_prob": 0.1},
+                     "original_equipment_manufacturer": {
+                         "node_degree": 5, "rewiring_prob": 0.1},
                      "landfills": {"node_degree": 5, "rewiring_prob": 0.1},
                      "regulators": {"node_degree": 5, "rewiring_prob": 0.1}},
                  external_files={
@@ -227,7 +229,13 @@ class WindABM(Model):
                      "mechanical_recycling": {"steel": 1, "plastic": 1,
                                               "resin": 1, "glass_fiber": 1},
                      "cement_co_processing": {"steel": 1, "plastic": 0,
-                                              "resin": 0, "glass_fiber": 1}}
+                                              "resin": 0, "glass_fiber": 1}},
+                 bt_man_dist_init={"thermoset": 1.0, "thermoplastic": 0.0},
+                 attitude_bt_man_parameters={
+                     'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
+                     'max': 1},
+                 tpb_bt_man_coeff={'w_bi': 1.00, 'w_a': 0.15, 'w_sn': 0.35,
+                                   'w_pbc': -0.24, 'w_p': 0.00, 'w_b': 0.00}
                  ):
         """
         Initiate model.
@@ -312,6 +320,13 @@ class WindABM(Model):
         :param blade_mass_fractions: material mass fractions of blades
         :param rec_recovery_fractions: material recovery fractions for each 
         recycling process
+        :param bt_man_dist_init: initial distribution of blade types (bt) 
+        design adoption within manufacturers
+        :param attitude_bt_man_parameters: parameters for a truncated normal 
+        distribution representing attitude among the population toward circular
+        economy (CE) bt behaviors and to then infer non-circular behaviors
+        :param tpb_bt_man_coeff: regression coefficient in the theory of 
+        planned behavior (TPB) model of new blade design adoption
         """
         # Variables from inputs (value defined externally):
         self.seed = copy.deepcopy(seed)
@@ -359,6 +374,10 @@ class WindABM(Model):
         self.learning_parameter = copy.deepcopy(learning_parameter)
         self.blade_mass_fractions = copy.deepcopy(blade_mass_fractions)
         self.rec_recovery_fractions = copy.deepcopy(rec_recovery_fractions)
+        self.bt_man_dist_init = copy.deepcopy(bt_man_dist_init)
+        self.attitude_bt_man_parameters = copy.deepcopy(
+            attitude_bt_man_parameters)
+        self.tpb_bt_man_coeff = copy.deepcopy(tpb_bt_man_coeff)
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -407,6 +426,11 @@ class WindABM(Model):
                                                   self.blade_types),
             sum(self.developers.values()), True, [])
         self.list_init_bt_second_choice = self.list_init_blade_types.copy()
+        self.list_bt_man = self.roulette_wheel_choice(
+            self.remove_item_dic_from_boolean_dic(self.bt_man_dist_init,
+                                                  self.blade_types),
+            self.manufacturers['wind_blade'], True, [])
+        self.list_bt_man_second_choice = self.list_bt_man.copy()
         self.list_add_agent_eol_path = []
         self.eol_pathway_dist_list = []
         self.eol_pathway_dist_dic = {}
@@ -505,6 +529,12 @@ class WindABM(Model):
                 self.small_world_networks[
                     "wind_plant_owners"]["rewiring_prob"],
                 self.uswtdb.shape[0], WindPlantOwner)
+        self.grid_oem = self.create_subset_grid(
+            self.schedule_man, self.manufacturers['wind_blade'],
+            self.small_world_networks['original_equipment_manufacturer'][
+                'node_degree'], self.small_world_networks[
+                'original_equipment_manufacturer']['rewiring_prob'], self.seed,
+            'manufacturer_type', 'wind_blade')
         self.additional_id = self.first_wpo_id + self.uswtdb.shape[0]
         # Create data collectors:
         self.model_reporters = {
@@ -677,6 +707,21 @@ class WindABM(Model):
             grid.place_agent(a, (self.additional_id - self.first_wpo_id))
             self.schedule.add(a)
             self.additional_id += 1
+
+    # TODO: write docstrings and test
+    def create_subset_grid(self, schedule, nodes, node_degree, rewiring_prob,
+                           seed, attribute, condition):
+        new_graph = self.creating_social_network(
+            nodes, node_degree, rewiring_prob, seed)
+        new_grid = NetworkGrid(new_graph)
+        agents_to_add = []
+        for agent in schedule.agents:
+            variable_of_interest = getattr(agent, attribute)
+            if variable_of_interest == condition:
+                agents_to_add.append(agent)
+        for node in new_graph:
+            new_grid.place_agent(agents_to_add.pop(), node)
+        return new_grid
 
     @staticmethod
     def wind_plant_owner_data(database, state_abrev, cap_to_diameter_model,

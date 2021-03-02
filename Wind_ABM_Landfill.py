@@ -18,6 +18,14 @@ from mesa import Agent
 # TODO: the percentage for regulator to act should be determined from EPA
 #  database looking at the landfill that already closed and what was their
 #  amount of waste left / the initial capacity
+#  Use the WBJ Landfills 2020 in C:\Users\jwalzber\Documents\Winter21\
+#  Wind_ABM\Modeling\Data\LandfillDatabases to determine some info on the
+#  landfill (e.g., if they accept blade or not (e.g., we can consider as
+#  construction and demolition waste) and determine in each state the share of
+#  landfill that accept wind blade as waste (weight by the capacity of each
+#  landfill in the calculation). Use the EPA database for the rest if need be
+#  (check if all the information in the EPA database can be found in WBJ
+#  Landfills 2020 database)
 
 
 class Landfill(Agent):

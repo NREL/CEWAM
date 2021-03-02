@@ -85,10 +85,12 @@ class WindPlantOwner(Agent):
             self.model.attitude_eol_parameters['standard_deviation'])
         self.eol_att_level_conv_path = self.model.trunc_normal_distrib_draw(
             (self.model.attitude_eol_parameters['min'] -
-             self.model.attitude_eol_parameters['mean']) /
+             (self.model.attitude_eol_parameters['max'] -
+              self.model.attitude_eol_parameters['mean'])) /
             self.model.attitude_eol_parameters['standard_deviation'],
             (self.model.attitude_eol_parameters['max'] -
-             self.model.attitude_eol_parameters['mean']) /
+             (self.model.attitude_eol_parameters['max'] -
+              self.model.attitude_eol_parameters['mean'])) /
             self.model.attitude_eol_parameters['standard_deviation'],
             (self.model.attitude_eol_parameters['max'] -
              self.model.attitude_eol_parameters['mean']),

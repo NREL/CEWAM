@@ -58,10 +58,12 @@ class Developer(Agent):
             self.model.attitude_bt_parameters['standard_deviation'])
         self.bt_att_level_conv = self.model.trunc_normal_distrib_draw(
             (self.model.attitude_bt_parameters['min'] -
-             self.model.attitude_bt_parameters['mean']) /
+             (self.model.attitude_bt_parameters['max'] -
+              self.model.attitude_bt_parameters['mean'])) /
             self.model.attitude_bt_parameters['standard_deviation'],
             (self.model.attitude_bt_parameters['max'] -
-             self.model.attitude_bt_parameters['mean']) /
+             (self.model.attitude_bt_parameters['max'] -
+              self.model.attitude_bt_parameters['mean'])) /
             self.model.attitude_bt_parameters['standard_deviation'],
             (self.model.attitude_bt_parameters['max'] -
              self.model.attitude_bt_parameters['mean']),
