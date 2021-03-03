@@ -10,11 +10,8 @@ module also defines inputs (default values can be changed by user) and collect
 outputs.
 """
 
-
 # TODO: Next steps - continue HERE
 #  1) Continue with other agents - follow memo (including agent order)
-#    ii) manufacturer
-#      * Unittests
 #    iii) landfill
 #      * Capacity assessment
 #      * Model reporter variables
@@ -244,7 +241,7 @@ class WindABM(Model):
                      0.416, 0.34, 0.16, 0.06, 0.02, 0.002, 0.002]},
                  tp_production_share=0.5,
                  manufacturing_waste_ratio={
-                     "steel": 0.00, "plastic": 0.00, "resin": 0.17,
+                     "steel": 0.17, "plastic": 0.17, "resin": 0.17,
                      "glass_fiber": 0.17}
                  ):
         """
@@ -343,7 +340,7 @@ class WindABM(Model):
         :param tp_production_share: share of production assigned to 
         thermoplastic blades
         :param manufacturing_waste_ratio: manufacturing waste ratio for each
-        material composing wind blades
+        material composing wind blades (percentage of finished blade mass)
         """
         # Variables from inputs (value defined externally):
         self.seed = copy.deepcopy(seed)
@@ -584,7 +581,7 @@ class WindABM(Model):
             "Manufactured blades (MW)":
                 lambda a: str(self.bt_manufactured_q),
             "Manufacturing waste (metric tons)":
-                lambda a: str(self.manufacturing_waste_q)},
+                lambda a: str(self.manufacturing_waste_q)}
         self.agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
@@ -1304,12 +1301,28 @@ class WindABM(Model):
 
     @staticmethod
     def instant_to_cumulative_dic(instant_dic, cumulative_dic):
+        """
+        Transform a dictionary containing instant value (value of the current
+        time-step) into cumulative value (value for the duration of the
+        simulation)
+        :param instant_dic: the dictionary containing instant values
+        :param cumulative_dic: the dictionary containing cumulative values
+        :return: the updated dictionary containing cumulative values
+        """
         for key, value in instant_dic.items():
             cumulative_dic[key] += value
         return cumulative_dic
 
     @staticmethod
     def weighted_average(list_weight_elements, list_variables):
+        """
+        Compute the weighted average from a list of weights (that will be
+        normalized) and a list of variables from which the weighted average
+        must be found
+        :param list_weight_elements: the list of weights
+        :param list_variables: the list of variables
+        :return: the weighted average
+        """
         total_weight = sum(list_weight_elements)
         weights = [x / total_weight for x in list_weight_elements]
         weighted_variables = [x * y for x, y in zip(weights, list_variables)]

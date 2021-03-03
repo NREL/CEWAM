@@ -9,7 +9,6 @@ This module contains the Developer class. Developers make several
 decisions, for instance, what type blade to choose for a given wind turbine.
 """
 
-
 from mesa import Agent
 import random
 

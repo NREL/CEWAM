@@ -531,6 +531,27 @@ class TestWindABM(TestCase):
         result = 'test'
         self.assertEqual(result, test)
 
+    def test_instant_to_cumulative_dic(self):
+        """
+        Test that values from instant dic are properly added to cumulative
+        dic
+        """
+        instant_dic = {'a': 0, 'b': 1, 'c': 2}
+        cumulative_dic = {'a': 3, 'b': 4, 'c': 5}
+        result = {'a': 3, 'b': 5, 'c': 7}
+        test = self.t_model_inst.instant_to_cumulative_dic(
+            instant_dic, cumulative_dic)
+        self.assertEqual(result, test)
+
+    def test_weighted_average(self):
+        """Test that weighted average is properly computed"""
+        list_weight_elements = [1, 2, 2]
+        list_variables = [2, 2, 4]
+        result = 2.8
+        test = round(self.t_model_inst.weighted_average(
+            list_weight_elements, list_variables), 1)
+        self.assertEqual(result, test)
+
     def test_re_initialize_global_variables_wpo(self):
         """Function can't be formally tested here"""
         pass

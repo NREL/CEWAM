@@ -9,7 +9,6 @@ This module contains the WindPlantOwner class. Wind plant owners make several
 decisions, for instance, regarding EOL management.
 """
 
-
 from mesa import Agent
 import random
 

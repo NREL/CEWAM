@@ -9,7 +9,6 @@ This module contains the Recycler class. Recyclers make several
 decisions, for instance, what type of recycling to perform.
 """
 
-
 from mesa import Agent
 
 

@@ -12,11 +12,6 @@ decisions, for instance, regarding the design of wind blades.
 from mesa import Agent
 import random
 
-# TODO:
-#  1) Silica quarries location to map on cement factories (look up in USGS)
-#  Will determined if cement factory accept waste
-#  2) Locate manufacturer but don't include transport costs here
-
 
 class Manufacturer(Agent):
     def __init__(self, unique_id, model, **kwargs):
@@ -79,6 +74,11 @@ class Manufacturer(Agent):
                 self.manufacturer_type].pop()
 
     def new_blade_design_adoption(self, current_blade_type):
+        """
+
+        :param current_blade_type:
+        :return:
+        """
         if current_blade_type != 'thermoplastic':
             blade_type = self.model.theory_planned_behavior_model(
                 self.model.tpb_bt_man_coeff, self.bt_att_level_ce,
@@ -92,6 +92,16 @@ class Manufacturer(Agent):
 
     @staticmethod
     def lag_time_redesign(development_years, lag_time_tp_blade_dev):
+        """
+        Define the period of time during which the new blade design
+        (thermoplastic blade) is being developed
+        :param development_years: list representing the number of years that
+        the thermoplastic blade design has been adopted
+        :param lag_time_tp_blade_dev: the required period between the first
+        decision (adoption) of the thermoplastic design and the effective sales
+        of thermoplastic blades
+        :return: a Boolean used to set up production of thermoplastic blade
+        """
         last_dev_years = development_years[-lag_time_tp_blade_dev:]
         tp_dev_years = last_dev_years.count('thermoplastic')
         if tp_dev_years == lag_time_tp_blade_dev:
@@ -104,6 +114,18 @@ class Manufacturer(Agent):
     def quantity_tp_blade_produced(development_tp_blade, bt_produced,
                                    producer_market_share, tp_production_share,
                                    additional_capacity):
+        """
+        Compute the quantity of thermoplastic blades produced
+        :param development_tp_blade: a Boolean signifying that the manufacturer
+        has now the capability to produce thermoplastic blades
+        :param bt_produced: the amount of blade produced for each type
+        :param producer_market_share: market share of the manufacturer
+        :param tp_production_share: share of the production line allocated to
+        thermoplastic blade manufacturing
+        :param additional_capacity: amount of new blades to be produced at the
+        current time step of the simulation
+        :return: the amount of blade produced for each type
+        """
         if development_tp_blade:
             tp_share = tp_production_share
         else:
@@ -118,12 +140,27 @@ class Manufacturer(Agent):
     @staticmethod
     def manufacturing_waste(additional_capacity, producer_market_share,
                             wgt_avr_mass_c_fact, manufacturing_waste_ratio,
-                            manufacturing_waste_q):
+                            material_mass_fractions, manufacturing_waste_q):
+        """
+        Compute manufacturing waste from finished blade mass
+        :param additional_capacity: finished blade capacity (MW)
+        :param producer_market_share: market share of the manufacturer
+        :param wgt_avr_mass_c_fact: weighted average mass conversion factor
+        (metric tons/MW)
+        :param manufacturing_waste_ratio: ratio of manufacturing waste for each
+        material
+        :param material_mass_fractions: mass fraction of the different material
+        in wind blades
+        :param manufacturing_waste_q: quantity of manufacturing waste for each
+        materials
+        :return: quantity of manufacturing waste for each materials
+        """
         total_capacity_installed = sum(additional_capacity.values())
         producer_share = total_capacity_installed * producer_market_share * \
             wgt_avr_mass_c_fact
         for key in manufacturing_waste_q.keys():
-            manufacturing_waste_q[key] += manufacturing_waste_ratio[key] * \
+            manufacturing_waste_q[key] += material_mass_fractions[key] * \
+                                          manufacturing_waste_ratio[key] * \
                                           producer_share
         return manufacturing_waste_q
 
@@ -155,6 +192,7 @@ class Manufacturer(Agent):
                 self.model.additional_cap, self.market_share,
                 self.model.weighted_avr_mass_conv_factor,
                 self.model.manufacturing_waste_ratio,
+                self.model.blade_mass_fractions,
                 self.model.manufacturing_waste_q)
 
     def step(self):

@@ -215,3 +215,42 @@ class TestWindABMRun(TestCase):
             test_cap[key] = round(value)
             material_recycled[key] = round(material_recycled[key])
         self.assertEqual(test_cap, material_recycled)
+
+    def test_manufactured_blades(self):
+        """Test that the sum of capacities of manufactured blades is equal to
+        all cumulative installed capacity during the simulation"""
+        result = round(
+            self.results_model.loc[
+                (self.number_steps - 1)]['Cumulative capacity (MW)'] -
+            self.results_model.loc[1]['Cumulative capacity (MW)'])
+        test_cap = \
+            self.results_model.loc[
+                (self.number_steps - 1)]['Manufactured blades (MW)']
+        test_cap = ast.literal_eval(test_cap)
+        test_sum = 0
+        for value in test_cap.values():
+            test_sum += value
+        test = test_sum
+        self.assertAlmostEqual(result, test, delta=100)
+
+    def test_manufacturing_waste(self):
+        """Test that the sum of the manufacturing waste for each material is
+        equal to 17% of all finished blade mass"""
+        mass_conversion_factor = 14.3
+        manufacturing_waste_percentage = 0.17
+        result = round(
+            self.results_model.loc[
+                (self.number_steps - 1)]['Cumulative capacity (MW)'] -
+            self.results_model.loc[1]['Cumulative capacity (MW)']) * \
+            mass_conversion_factor * manufacturing_waste_percentage
+        test_cap = \
+            self.results_model.loc[
+                (self.number_steps - 1)]['Manufacturing waste (metric tons)']
+        test_cap = ast.literal_eval(test_cap)
+        test_sum = 0
+        for value in test_cap.values():
+            test_sum += value
+        test = test_sum
+        # High delta because we use a proxy for the mass conversion factor and
+        # 3000 is still less than 1% error
+        self.assertAlmostEqual(result, test, delta=3000)
