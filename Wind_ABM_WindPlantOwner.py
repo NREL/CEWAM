@@ -119,11 +119,11 @@ class WindPlantOwner(Agent):
         self.regulation_new_decision = False
         self.eol_unique_ids_selected = self.model.initial_dic_from_key_list(
             self.model.eol_pathways.keys(), 0)
-        # Additional agents - variables for developers
+        # Additional agents - variables for other agents
         if self.unique_id > self.initial_agents:
             self.model.variables_additional_wpo.append(
                 (self.unique_id, self.blade_mass_conv_factor, self.p_cap,
-                 self.t_state))
+                 self.t_state, self.mass_conv_factor))
 
     @staticmethod
     def compute_mass_conv_factor(rotor_diameter, coefficient, power,

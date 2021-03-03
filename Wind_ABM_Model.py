@@ -14,14 +14,14 @@ outputs.
 # TODO: Next steps - continue HERE
 #  1) Continue with other agents - follow memo (including agent order)
 #    ii) manufacturer
-#      * TPB decision to manufacture thermoplastic blades
-#      * Manufacturing waste
 #      * Unittests
 #    iii) landfill
 #      * Capacity assessment
+#      * Model reporter variables
 #      * Unittests
 #    iv) regulator
 #      * Regulation enactment depending on landfill capacity
+#      * Model reporter variables
 #      * Unittests
 #  2) More unittests:
 #    i) for recycler and other agents similar to recycler write
@@ -232,13 +232,20 @@ class WindABM(Model):
                                               "resin": 1, "glass_fiber": 1},
                      "cement_co_processing": {"steel": 1, "plastic": 0,
                                               "resin": 0, "glass_fiber": 1}},
-                 bt_man_dist_init={"thermoset": 1, "thermoplastic": 0.0},
+                 # TODO: replace values below by ts: 1, tp: 0
+                 bt_man_dist_init={"thermoset": 0.5, "thermoplastic": 0.5},
                  attitude_bt_man_parameters={
                      'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
                  tpb_bt_man_coeff={'w_bi': 1.00, 'w_a': 0.15, 'w_sn': 0.35,
                                    'w_pbc': -0.24, 'w_p': 0.00, 'w_b': 0.00},
-                 lag_time_tp_blade_dev=1
+                 lag_time_tp_blade_dev=5,
+                 man_market_share={'wind_blade': [
+                     0.416, 0.34, 0.16, 0.06, 0.02, 0.002, 0.002]},
+                 tp_production_share=0.5,
+                 manufacturing_waste_ratio={
+                     "steel": 0.00, "plastic": 0.00, "resin": 0.17,
+                     "glass_fiber": 0.17}
                  ):
         """
         Initiate model.
@@ -332,6 +339,11 @@ class WindABM(Model):
         planned behavior (TPB) model of new blade design adoption
         :param lag_time_tp_blade_dev: number o years needed to develop
         thermoplastic blades
+        :param man_market_share: market share of manufacturer agents
+        :param tp_production_share: share of production assigned to 
+        thermoplastic blades
+        :param manufacturing_waste_ratio: manufacturing waste ratio for each
+        material composing wind blades
         """
         # Variables from inputs (value defined externally):
         self.seed = copy.deepcopy(seed)
@@ -384,6 +396,10 @@ class WindABM(Model):
             attitude_bt_man_parameters)
         self.tpb_bt_man_coeff = copy.deepcopy(tpb_bt_man_coeff)
         self.lag_time_tp_blade_dev = copy.deepcopy(lag_time_tp_blade_dev)
+        self.man_market_share = copy.deepcopy(man_market_share)
+        self.tp_production_share = copy.deepcopy(tp_production_share)
+        self.manufacturing_waste_ratio = copy.deepcopy(
+            manufacturing_waste_ratio)
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -478,6 +494,11 @@ class WindABM(Model):
             self.eol_pathways.keys(), 0)
         self.recovered_materials = self.initial_dic_from_key_list(
             self.blade_mass_fractions.keys(), 0)
+        self.bt_manufactured_q = self.initial_dic_from_key_list(
+            self.blade_types.keys(), 0)
+        self.manufacturing_waste_q = self.initial_dic_from_key_list(
+            self.manufacturing_waste_ratio.keys(), 0)
+        self.weighted_avr_mass_conv_factor = 0
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -559,7 +580,11 @@ class WindABM(Model):
             "Average recycling costs ($/metric ton)":
                 lambda a: str(self.average_recycler_costs),
             "Recovered materials (metric tons)":
-                lambda a: str(self.recovered_materials)}
+                lambda a: str(self.recovered_materials),
+            "Manufactured blades (MW)":
+                lambda a: str(self.bt_manufactured_q),
+            "Manufacturing waste (metric tons)":
+                lambda a: str(self.manufacturing_waste_q)},
         self.agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
@@ -714,7 +739,6 @@ class WindABM(Model):
             self.schedule.add(a)
             self.additional_id += 1
 
-    # TODO: write docstrings and test
     def create_subset_grid(self, schedule, nodes, node_degree, rewiring_prob,
                            seed, attribute, condition):
         new_graph = self.creating_social_network(
@@ -1278,6 +1302,20 @@ class WindABM(Model):
         output = max(set(input_list), key=input_list.count)
         return output
 
+    @staticmethod
+    def instant_to_cumulative_dic(instant_dic, cumulative_dic):
+        for key, value in instant_dic.items():
+            cumulative_dic[key] += value
+        return cumulative_dic
+
+    @staticmethod
+    def weighted_average(list_weight_elements, list_variables):
+        total_weight = sum(list_weight_elements)
+        weights = [x / total_weight for x in list_weight_elements]
+        weighted_variables = [x * y for x, y in zip(weights, list_variables)]
+        weighted_average = sum(weighted_variables)
+        return weighted_average
+
     def reinitialize_global_variables_wpo(self):
         """
         Re-initialize yearly variables
@@ -1302,7 +1340,7 @@ class WindABM(Model):
         self.le_characteristics = []
         self.dissolution_available = {}
 
-    def reinitialize_global_variables_dev_man_rec(self):
+    def reinitialize_global_variables_dev_man_rec_wpo(self):
         """
         Re-initialize yearly variables
         """
@@ -1312,9 +1350,19 @@ class WindABM(Model):
         self.average_recycler_costs = self.initial_dic_from_key_list(
             self.eol_pathways.keys(), 0)
 
-    def update_model_variables(self):
+    def update_model_variables_start_of_step(self):
         """
-        Update model variables
+        Update model variables at the start of the step
+        """
+        # Select only mass_conv_factor and p_cap from the tuples in
+        # variables_additional_wpo
+        self.weighted_avr_mass_conv_factor = self.weighted_average(
+            [i[2] for i in self.variables_additional_wpo],
+            [i[4] for i in self.variables_additional_wpo])
+
+    def update_model_variables_end_of_step(self):
+        """
+        Update model variables at the end of the step
         """
         self.all_additional_cap_installed = False
         self.list_agent_states = \
@@ -1333,17 +1381,18 @@ class WindABM(Model):
         Advance the model by one step and collect data.
         """
         self.data_collector.collect(self)
+        self.update_model_variables_start_of_step()
         self.reinitialize_global_variables_wpo()
         self.schedule_wpo.step()
         self.reinitialize_global_variables_rec_land_reg_dev()
         self.schedule_man.step()
         self.schedule_dev.step()
-        self.reinitialize_global_variables_dev_man_rec()
+        self.reinitialize_global_variables_dev_man_rec_wpo()
         self.schedule_rec.step()
         self.schedule_land.step()
         self.schedule_reg.step()
         self.schedule.step()
-        self.update_model_variables()
+        self.update_model_variables_end_of_step()
         self.adding_agents(self.p_install_growth, self.grid_wpo,
                            self.schedule_wpo, WindPlantOwner)
         self.clock += 1

@@ -201,9 +201,9 @@ class Developer(Agent):
             converted_costs[key] = converted_value
         return converted_costs
 
-    def update_agent_variables(self):
+    def update_agent_and_model_variables(self):
         """
-        Update instance (agent) variables
+        Update instance (agent) and model variables
         """
         self.lifetime_extension_years = \
             self.model.symetric_triang_distrib_draw(
@@ -211,8 +211,8 @@ class Developer(Agent):
                 self.model.lifetime_extension_years[1])
         self.model.le_characteristics.append((self.le_feasibility,
                                               self.lifetime_extension_years))
-        # List of tuples: w=wpo.unique_id, x=wpo.blade_mass_conv_factor,
-        # y=wpo.p_cap, z=wpo.t_state
+        # List of tuples: v=wpo.unique_id, w=wpo.blade_mass_conv_factor,
+        # x=wpo.p_cap, y=wpo.t_state, z=wpo.mass_conv_factor
         self.assigned_wpo = self.model.assign_agents_to_each_other(
             self.model.variables_additional_wpo,
             sum(self.model.developers.values()), self.model.p_install_growth,
@@ -236,7 +236,7 @@ class Developer(Agent):
         """
         if self.internal_clock == self.model.clock:
             self.install_additional_cap()
-            self.update_agent_variables()
+            self.update_agent_and_model_variables()
             self.internal_clock += 1
         else:
             pass
