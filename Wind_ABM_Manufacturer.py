@@ -137,8 +137,7 @@ class Manufacturer(Agent):
             total_capacity_installed
         return bt_produced
 
-    @staticmethod
-    def manufacturing_waste(additional_capacity, producer_market_share,
+    def manufacturing_waste(self, additional_capacity, producer_market_share,
                             wgt_avr_mass_c_fact, manufacturing_waste_ratio,
                             material_mass_fractions, manufacturing_waste_q):
         """
@@ -159,9 +158,11 @@ class Manufacturer(Agent):
         producer_share = total_capacity_installed * producer_market_share * \
             wgt_avr_mass_c_fact
         for key in manufacturing_waste_q.keys():
+            waste_ratio_range = manufacturing_waste_ratio[key]
+            waste_ratio = self.model.symetric_triang_distrib_draw(
+                waste_ratio_range[0], waste_ratio_range[1])
             manufacturing_waste_q[key] += material_mass_fractions[key] * \
-                                          manufacturing_waste_ratio[key] * \
-                                          producer_share
+                waste_ratio * producer_share
         return manufacturing_waste_q
 
     def update_agent_variables(self):

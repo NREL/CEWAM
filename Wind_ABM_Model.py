@@ -12,14 +12,34 @@ outputs.
 
 # TODO: Next steps - continue HERE
 #  1) Continue with other agents - follow memo (including agent order)
-#    iii) landfill
+#    i) Manufacturer
+#      * decision to handle manufacturing waste (TPB)
+#      * have different blade lifetime for thermoplastic blades (shorter,
+#      longer) that get transferred to wpo; draw from triangular distribution
+#      * unittest
+#     ii) Developer
+#      * projection of Turbine cap (moderate ATB technology)?
+#      (linear projection up to 2030) --> replace the average t_cap of new wpo
+#      by projection (and then infer p_tnum by p_cap/t_cap)
+#    iii) Landfill
 #      * Capacity assessment
 #      * Model reporter variables
 #      * Unittests
-#    iv) regulator
+#    iv) Regulator
 #      * Regulation enactment depending on landfill capacity
 #      * Model reporter variables
 #      * Unittests
+#    v) Recycler:
+#      * add capacity constraints for recycler (use a dictionary of boolean
+#       with recycling eol pathway=False if all recycler reach capacity, set up
+#       costs to a big number (infinity may create issues) for the recycler
+#       reaching capacity
+#       --------- HERE ------
+#       Continue HERE: next steps:
+#      * rework learning function: compute learning parameter with
+#      Rebecca's or Laura's information, change the function of the recycling
+#      volume that it start with the first time the recycler get some volume
+#      --------- HERE ------
 #  2) More unittests:
 #    i) for recycler and other agents similar to recycler write
 #    unittests to check initial distribution of types
@@ -65,9 +85,10 @@ class WindABM(Model):
                  manufacturers={
                      "wind_blade": 7, "plastics_n_boards": 100, "cement": 97},
                  developers={'lifetime_extension': 10},
+                 # TODO: recycler "mechanical_recycling": 3
                  recyclers={
                      "dissolution": 7, "pyrolysis": 2,
-                     "mechanical_recycling": 3, "cement_co_processing": 1},
+                     "mechanical_recycling": 2, "cement_co_processing": 1},
                  landfills={"landfill": 47},
                  small_world_networks={
                      "wind_plant_owners": {
@@ -82,30 +103,11 @@ class WindABM(Model):
                      "regulators": {"node_degree": 5, "rewiring_prob": 0.1}},
                  external_files={
                      "state_distances": "StatesAdjacencyMatrix.csv", "uswtdb":
-                     "uswtdb_v3_3_20210114.csv"},
+                     "uswtdb_v3_3_20210114.csv", "projections":
+                         "nrel_mid_case_projections.csv"},
                  # TODO: growth rates from 95-by-35.Adv and
                  #  95-by-35+Elec.Adv+DR scenarios in: C:\Users\jwalzber\
                  #  Documents\Winter21\Wind_ABM\Modeling\Data\ProjectedCapacity
-                 growth_rates={
-                     'Alabama': 0.39, 'Arizona': 0.09, 'Arkansas': 0.47,
-                     'California': 0.05, 'Colorado': 0.02, 'Connecticut': 0.24,
-                     'Delaware': 0.25, 'Florida': 0.22, 'Georgia': 0.41,
-                     'Idaho': 0.04, 'Illinois': 0.06, 'Indiana': 0.04,
-                     'Iowa': 0.03, 'Kansas': 0.01, 'Kentucky': 0.45,
-                     'Louisiana': 0.39, 'Maine': 0.02, 'Maryland': 0.12,
-                     'Massachusetts': 0.15, 'Michigan': 0.08,
-                     'Minnesota': 0.01, 'Mississippi': 0.2, 'Missouri': 0.09,
-                     'Montana': 0.05, 'Nebraska': 0.04, 'Nevada': 0.1,
-                     'New Hampshire': 0.06, 'New Jersey': 0.23,
-                     'New Mexico': 0.07, 'New York': 0.08,
-                     'North Carolina': 0.16, 'North Dakota': 0.01,
-                     'Ohio': 0.1, 'Oklahoma': 0.02, 'Oregon': 0.03,
-                     'Pennsylvania': 0.09, 'Rhode Island': 0.09,
-                     'South Carolina': 0.44, 'South Dakota': 0.04,
-                     'Tennessee': 0.18, 'Texas': 0.03, 'Utah': 0.03,
-                     'Vermont': 0.06, 'Virginia': 0.14, 'Washington': 0.05,
-                     'West Virginia': 0.06, 'Wisconsin': 0.11,
-                     'Wyoming': 0.03},
                  average_lifetime=20.0,
                  weibull_shape_factor=2.2,
                  blade_size_to_mass_model={'coefficient': 0.0026,
@@ -114,27 +116,29 @@ class WindABM(Model):
                                         'power': 0.44},
                  temporal_scope={
                      'pre_simulation': 2000, 'simulation_start': 2020,
-                     'simulation_end': 2051},
+                     'simulation_end': 2050},
                  blades_per_rotor=3,
-                 # TODO
+                 # TODO: landfill True lifetime extension True
                  eol_pathways={
-                     "lifetime_extension": True, "dissolution": True,
+                     "lifetime_extension": True, "dissolution": False,
                      "pyrolysis": True, "mechanical_recycling": True,
                      "cement_co_processing": True, "landfill": True},
                  eol_pathways_dist_init={
                      "lifetime_extension": 0.005, "dissolution": 0.0,
                      "pyrolysis": 0.005, "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
-                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.30, 'w_sn': 0.56,
-                                'w_pbc': -0.13, 'w_p': 0.11, 'w_b': -0.21},
+                 # TODO w_b = -0.21, w_sn=0.56
+                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.30, 'w_sn': 0.0,
+                                'w_pbc': -0.13, 'w_p': 0.11, 'w_b': -0.0},
+                 # TODO: change back to mu=0.5, sigma=0.1
                  attitude_eol_parameters={
-                     'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
+                     "mean": 0.97, 'standard_deviation': 0.01, 'min': 0,
                      'max': 1},
                  # TODO: complete dic with circular choices from other
                  #  decision than eol (e.g., conventional vs thermoplastic
                  #  blades)
                  choices_circularity={
-                     "lifetime_extension": True, "dissolution": False,
+                     "lifetime_extension": True, "dissolution": True,
                      "pyrolysis": True, "mechanical_recycling": True,
                      "cement_co_processing": True, "landfill": False,
                      "thermoset": False, "thermoplastic": True},
@@ -174,11 +178,12 @@ class WindABM(Model):
                      'cutting_costs': 27.56, 'transport_cost_segments': 8.7,
                      'length_segment': 30, 'segment_per_truck': 2},
                  transport_repair=1.57,
+                 # TODO: how are blade transported?
                  eol_pathways_transport_mode={
                      "lifetime_extension": 'transport_repair',
                      "dissolution": 'undefined', "pyrolysis": 'undefined',
                      "mechanical_recycling": 'undefined',
-                     "cement_co_processing": 'transport_segments',
+                     "cement_co_processing": 'undefined',
                      "landfill": 'undefined'},
                  # TODO: find values for dissolution recycling process
                  lifetime_extension_revenues=[124, 1.7E6],
@@ -189,7 +194,8 @@ class WindABM(Model):
                  # TODO: make sure that all data using tons are in metric
                  #  tons and not in US tons
                  lifetime_extension_years=[5, 15],
-                 le_feasibility=0.55,
+                 # TODO: 0.55
+                 le_feasibility=0.0,
                  # TODO: report this parameter and source in Memo report
                  #  https://doi.org/10.1016/j.resconrec.2021.105439 assumption
                  #  is that early failure blades might be treated differently
@@ -205,12 +211,13 @@ class WindABM(Model):
                      'max': 1},
                  blade_costs={"thermoset": [50E3, 500E3],
                               "thermoplastic_rate": 0.953},
+                 # TODO: "mechanical_recycling": ["Iowa", "Texas", "Florida"]
                  recyclers_states={
                      "dissolution": ["Texas", "Oklahoma", "North Carolina",
                                      "South Carolina", "Tennessee", "Ohio",
                                      "Ohio"],
                      "pyrolysis": ["South Carolina", "Tennessee"],
-                     "mechanical_recycling": ["Iowa", "Texas", "Florida"],
+                     "mechanical_recycling": ["Iowa", "Texas"],
                      "cement_co_processing": ["Missouri"]},
                  learning_parameter={
                      "dissolution": [-0.52, -0.39],
@@ -241,8 +248,8 @@ class WindABM(Model):
                      0.416, 0.34, 0.16, 0.06, 0.02, 0.002, 0.002]},
                  tp_production_share=0.5,
                  manufacturing_waste_ratio={
-                     "steel": 0.17, "plastic": 0.17, "resin": 0.17,
-                     "glass_fiber": 0.17}
+                     "steel": [0.12, 0.3], "plastic": [0.12, 0.3],
+                     "resin": [0.12, 0.3], "glass_fiber": [0.12, 0.3]}
                  ):
         """
         Initiate model.
@@ -255,7 +262,6 @@ class WindABM(Model):
         networks representing social relationships within agent types (if 
         rewiring prob set to 0: regular lattice, if set to 1: random network)
         :param external_files: dictionary mapping files to their variables
-        :param growth_rates: states' wind capacity growth rates
         :param average_lifetime: wind turbines' average lifetime (years)
         :param weibull_shape_factor: parameter controlling curve's shape in 
         the Weibull function
@@ -352,7 +358,6 @@ class WindABM(Model):
         self.landfills = copy.deepcopy(landfills)
         self.small_world_networks = copy.deepcopy(small_world_networks)
         self.external_files = copy.deepcopy(external_files)
-        self.growth_rates = copy.deepcopy(growth_rates)
         self.average_lifetime = copy.deepcopy(average_lifetime)
         self.weibull_shape_factor = copy.deepcopy(weibull_shape_factor)
         self.blade_size_to_mass_model = copy.deepcopy(blade_size_to_mass_model)
@@ -424,6 +429,11 @@ class WindABM(Model):
             self.cap_to_diameter_model,
             self.temporal_scope['simulation_start'],
             self.temporal_scope['pre_simulation'])
+        self.cap_projections = \
+            pd.read_csv(self.external_files["projections"])
+        self.growth_rates = self.compute_growth_rates(
+            self.uswtdb, self.cap_projections, self.temporal_scope,
+            self.compound_annual_growth_rate)
         self.p_install_growth = self.p_install_growth_model(self.uswtdb)
         self.avg_p_cap = self.uswtdb['p_cap'].mean()
         self.states_cap = self.initial_dic_from_key_list(
@@ -496,6 +506,11 @@ class WindABM(Model):
         self.manufacturing_waste_q = self.initial_dic_from_key_list(
             self.manufacturing_waste_ratio.keys(), 0)
         self.weighted_avr_mass_conv_factor = 0
+        self.add_state_projections = \
+            self.cap_projections.loc[
+                self.cap_projections['start_year'] >
+                self.temporal_scope['simulation_start']].\
+            set_index('state').to_dict('index')
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -547,7 +562,8 @@ class WindABM(Model):
                 self.compute_max_network_size(
                     self.uswtdb, self.temporal_scope['simulation_start'],
                     self.temporal_scope['simulation_end'],
-                    self.p_install_growth),
+                    (self.p_install_growth +
+                     len(self.add_state_projections))),
                 self.small_world_networks[
                     "wind_plant_owners"]["node_degree"],
                 self.small_world_networks[
@@ -563,7 +579,7 @@ class WindABM(Model):
         # Create data collectors:
         self.model_reporters = {
             "Year": lambda a:
-            self.clock + self.temporal_scope['simulation_start'],
+            self.clock + self.temporal_scope['simulation_start'] - 1,
             "Cumulative capacity (MW)": lambda a: self.all_cap,
             "State cumulative capacity (MW)": lambda a: str(self.states_cap),
             "Cumulative waste (metric tons)": lambda a: self.all_waste,
@@ -736,6 +752,47 @@ class WindABM(Model):
             self.schedule.add(a)
             self.additional_id += 1
 
+    def adding_state_w_cap(self, scenario, temporal_scope, clock):
+        for key, value in scenario.items():
+            if (value['start_year'] - 1) == \
+                    (temporal_scope['simulation_start'] + clock) and \
+                    value['start_year'] != temporal_scope['simulation_start']:
+                a = WindPlantOwner(
+                    self.additional_id, self, new_p_state=key,
+                    new_p_cap=value['start_cap'])
+                self.schedule_wpo.add(a)
+                self.grid_wpo.place_agent(
+                    a, (self.additional_id - self.first_wpo_id))
+                self.schedule.add(a)
+                self.additional_id += 1
+
+    @staticmethod
+    def compute_growth_rates(uswtdb, projections, temporal_scope,
+                             growth_rate_formula):
+        growth_rates = {}
+        projections_dict = projections.set_index('state').to_dict('index')
+        for key, value in projections_dict.items():
+            if value['start_year'] == temporal_scope['simulation_start']:
+                uswtdb_state_cap = uswtdb.groupby(['t_state']).sum()
+                uswtdb_state_cap = uswtdb_state_cap.loc[key]
+                start_cap = float(uswtdb_state_cap['p_cap'])
+            else:
+                start_cap = value['start_cap']
+            end_cap = value['2050_cap']
+            end_year = value['end_year']
+            start_year = value['start_year']
+            state_growth_rate = growth_rate_formula(
+                end_cap, start_cap, end_year, start_year)
+            growth_rates[key] = state_growth_rate
+        return growth_rates
+
+    @staticmethod
+    def compound_annual_growth_rate(end_value, start_value, end_year,
+                                    start_year):
+        number_year = end_year - start_year
+        growth_rate = (end_value / start_value)**(1 / number_year) - 1
+        return growth_rate
+
     def create_subset_grid(self, schedule, nodes, node_degree, rewiring_prob,
                            seed, attribute, condition):
         new_graph = self.creating_social_network(
@@ -769,7 +826,7 @@ class WindABM(Model):
                                               't_model': 'object'})
         uswtdb = uswtdb[(uswtdb['p_year'] >= pre_simulation) &
                         (uswtdb['p_year'] <= start_year)]
-        uswtdb = uswtdb.groupby('p_name').agg(
+        uswtdb = uswtdb.groupby(['p_name']).agg(
             lambda x: x.head(1) if x.dtype == 'object' else
             x.mean()).reset_index()
         uswtdb = uswtdb[['p_name', 'p_year', 'p_tnum', 't_state', 't_rd',
@@ -1406,6 +1463,8 @@ class WindABM(Model):
         self.schedule_reg.step()
         self.schedule.step()
         self.update_model_variables_end_of_step()
+        self.adding_state_w_cap(self.add_state_projections,
+                                self.temporal_scope, self.clock)
         self.adding_agents(self.p_install_growth, self.grid_wpo,
                            self.schedule_wpo, WindPlantOwner)
         self.clock += 1

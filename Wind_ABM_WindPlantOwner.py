@@ -45,21 +45,37 @@ class WindPlantOwner(Agent):
             self.eol_pathway = self.model.list_init_eol_pathways.pop()
         # Additional agents:
         else:
-            self.t_state = self.model.list_agent_states.pop()
-            self.p_cap = \
-                self.model.additional_cap[self.t_state] / \
-                self.model.dict_agent_states[self.t_state]
+            if hasattr(self, 'new_p_state'):
+                self.t_state = self.new_p_state
+            else:
+                self.t_state = self.model.list_agent_states.pop()
+            if hasattr(self, 'new_p_cap'):
+                self.p_cap = self.new_p_cap
+            else:
+                self.p_cap = \
+                    self.model.additional_cap[self.t_state] / \
+                    self.model.dict_agent_states[self.t_state]
             self.p_name = "".join(("Additional_agent_", self.t_state, "_",
                                   str(self.unique_id)))
             self.p_year = self.model.clock + \
                 self.model.temporal_scope['simulation_start']
-            self.p_tnum = self.p_cap / \
-                self.model.uswtdb.groupby('t_state').mean().loc[
-                    self.t_state]['t_cap']
+            if self.t_state not in self.model.uswtdb['t_state'].to_list():
+                self.p_tnum = self.model.uswtdb['p_tnum'].mean()
+            else:
+                self.p_tnum = self.p_cap / \
+                    self.model.uswtdb.groupby('t_state').mean().loc[
+                        self.t_state]['t_cap']
             self.t_cap = self.p_cap / self.p_tnum
-            self.t_rd = self.model.uswtdb.groupby('t_state').mean().loc[
-                               self.t_state]['t_rd']
-            self.eol_pathway = self.model.list_add_agent_eol_path.pop()
+            if self.t_state not in self.model.uswtdb['t_state'].to_list():
+                self.t_rd = self.model.uswtdb['t_rd'].mean()
+            else:
+                self.t_rd = self.model.uswtdb.groupby('t_state').mean().loc[
+                                   self.t_state]['t_rd']
+            if hasattr(self, 'new_p_cap'):
+                self.eol_pathway = self.model.most_common_element_list(
+                    self.model.list_add_agent_eol_path)
+            else:
+                self.eol_pathway = self.model.list_add_agent_eol_path.pop()
             self.internal_clock = self.model.clock + 1
         # All agents
         self.mass_conv_factor = self.compute_mass_conv_factor(
@@ -353,7 +369,7 @@ class WindPlantOwner(Agent):
     @staticmethod
     def report_variables_if_lifetime_extended_or_else(
             eol_pathway, eol_second_choice, eol_unique_ids_selected,
-            reporter_waste, reporter_adoption, reporter_recycler, state, waste,
+            reporter_waste, reporter_adoption, reporter_rec_land, state, waste,
             mass_conv_factor):
         """
         Report waste according to the eol pathway - if lifetime extension is
@@ -366,7 +382,7 @@ class WindPlantOwner(Agent):
         the state of the wpo and the pathway adopted for eol blades
         :param reporter_adoption: dictionary of the number of wpo that have
         adopted each eol pathway
-        :param reporter_recycler:
+        :param reporter_rec_land: cumulative recycled and landfilled volumes
         :param state: the state of the wpo
         :param waste: the waste of the wpo (in MW)
         :param mass_conv_factor: the conversion factor (metric ton / MW)
@@ -376,13 +392,13 @@ class WindPlantOwner(Agent):
                                                         mass_conv_factor
             reporter_adoption[eol_pathway] += 1
             reporter_adoption[eol_second_choice] += 1
-            reporter_recycler[eol_unique_ids_selected[eol_second_choice]] += \
+            reporter_rec_land[eol_unique_ids_selected[eol_second_choice]] += \
                 waste * mass_conv_factor
         else:
             reporter_waste[state][eol_pathway] += waste * \
                                                         mass_conv_factor
             reporter_adoption[eol_pathway] += 1
-            reporter_recycler[eol_unique_ids_selected[eol_pathway]] += \
+            reporter_rec_land[eol_unique_ids_selected[eol_pathway]] += \
                 waste * mass_conv_factor
 
     def other_agents_consequences(self):

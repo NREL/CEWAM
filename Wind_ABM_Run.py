@@ -45,13 +45,13 @@ class WindABMRun:
         :param number_run: number_run number of replicates for one model
         configuration - default is 1
         :param number_steps: duration of the simulation(s) in years - default
-        is 31
+        is 31 (|{2020, ..., 2050}|)
         :param model_in: model - default is the CE Wind ABM
         :param kwargs: configuration of the model for the simulation(s)
         (parameters to set up the model) - default is empty
         """
         self.number_run = number_run
-        self.number_steps = number_steps
+        self.number_steps = number_steps + 1  # to include 2020 and 2050
         self.model_in = model_in
         self.kwargs = kwargs
         self.model_instance = None
@@ -89,4 +89,4 @@ class WindABMRun:
 
 
 # Comment line below when running WindWBMRun tests
-# WindABMRun().run_model()
+WindABMRun().run_model()

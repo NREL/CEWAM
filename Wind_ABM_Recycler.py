@@ -43,19 +43,26 @@ class Recycler(Agent):
             self.model.learning_parameter[self.recycler_type][1])
         self.model.average_recycler_costs[self.recycler_type] += \
             self.init_recycler_cost / self.model.recyclers[self.recycler_type]
+        self.init_rec_quantity_updated = False
 
     def initial_recycling_quantity(self, clock, unique_id, simulation_start,
                                    waste_rec_land):
         """
-        Compute the initial recycled quantity (at year 0 of the simulation)
-        :param clock: the time step of the simulation
+        Compute the initial recycled quantity
+        :param clock: simulation time step
         :param unique_id: the recycler agent's unique id
-        :param simulation_start: the year the simulation start
+        :param simulation_start: starting year of the simulation
         :param waste_rec_land: waste that is either recycled or landfilled
         """
-        if (clock + simulation_start) == simulation_start:
+        if not self.init_rec_quantity_updated and \
+                waste_rec_land[unique_id] > 0 and \
+                (clock + simulation_start) > simulation_start:
             self.init_recycled_quantity = waste_rec_land[unique_id]
+            self.init_rec_quantity_updated = True
 
+    # TODO: rework learning function: compute learning parameter with
+    #  Rebecca's or Laura's information, change the function of the recycling
+    #  volume that it start with the first time the recycler get some volume
     def learning_effect(self, original_volume, volume, original_cost,
                         current_cost, learning_parameter):
         """
@@ -134,7 +141,7 @@ class Recycler(Agent):
         Update instance (agent) variables
         """
         self.initial_recycling_quantity(
-            self.model.clock, self.unique_id,
+            self.unique_id, self.model.clock,
             self.model.temporal_scope['simulation_start'],
             self.model.waste_rec_land)
         self.recycled_quantity = self.model.waste_rec_land[self.unique_id]
