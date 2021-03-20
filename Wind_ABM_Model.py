@@ -17,29 +17,23 @@ outputs.
 #      * have different blade lifetime for thermoplastic blades (shorter,
 #      longer) that get transferred to wpo; draw from triangular distribution
 #      * unittest
-#     ii) Developer
-#      * projection of Turbine cap (moderate ATB technology)?
-#      (linear projection up to 2030) --> replace the average t_cap of new wpo
-#      by projection (and then infer p_tnum by p_cap/t_cap)
-#    iii) Landfill
+#    ii) Landfill
 #      * Capacity assessment
 #      * Model reporter variables
 #      * Unittests
-#    iv) Regulator
+#    iii) Regulator
 #      * Regulation enactment depending on landfill capacity
 #      * Model reporter variables
 #      * Unittests
+#     iv) Developer
+#      * projection of Turbine cap (moderate ATB technology)?
+#      (linear projection up to 2030) --> replace the average t_cap of new wpo
+#      by projection (and then infer p_tnum by p_cap/t_cap)
 #    v) Recycler:
 #      * add capacity constraints for recycler (use a dictionary of boolean
 #       with recycling eol pathway=False if all recycler reach capacity, set up
 #       costs to a big number (infinity may create issues) for the recycler
 #       reaching capacity
-#       --------- HERE ------
-#       Continue HERE: next steps:
-#      * rework learning function: compute learning parameter with
-#      Rebecca's or Laura's information, change the function of the recycling
-#      volume that it start with the first time the recycler get some volume
-#      --------- HERE ------
 #  2) More unittests:
 #    i) for recycler and other agents similar to recycler write
 #    unittests to check initial distribution of types
@@ -49,11 +43,12 @@ outputs.
 #  3) Use a machine learning metamodel to calibrate the ABM quicker -->
 #  calibrate with attitude values and if necessary TPB coefficients (within
 #  defined values for uncertainty assessment described in the memo report)
-#  4) A reinforcement learning could be used in the future (long term)
-#  5) Avoid calling the scheduler unless there are no other choices
-#  6) lifetime extension: use doi:10.1088/1757-899X/429/1/012024 to write about
+#  4) Think more about how the learning effect is computed
+#  5) A reinforcement learning could be used in the future (long term)
+#  6) Avoid calling the scheduler unless there are no other choices
+#  7) lifetime extension: use doi:10.1088/1757-899X/429/1/012024 to write about
 #  green procurement
-#  7) (Optional) Improving code:
+#  8) (Optional) Improving code:
 #    i) The "initial_dic_from_key_list" function could be replaced by:
 #    a = dict.fromkeys(a, 0)
 
@@ -148,10 +143,13 @@ class WindABM(Model):
                  decommissioning_cost=[1300, 33000],
                  # TODO: find values for dissolution recycling process
                  lifetime_extension_costs=[600, 6000],
+                 # TODO: replaced co-processing costs of 0 by shredding costs
+                 #  before transportation --> check that this assumption makes
+                 #  sense
                  rec_processes_costs={
                      "dissolution": [0, 1E-6], "pyrolysis": [280.5, 550],
                      "mechanical_recycling": [212.3, 286],
-                     "cement_co_processing": [0, 1E-6]},
+                     "cement_co_processing": [99, 132]},
                  landfill_costs={
                      'Alabama': 33.41, 'Arizona': 43.39, 'Arkansas': 40.23,
                      'California': 55.56, 'Colorado': 62.04, 'Delaware': 85.00,
@@ -219,11 +217,13 @@ class WindABM(Model):
                      "pyrolysis": ["South Carolina", "Tennessee"],
                      "mechanical_recycling": ["Iowa", "Texas"],
                      "cement_co_processing": ["Missouri"]},
+                 # TODO: 0 for cement co-processing? 0.39-0.52 or 0.05 or 0.2
+                 #  for others (see email Rebecca for references)?
                  learning_parameter={
-                     "dissolution": [-0.52, -0.39],
-                     "pyrolysis": [-0.52, -0.39],
-                     "mechanical_recycling": [-0.52, -0.39],
-                     "cement_co_processing": [-1E-6, -0]},
+                     "dissolution": [-0.2, -0.05],
+                     "pyrolysis": [-0.2, -0.05],
+                     "mechanical_recycling": [-0.2, -0.05],
+                     "cement_co_processing": [-0.2, -0.05]},
                  blade_mass_fractions={
                      "steel": 0.05, "plastic": 0.09, "resin": 0.30,
                      "glass_fiber": 0.56},

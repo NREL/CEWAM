@@ -60,9 +60,6 @@ class Recycler(Agent):
             self.init_recycled_quantity = waste_rec_land[unique_id]
             self.init_rec_quantity_updated = True
 
-    # TODO: rework learning function: compute learning parameter with
-    #  Rebecca's or Laura's information, change the function of the recycling
-    #  volume that it start with the first time the recycler get some volume
     def learning_effect(self, original_volume, volume, original_cost,
                         current_cost, learning_parameter):
         """
@@ -82,10 +79,10 @@ class Recycler(Agent):
         model the learning effect
         :return: the current recycling cost
         """
-        if volume and original_volume > 0:
+        if volume > 0 and original_volume > 0:
             decreased_cost = self.learning_function(
                 original_volume, volume, original_cost, learning_parameter)
-            if decreased_cost < original_cost:
+            if decreased_cost < current_cost:
                 cost = decreased_cost
             else:
                 cost = current_cost
@@ -141,7 +138,7 @@ class Recycler(Agent):
         Update instance (agent) variables
         """
         self.initial_recycling_quantity(
-            self.unique_id, self.model.clock,
+            self.model.clock, self.unique_id,
             self.model.temporal_scope['simulation_start'],
             self.model.waste_rec_land)
         self.recycled_quantity = self.model.waste_rec_land[self.unique_id]
