@@ -34,6 +34,8 @@ outputs.
 #       with recycling eol pathway=False if all recycler reach capacity, set up
 #       costs to a big number (infinity may create issues) for the recycler
 #       reaching capacity
+#      * Fix the recycling function, use: C:\Users\jwalzber\Documents\Winter21
+#      \Wind_ABM\Modeling\LearningCurveDiscussion.pptx
 #  2) More unittests:
 #    i) for recycler and other agents similar to recycler write
 #    unittests to check initial distribution of types
@@ -218,12 +220,13 @@ class WindABM(Model):
                      "mechanical_recycling": ["Iowa", "Texas"],
                      "cement_co_processing": ["Missouri"]},
                  # TODO: 0 for cement co-processing? 0.39-0.52 or 0.05 or 0.2
-                 #  for others (see email Rebecca for references)?
+                 #  for others (see email Rebecca for references)? current:
+                 #  -0.2, -0.05
                  learning_parameter={
-                     "dissolution": [-0.2, -0.05],
-                     "pyrolysis": [-0.2, -0.05],
-                     "mechanical_recycling": [-0.2, -0.05],
-                     "cement_co_processing": [-0.2, -0.05]},
+                     "dissolution": [-0.051, -0.05],
+                     "pyrolysis": [-0.051, -0.05],
+                     "mechanical_recycling": [-0.051, -0.05],
+                     "cement_co_processing": [-0.051, -0.05]},
                  blade_mass_fractions={
                      "steel": 0.05, "plastic": 0.09, "resin": 0.30,
                      "glass_fiber": 0.56},
@@ -249,14 +252,31 @@ class WindABM(Model):
                  tp_production_share=0.5,
                  manufacturing_waste_ratio={
                      "steel": [0.12, 0.3], "plastic": [0.12, 0.3],
-                     "resin": [0.12, 0.3], "glass_fiber": [0.12, 0.3]}
+                     "resin": [0.12, 0.3], "glass_fiber": [0.12, 0.3]},
+                 # TODO: find the states of main US wind blade manufacturers
+                 oem_states={
+                     "wind_blade": ["Texas", "Texas", "Texas", "Texas",
+                                    "Texas", "Texas", "Texas"]},
+                 # TODO: assumption that only 1% of manufacturer currently
+                 #  recycle manufacturing waste --> try to find a source to
+                 #  document the fate of manufacturing waste
+                 man_waste_dist_init={
+                     "dissolution": 0.0, "mechanical_recycling": 0.01,
+                     "landfill": 0.99},
+                 tpb_man_waste_coeff={
+                     'w_bi': 1.00, 'w_a': 0.30, 'w_sn': 0.56, 'w_pbc': -0.13,
+                     'w_p': 0.00, 'w_b': 0.00},
+                 attitude_man_waste_parameters={
+                     "mean": 0.5, 'standard_deviation': 0.01, 'min': 0,
+                     'max': 1},
                  ):
         """
         Initiate model.
         :param seed: number used to initialize the random generator
-        :param manufacturers: number of manufacturers
-        :param developers: number of developers
-        :param recyclers: number of reyclers for each recycler type
+        :param manufacturers: number of manufacturers (man) for each 
+        manufacturer type
+        :param developers: number of developers (dev)
+        :param recyclers: number of reyclers (rec) for each recycler type
         :param landfills: number of landfills
         :param small_world_networks: characteristics of the small-world 
         networks representing social relationships within agent types (if 
@@ -277,7 +297,7 @@ class WindABM(Model):
         :param eol_pathways: end of life (eol) pathways available to wind 
         plant owner agents
         :param eol_pathways_dist_init: initial distribution of eol pathways 
-        adoption in the population
+        adoption in the wind plant owner (wpo) population
         :param tpb_eol_coeff: regression coefficient in the theory of planned 
         behavior (TPB) model of eol behavior adoption
         :param attitude_eol_parameters: parameters for a truncated normal 
@@ -347,6 +367,16 @@ class WindABM(Model):
         thermoplastic blades
         :param manufacturing_waste_ratio: manufacturing waste ratio for each
         material composing wind blades (percentage of finished blade mass)
+        :param oem_states: state where the original equipment manufacturers 
+        (oem) are located
+        :param man_waste_dist_init: initial distribution of eol pathways 
+        adoption in the manufacturers population
+        :param tpb_man_waste_coeff: regression coefficient in the theory of 
+        planned behavior (TPB) model of manufacturing waste management
+        :param: attitude_man_waste_parameters: parameters for a truncated 
+        normal distribution representing attitude among the population 
+        toward CE eol behaviors and then infer non-circular behaviors 
+        for manufacturing waste
         """
         # Variables from inputs (value defined externally):
         self.seed = copy.deepcopy(seed)
@@ -402,6 +432,11 @@ class WindABM(Model):
         self.tp_production_share = copy.deepcopy(tp_production_share)
         self.manufacturing_waste_ratio = copy.deepcopy(
             manufacturing_waste_ratio)
+        self.oem_states = copy.deepcopy(oem_states)
+        self.tpb_man_waste_coeff = copy.deepcopy(tpb_man_waste_coeff)
+        self.man_waste_dist_init = copy.deepcopy(man_waste_dist_init)
+        self.attitude_man_waste_parameters = copy.deepcopy(
+            attitude_man_waste_parameters)
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -446,18 +481,18 @@ class WindABM(Model):
         self.dict_agent_states = {}
         self.number_wpo_agent = 0
         self.list_init_eol_pathways = self.roulette_wheel_choice(
-            self.remove_item_dic_from_boolean_dic(self.eol_pathways_dist_init,
-                                                  self.eol_pathways),
+            self.remove_item_dic_from_boolean_dic(
+                self.eol_pathways_dist_init.copy(), self.eol_pathways),
             self.uswtdb.shape[0], True, [])
         self.list_init_eol_second_choice = self.list_init_eol_pathways.copy()
         self.list_init_blade_types = self.roulette_wheel_choice(
-            self.remove_item_dic_from_boolean_dic(self.blade_types_dist_init,
-                                                  self.blade_types),
+            self.remove_item_dic_from_boolean_dic(
+                self.blade_types_dist_init.copy(), self.blade_types),
             sum(self.developers.values()), True, [])
         self.list_init_bt_second_choice = self.list_init_blade_types.copy()
         self.list_bt_man = self.roulette_wheel_choice(
-            self.remove_item_dic_from_boolean_dic(self.bt_man_dist_init,
-                                                  self.blade_types),
+            self.remove_item_dic_from_boolean_dic(
+                self.bt_man_dist_init.copy(), self.blade_types),
             self.manufacturers['wind_blade'], True, [])
         self.list_bt_man_second_choice = self.list_bt_man.copy()
         self.list_add_agent_eol_path = []
@@ -511,6 +546,10 @@ class WindABM(Model):
                 self.cap_projections['start_year'] >
                 self.temporal_scope['simulation_start']].\
             set_index('state').to_dict('index')
+        self.list_man_waste = self.roulette_wheel_choice(
+            self.remove_item_dic_from_boolean_dic(
+                self.man_waste_dist_init.copy(), self.eol_pathways),
+            self.manufacturers['wind_blade'], True, [])
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -1241,6 +1280,292 @@ class WindABM(Model):
                     list_variables_to_assign, exclusive_assignment)
                 list_agent_assigned.append(agent_assigned)
         return list_agent_assigned
+
+    # TODO: write unittest
+    @staticmethod
+    def learning_effect(original_volume, volume, original_cost,
+                        current_cost, learning_parameter, learning_function):
+        """
+        Model the learning effect from recycler: as the quantity of blades
+        sent to recyclers increases, the recyclers can lower their processes'
+        costs, e.g., due to economies of scale and technological advancement;
+        cost can only decreased, if recycled quantity decreases, the recycling
+        cost remain the same as its current value
+        :param original_volume: the original quantity of blades recycled
+        (at the beginning of the simulation)
+        :param volume: the volume of blade recycled currently (at the current
+        time step)
+        :param original_cost: the initial recycling cost (at the beginning of
+        the simulation)
+        :param current_cost: the current recycling cost
+        :param learning_parameter: parameter of the learning function used to
+        model the learning effect
+        :param learning_function: function to compute the decreased in costs
+        due to economies of scales and other learning effects
+        :return: the current recycling cost
+        """
+        if volume > 0 and original_volume > 0:
+            decreased_cost = learning_function(
+                original_volume, volume, original_cost, learning_parameter)
+            if decreased_cost < current_cost:
+                cost = decreased_cost
+            else:
+                cost = current_cost
+        else:
+            cost = current_cost
+        return cost
+
+    # TODO: write unittest
+    @staticmethod
+    def learning_function(original_volume, volume, original_cost,
+                          learning_parameter):
+        """
+        The learning function used to model the learning effect
+        :param original_volume: the original quantity of blades recycled
+        (at the beginning of the simulation)
+        :param volume: the volume of blade recycled currently (at the current
+        time step)
+        :param original_cost: the initial recycling cost (at the beginning of
+        the simulation)
+        :param learning_parameter: parameter of the learning function used to
+        model the learning effect
+        :return: the decreased costs due to the learning effect
+        """
+        decreased_cost = original_cost * \
+            (volume / original_volume)**learning_parameter
+        return decreased_cost
+
+    # TODO: write unittest
+    @staticmethod
+    def costs_eol_pathways(
+            eol_tr_costs_shreds, eol_tr_costs_segments, eol_tr_costs_repair,
+            variables_recyclers, variables_landfills, variables_developers,
+            decommissioning_cost, eol_pathways, transport_mode_model,
+            minimum_tr_proc_costs, eol_unique_ids_selected):
+        """
+        Compute costs for each eol pathway accounting for decommissioning costs
+        (similar for each eol pathway), transportation costs (including
+        pre-processing (shredding or cutting), and eol net costs (costs minus
+        potential revenue)
+        :param eol_tr_costs_shreds: transportation after shredding costs
+        :param eol_tr_costs_segments: transportation after cutting costs
+        :param eol_tr_costs_repair: transportation costs for repair
+        :param variables_recyclers: unique_id, location, process cost
+        :param variables_landfills: unique_id, location, landfill cost
+        :param variables_developers: unique_id, transportation cost, process
+        cost
+        :param decommissioning_cost: decommissioning cost, similar for all eol
+        pathway
+        :param eol_pathways: different choices of eol pathways
+        :param transport_mode_model: model for transportation mode (process and
+        transport costs)
+        :param minimum_tr_proc_costs: function to compute minimum total
+        (transport and process) costs
+        :param eol_unique_ids_selected: report the unique_ids of selected
+        agents for each eol pathways
+        :return: costs for each eol pathway
+        """
+        costs_eol_pathways = {}
+        process_costs = {}
+        process_costs.update(variables_landfills)
+        process_costs.update(variables_recyclers)
+        process_costs.update(variables_developers)
+        for key in eol_pathways.keys():
+            transport_mode = transport_mode_model[key]
+            if transport_mode == "transport_shreds":
+                transport_cost = eol_tr_costs_shreds[key]
+                process_costs_key = process_costs[key]
+                tr_proc_costs = minimum_tr_proc_costs(
+                    process_costs_key, transport_cost)
+            elif transport_mode == "transport_segments":
+                transport_cost = eol_tr_costs_segments[key]
+                process_costs_key = process_costs[key]
+                tr_proc_costs = minimum_tr_proc_costs(
+                    process_costs_key, transport_cost)
+            elif transport_mode == "transport_repair":
+                transport_cost = eol_tr_costs_repair[key]
+                process_costs_key = process_costs[key]
+                tr_proc_costs = minimum_tr_proc_costs(
+                    process_costs_key, transport_cost)
+            else:
+                process_costs_key = process_costs[key]
+                transport_cost_shreds = eol_tr_costs_shreds[key]
+                tr_proc_costs_shreds = minimum_tr_proc_costs(
+                    process_costs_key, transport_cost_shreds)
+                transport_cost_segments = eol_tr_costs_segments[key]
+                tr_proc_costs_segments = minimum_tr_proc_costs(
+                    process_costs_key, transport_cost_segments)
+                tr_proc_costs = min(
+                    [tr_proc_costs_shreds, tr_proc_costs_segments],
+                    key=lambda t: t[1])
+            # in the tuple (x, y): x = agent id, y = transport + process net
+            # costs
+            eol_unique_ids_selected[key] = tr_proc_costs[0]
+            if key == 'lifetime_extension':
+                costs_eol_pathways[key] = tr_proc_costs[1]
+            else:
+                costs_eol_pathways[key] = tr_proc_costs[1] + \
+                                          decommissioning_cost
+        return costs_eol_pathways
+
+    # TODO: write unittest
+    @staticmethod
+    def minimum_tr_proc_costs(process_costs, transport_cost):
+        """
+        Minimize transportation and process costs when several options (eol
+        facilities) ara available in a given eol pathway
+        :param process_costs: list of tuple containing unique_id, location, and
+        process cost of all facilities providing the given eol service
+        :param transport_cost: list of tuple containing unique_id and
+        transportation costs of all facilities providing the given eol service
+        :return: a tuple containing the unique_id of the facility with the
+        lowest sum of transportation and process cost (second element of the
+        tuple)
+        """
+        list_process_cost = [(x, z) for x, y, z in process_costs]
+        list_all_cost = transport_cost + list_process_cost
+        dic_cost = {x: 0 for x, y in list_all_cost}
+        for x, y in list_all_cost:
+            dic_cost[x] += y
+        list_tot_cost = list(map(tuple, dic_cost.items()))
+        minimum_tr_proc_cost = min(list_tot_cost, key=lambda t: t[1])
+        return minimum_tr_proc_cost
+
+    # TODO: write unittest
+    @staticmethod
+    def eol_transportation_costs(
+            eol_pathways, distances, transport_shred_costs, transport_shreds,
+            transport_segment_costs, transport_segments,
+            variables_developers_wpo, symetric_triang_distrib_draw,
+            mass_conv_factor, t_cap, t_rd, blades_per_rotor):
+        """
+        Compute transportation costs according for all options: shredded
+        blades, cut blades or for repair
+        :param eol_pathways: different choices of eol pathways
+        :param distances: distances to each eol facility from the Wind farm
+        :param transport_shred_costs: function for computing shred costs
+        :param transport_shreds: cost model for transporting shredded blades
+        :param transport_segment_costs: function for computing segment costs
+        :param transport_segments: cost model for transporting segmented blades
+        :param variables_developers_wpo: variables from developers used by wpo
+        :param symetric_triang_distrib_draw: symetric triangular distribution
+        probability density function (single draw)
+        :param mass_conv_factor: conversion factor to convert blade waste
+        expressed in MW to blade waste expressed in tons
+        :param t_cap: turbine capacity (used when blade are transported as
+        segments)
+        :param t_rd: rotor diameter (used when blade are transported as
+        segments)
+        :param blades_per_rotor: number of blades per rotor (used when blade
+        are transported as segments)
+        :return: transportation costs for all options
+        """
+        eol_tr_costs_shreds = {}
+        eol_tr_costs_segments = {}
+        eol_tr_costs_repair = {}
+        for key in eol_pathways.keys():
+            if key in distances:
+                eol_tr_costs_shreds[key] = transport_shred_costs(
+                    transport_shreds, distances[key],
+                    symetric_triang_distrib_draw)
+                eol_tr_costs_segments[key] = transport_segment_costs(
+                    transport_segments, distances[key], mass_conv_factor,
+                    t_cap, t_rd, blades_per_rotor)
+            else:
+                eol_tr_costs_repair[key] = [
+                    (x, y) for x, y, z in variables_developers_wpo[key]]
+        return eol_tr_costs_shreds, eol_tr_costs_segments, eol_tr_costs_repair
+
+    # TODO: write unittest
+    @staticmethod
+    def transport_shred_costs(data, distances, symetric_triang_distrib_draw):
+        """
+        Compute costs when blades are shredded before transportation
+        :param data: shredding process and transportation costs
+        :param distances: distances from wind farm site (where shredding
+        occurs) to the eol facility
+        :param symetric_triang_distrib_draw: symetric triangular distribution
+        probability density function (single draw)
+        :return: the cost associated with shredding and transporting shreds
+        to the eol site
+        """
+        shredding_costs = data['shredding_costs']
+        shredding_costs = symetric_triang_distrib_draw(
+                shredding_costs[0], shredding_costs[1])
+        transport_cost_shreds = data['transport_cost_shreds']
+        transport_cost_shreds = symetric_triang_distrib_draw(
+                    transport_cost_shreds[0], transport_cost_shreds[1])
+        # in the tuple: x is agent id, y is the distance to agent and z is
+        # agent process net cost
+        cost_shreds = [(x, shredding_costs + transport_cost_shreds * y) for
+                       x, y, z in distances]
+        return cost_shreds
+
+    # TODO: write unittest
+    @staticmethod
+    def transport_segment_costs(data, distances, mass_conv_factor, t_cap,
+                                t_rd, blades_per_rotor):
+        """
+        Compute costs when blades are cut before transportation
+        :param data: cutting process and transportation costs
+        :param distances: distances from wind farm site (where cutting
+        occurs) to the eol facility
+        :param mass_conv_factor: conversion factor to convert blade waste
+        expressed in MW to blade waste expressed in tons
+        :param t_cap: turbine capacity (used when blade are transported as
+        segments)
+        :param t_rd: rotor diameter (used when blade are transported as
+        segments)
+        :param blades_per_rotor: number of blades per rotor (used when blade
+        are transported as segments)
+        :return: the cost associated with cutting and transporting segments
+        to the eol site
+        """
+        cutting_costs = data['cutting_costs']
+        transport_cost_segments = data['transport_cost_segments']
+        # converting $/truck_load-km in $/m_blade-km
+        transport_cost_meter = transport_cost_segments / (
+                data['length_segment'] * data['segment_per_truck'])
+        mass_to_meter = mass_conv_factor * t_cap / (
+                t_rd / 2) * blades_per_rotor
+        transport_cost_segments = transport_cost_meter / mass_to_meter
+        # in the tuple: x is agent id, y is the distance to agent and z is
+        # agent process net cost
+        cost_segments = [(x, cutting_costs + transport_cost_segments * y)
+                         for x, y, z in distances]
+        return cost_segments
+
+    # TODO: write unittest
+    @staticmethod
+    def eol_distances(possible_destinations_rec, possible_destinations_land,
+                      all_possible_distances, t_state, eol_pathways_barriers):
+        """
+        Compute the distances to all eol facilities for each eol pathway
+        :param possible_destinations_rec: all possible destinations for the
+        recycling eol pathways
+        :param possible_destinations_land: all possible destinations for the
+        landfill eol pathway
+        :param all_possible_distances: distances to all possible destinations
+        :param t_state: state where the project is located
+        :param eol_pathways_barriers: report the minimum distance origin-target
+        for each eol pathway
+        :return: the distances to all eol facilities for each eol pathway
+        """
+        distances = {}
+        possible_destinations = possible_destinations_rec
+        origin = t_state
+        for key in possible_destinations_land.keys():
+            possible_destinations[key] = possible_destinations_land[key]
+        for key in possible_destinations.keys():
+            list_destinations = possible_destinations[key]
+            # in the tuple: x is agent id, y is agent state and z is agent
+            # process net cost
+            list_distances = [(x, all_possible_distances[origin][y], z) for
+                              x, y, z in list_destinations]
+            distances[key] = list_distances
+            min_distance = min(list_distances, key=lambda t: t[1])[1]
+            eol_pathways_barriers[key] = min_distance
+        return distances
 
     @staticmethod
     def assign_elements_from_list(list_elements, exclusive_assignment):

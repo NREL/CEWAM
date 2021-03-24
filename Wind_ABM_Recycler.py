@@ -60,55 +60,6 @@ class Recycler(Agent):
             self.init_recycled_quantity = waste_rec_land[unique_id]
             self.init_rec_quantity_updated = True
 
-    def learning_effect(self, original_volume, volume, original_cost,
-                        current_cost, learning_parameter):
-        """
-        Model the learning effect from recycler: as the quantity of blades
-        sent to recyclers increases, the recyclers can lower their processes'
-        costs, e.g., due to economies of scale and technological advancement;
-        cost can only decreased, if recycled quantity decreases, the recycling
-        cost remain the same as its current value
-        :param original_volume: the original quantity of blades recycled
-        (at the beginning of the simulation)
-        :param volume: the volume of blade recycled currently (at the current
-        time step)
-        :param original_cost: the initial recycling cost (at the beginning of
-        the simulation)
-        :param current_cost: the current recycling cost
-        :param learning_parameter: parameter of the learning function used to
-        model the learning effect
-        :return: the current recycling cost
-        """
-        if volume > 0 and original_volume > 0:
-            decreased_cost = self.learning_function(
-                original_volume, volume, original_cost, learning_parameter)
-            if decreased_cost < current_cost:
-                cost = decreased_cost
-            else:
-                cost = current_cost
-        else:
-            cost = current_cost
-        return cost
-
-    @staticmethod
-    def learning_function(original_volume, volume, original_cost,
-                          learning_parameter):
-        """
-        The learning function used to model the learning effect
-        :param original_volume: the original quantity of blades recycled
-        (at the beginning of the simulation)
-        :param volume: the volume of blade recycled currently (at the current
-        time step)
-        :param original_cost: the initial recycling cost (at the beginning of
-        the simulation)
-        :param learning_parameter: parameter of the learning function used to
-        model the learning effect
-        :return: the decreased costs due to the learning effect
-        """
-        decreased_cost = original_cost * \
-            (volume / original_volume)**learning_parameter
-        return decreased_cost
-
     @staticmethod
     def material_recovery(recycled_quantity, blade_mass_fractions,
                           rec_recovery_fractions, recycler_type,
@@ -142,10 +93,10 @@ class Recycler(Agent):
             self.model.temporal_scope['simulation_start'],
             self.model.waste_rec_land)
         self.recycled_quantity = self.model.waste_rec_land[self.unique_id]
-        self.recycler_cost = self.learning_effect(
+        self.recycler_cost = self.model.learning_effect(
             self.init_recycled_quantity, self.recycled_quantity,
             self.init_recycler_cost, self.recycler_cost,
-            self.learning_parameter)
+            self.learning_parameter, self.model.learning_function)
 
     def report_agent_variables(self):
         """

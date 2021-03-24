@@ -117,10 +117,16 @@ class WindPlantOwner(Agent):
         self.eol_pathways_barriers = self.model.initial_dic_from_key_list(
             self.model.eol_pathways.keys(), 0)
         self.eol_tr_cost_shreds, self.eol_tr_cost_segments, \
-            self.eol_tr_cost_repair = self.eol_transportation_costs(
-              self.eol_distances(self.model.variables_recyclers,
-                                 self.model.variables_landfills,
-                                 self.model.all_shortest_paths_or_trg))
+            self.eol_tr_cost_repair = self.model.eol_transportation_costs(
+              self.model.eol_pathways, self.model.eol_distances(
+                self.model.variables_recyclers, self.model.variables_landfills,
+                self.model.all_shortest_paths_or_trg, self.t_state,
+                self.eol_pathways_barriers),
+              self.model.transport_shred_costs, self.model.transport_shreds,
+              self.model.transport_segment_costs,
+              self.model.transport_segments, self.variables_developers_wpo,
+              self.model.symetric_triang_distrib_draw, self.mass_conv_factor,
+              self.t_cap, self.t_rd, self.model.blades_per_rotor)
         self.decommissioning_cost = self.model.symetric_triang_distrib_draw(
             self.model.decommissioning_cost[0],
             self.model.decommissioning_cost[1]) / self.blade_mass_conv_factor
@@ -189,182 +195,8 @@ class WindPlantOwner(Agent):
             converted_developer_costs[key] = converted_list
         return converted_developer_costs
 
-    def eol_distances(self, possible_destinations_rec,
-                      possible_destinations_land, all_possible_distances):
-        """
-        Compute the distances to all eol facilities for each eol pathway
-        :param possible_destinations_rec: all possible destinations for the
-        recycling eol pathways
-        :param possible_destinations_land: all possible destinations for the
-        landfill eol pathway
-        :param all_possible_distances: distances to all possible destinations
-        :return: the distances to all eol facilities for each eol pathway
-        """
-        distances = {}
-        possible_destinations = possible_destinations_rec
-        origin = self.t_state
-        for key in possible_destinations_land.keys():
-            possible_destinations[key] = possible_destinations_land[key]
-        for key in possible_destinations.keys():
-            list_destinations = possible_destinations[key]
-            # in the tuple: x is agent id, y is agent state and z is agent
-            # process net cost
-            list_distances = [(x, all_possible_distances[origin][y], z) for
-                              x, y, z in list_destinations]
-            distances[key] = list_distances
-            min_distance = min(list_distances, key=lambda t: t[1])[1]
-            self.eol_pathways_barriers[key] = min_distance
-        return distances
-
-    def transport_shred_costs(self, data, distances):
-        """
-        Compute costs when blades are shredded before transportation
-        :param data: shredding process and transportation costs
-        :param distances: distances from wind farm site (where shredding
-        occurs) to the eol facility
-        :return: the cost associated with shredding and transporting shreds
-        to the eol site
-        """
-        shredding_costs = data['shredding_costs']
-        shredding_costs = self.model.symetric_triang_distrib_draw(
-                shredding_costs[0], shredding_costs[1])
-        transport_cost_shreds = data['transport_cost_shreds']
-        transport_cost_shreds = self.model.symetric_triang_distrib_draw(
-                    transport_cost_shreds[0], transport_cost_shreds[1])
-        # in the tuple: x is agent id, y is the distance to agent and z is
-        # agent process net cost
-        cost_shreds = [(x, shredding_costs + transport_cost_shreds * y) for
-                       x, y, z in distances]
-        return cost_shreds
-
-    def transport_segment_costs(self, data, distances):
-        """
-        Compute costs when blades are cut before transportation
-        :param data: cutting process and transportation costs
-        :param distances: distances from wind farm site (where cutting
-        occurs) to the eol facility
-        :return: the cost associated with cutting and transporting segments
-        to the eol site
-        """
-        cutting_costs = data['cutting_costs']
-        transport_cost_segments = data['transport_cost_segments']
-        # converting $/truck_load-km in $/m_blade-km
-        transport_cost_meter = transport_cost_segments / (
-                data['length_segment'] * data['segment_per_truck'])
-        mass_to_meter = self.mass_conv_factor * self.t_cap / (
-                self.t_rd / 2) * self.model.blades_per_rotor
-        transport_cost_segments = transport_cost_meter / mass_to_meter
-        # in the tuple: x is agent id, y is the distance to agent and z is
-        # agent process net cost
-        cost_segments = [(x, cutting_costs + transport_cost_segments * y)
-                         for x, y, z in distances]
-        return cost_segments
-
-    def eol_transportation_costs(self, distances):
-        """
-        Compute transportation costs according for all options: shredded
-        blades, cut blades or for repair
-        :param distances: distances to each eol facility from the Wind farm
-        :return: transportation costs for all options
-        """
-        eol_tr_costs_shreds = {}
-        eol_tr_costs_segments = {}
-        eol_tr_costs_repair = {}
-        for key in self.model.eol_pathways.keys():
-            if key in distances:
-                eol_tr_costs_shreds[key] = self.transport_shred_costs(
-                    self.model.transport_shreds, distances[key])
-                eol_tr_costs_segments[key] = self.transport_segment_costs(
-                    self.model.transport_segments, distances[key])
-            else:
-                eol_tr_costs_repair[key] = [
-                    (x, y) for x, y, z in self.variables_developers_wpo[key]]
-        return eol_tr_costs_shreds, eol_tr_costs_segments, eol_tr_costs_repair
-
-    def costs_eol_pathways(self, eol_tr_costs_shreds, eol_tr_costs_segments,
-                           eol_tr_costs_repair, variables_recyclers,
-                           variables_landfills, variables_developers,
-                           decommissioning_cost):
-        """
-        Compute costs for each eol pathway accounting for decommissioning costs
-        (similar for each eol pathway), transportation costs (including
-        pre-processing (shredding or cutting), and eol net costs (costs minus
-        potential revenue)
-        :param eol_tr_costs_shreds: transportation after shredding costs
-        :param eol_tr_costs_segments: transportation after cutting costs
-        :param eol_tr_costs_repair: transportation costs for repair
-        :param variables_recyclers: unique_id, location, process cost
-        :param variables_landfills: unique_id, location, landfill cost
-        :param variables_developers: unique_id, transportation cost, process
-        cost
-        :param decommissioning_cost: decommissioning cost, similar for all eol
-        pathway
-        :return: costs for each eol pathway
-        """
-        costs_eol_pathways = {}
-        process_costs = {}
-        process_costs.update(variables_landfills)
-        process_costs.update(variables_recyclers)
-        process_costs.update(variables_developers)
-        for key in self.model.eol_pathways.keys():
-            transport_mode = self.model.eol_pathways_transport_mode[key]
-            if transport_mode == "transport_shreds":
-                transport_cost = eol_tr_costs_shreds[key]
-                process_costs_key = process_costs[key]
-                tr_proc_costs = self.minimum_tr_proc_costs(
-                    process_costs_key, transport_cost)
-            elif transport_mode == "transport_segments":
-                transport_cost = eol_tr_costs_segments[key]
-                process_costs_key = process_costs[key]
-                tr_proc_costs = self.minimum_tr_proc_costs(
-                    process_costs_key, transport_cost)
-            elif transport_mode == "transport_repair":
-                transport_cost = eol_tr_costs_repair[key]
-                process_costs_key = process_costs[key]
-                tr_proc_costs = self.minimum_tr_proc_costs(
-                    process_costs_key, transport_cost)
-            else:
-                process_costs_key = process_costs[key]
-                transport_cost_shreds = eol_tr_costs_shreds[key]
-                tr_proc_costs_shreds = self.minimum_tr_proc_costs(
-                    process_costs_key, transport_cost_shreds)
-                transport_cost_segments = eol_tr_costs_segments[key]
-                tr_proc_costs_segments = self.minimum_tr_proc_costs(
-                    process_costs_key, transport_cost_segments)
-                tr_proc_costs = min(
-                    [tr_proc_costs_shreds, tr_proc_costs_segments],
-                    key=lambda t: t[1])
-            # in the tuple (x, y): x = agent id, y = transport + process net
-            # costs
-            self.eol_unique_ids_selected[key] = tr_proc_costs[0]
-            if key == 'lifetime_extension':
-                costs_eol_pathways[key] = tr_proc_costs[1]
-            else:
-                costs_eol_pathways[key] = tr_proc_costs[1] + \
-                                          decommissioning_cost
-        return costs_eol_pathways
-
-    @staticmethod
-    def minimum_tr_proc_costs(process_costs, transport_cost):
-        """
-        Minimize transportation and process costs when several options (eol
-        facilities) ara available in a given eol pathway
-        :param process_costs: list of tuple containing unique_id, location, and
-        process cost of all facilities providing the given eol service
-        :param transport_cost: list of tuple containing unique_id and
-        transportation costs of all facilities providing the given eol service
-        :return: a tuple containing the unique_id of the facility with the
-        lowest sum of transportation and process cost (second element of the
-        tuple)
-        """
-        list_process_cost = [(x, z) for x, y, z in process_costs]
-        list_all_cost = transport_cost + list_process_cost
-        dic_cost = {x: 0 for x, y in list_all_cost}
-        for x, y in list_all_cost:
-            dic_cost[x] += y
-        list_tot_cost = list(map(tuple, dic_cost.items()))
-        minimum_tr_proc_cost = min(list_tot_cost, key=lambda t: t[1])
-        return minimum_tr_proc_cost
+    # TODO: Continue HERE: move transport shred transport segment, distances
+    #  function and everything needed to compute eol costs for manufacturer
 
     @staticmethod
     def report_variables_if_lifetime_extended_or_else(
@@ -440,11 +272,13 @@ class WindPlantOwner(Agent):
             self.model.weibull_shape_factor)
         self.p_cap_waste -= self.waste
         self.cum_waste += self.waste
-        self.eol_pathways_costs = self.costs_eol_pathways(
+        self.eol_pathways_costs = self.model.costs_eol_pathways(
             self.eol_tr_cost_shreds, self.eol_tr_cost_segments,
             self.eol_tr_cost_repair, self.model.variables_recyclers,
             self.model.variables_landfills, self.variables_developers_wpo,
-            self.decommissioning_cost)
+            self.decommissioning_cost, self.model.eol_pathways,
+            self.model.eol_pathways_transport_mode,
+            self.model.minimum_tr_proc_costs, self.eol_unique_ids_selected)
         self.other_agents_consequences()
         # Agents' attributes that should not be updated every step
         if not self.agent_attributes_updated:

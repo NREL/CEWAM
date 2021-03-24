@@ -24,10 +24,10 @@ class Manufacturer(Agent):
         # Variables internal to the class -
         self.internal_clock = 0
         self.manufacturer_type = self.model.list_manufacturer_types.pop()
-        self.state_man = self.model.random_pick_dic_key(
-            self.model.growth_rates)
         # Original equipment manufacturer only (wind_blade manufacturer type)
         if self.manufacturer_type == 'wind_blade':
+            self.state_man = self.model.assign_elements_from_list(
+                self.model.oem_states[self.manufacturer_type], True)
             self.bt_costs = self.model.initial_dic_from_key_list(
                 self.model.blade_types.keys(), 0)
             self.bt_costs['thermoset'] = \
@@ -72,6 +72,45 @@ class Manufacturer(Agent):
                 self.model.blade_types.keys(), 0)
             self.market_share = self.model.man_market_share[
                 self.manufacturer_type].pop()
+            self.eol_man_wst_path = self.model.list_man_waste.pop()
+            self.man_eol_pathways = {
+                key: self.model.eol_pathways[key] for
+                key in self.model.man_waste_dist_init.keys()}
+            self.man_wst_att_level_ce = self.model.trunc_normal_distrib_draw(
+                (self.model.attitude_man_waste_parameters['min'] -
+                 self.model.attitude_man_waste_parameters['mean']) /
+                self.model.attitude_man_waste_parameters['standard_deviation'],
+                (self.model.attitude_man_waste_parameters['max'] -
+                 self.model.attitude_man_waste_parameters['mean']) /
+                self.model.attitude_man_waste_parameters['standard_deviation'],
+                self.model.attitude_man_waste_parameters['mean'],
+                self.model.attitude_man_waste_parameters['standard_deviation'])
+            self.man_wst_att_level_conv = self.model.trunc_normal_distrib_draw(
+                (self.model.attitude_man_waste_parameters['min'] -
+                 (self.model.attitude_man_waste_parameters['max'] -
+                  self.model.attitude_man_waste_parameters['mean'])) /
+                self.model.attitude_man_waste_parameters['standard_deviation'],
+                (self.model.attitude_man_waste_parameters['max'] -
+                 (self.model.attitude_man_waste_parameters['max'] -
+                  self.model.attitude_man_waste_parameters['mean'])) /
+                self.model.attitude_man_waste_parameters['standard_deviation'],
+                (self.model.attitude_man_waste_parameters['max'] -
+                 self.model.attitude_man_waste_parameters['mean']),
+                self.model.attitude_man_waste_parameters['standard_deviation'])
+            self.man_wst_barriers = self.model.initial_dic_from_key_list(
+                self.model.eol_pathways.keys(), 0)
+            self.man_wst_costs = self.model.initial_dic_from_key_list(
+                self.model.eol_pathways.keys(), 0)
+            # TODO: continue HERE: TPB for manufacturing waste
+            #  2) consider manufacturing waste recycled onsite or landfill
+            #  3) have the transport costs for landfill computed --> probably
+            #  will need to use the function in wind plant owner (put it
+            #  in model)
+            #  4) Don't forget to account for the learning effect if recycled
+            #  onsite
+        else:
+            self.state_man = self.model.random_pick_dic_key(
+                self.model.growth_rates)
 
     def new_blade_design_adoption(self, current_blade_type):
         """
@@ -165,6 +204,10 @@ class Manufacturer(Agent):
                 waste_ratio * producer_share
         return manufacturing_waste_q
 
+    def costs_man_waste(self):
+        return {'dissolution': 0.1, 'mechanical_recycling': 0.1,
+                'landfill': 0.1}
+
     def update_agent_variables(self):
         """
         Update instance (agent) variables
@@ -178,6 +221,14 @@ class Manufacturer(Agent):
                 self.development_tp_blade, self.bt_produced,
                 self.market_share, self.model.tp_production_share,
                 self.model.additional_cap)
+            self.man_wst_costs = self.costs_man_waste()
+            self.eol_man_wst_path = self.model.theory_planned_behavior_model(
+                self.model.tpb_man_waste_coeff, self.man_wst_att_level_ce,
+                self.man_wst_att_level_conv, self.man_eol_pathways,
+                self.model.choices_circularity, self.model.grid_oem,
+                'eol_man_wst_path', self.pos, self.man_wst_barriers,
+                self.man_wst_costs, self.state_man,
+                self.model.regulations_enacted)[0]
 
     def report_agent_variables(self):
         """
