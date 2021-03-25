@@ -103,7 +103,8 @@ class Recycler(Agent):
         Report instance (agent) variables
         """
         self.model.variables_recyclers[self.recycler_type].append(
-            (self.unique_id, self.recycler_state, self.recycler_cost))
+            (self.unique_id, self.recycler_state,
+             self.recycler_cost - self.recycler_revenue))
         self.model.average_recycler_costs[self.recycler_type] += \
             self.recycler_cost / self.model.recyclers[self.recycler_type]
         self.model.recovered_materials = self.material_recovery(

@@ -538,8 +538,8 @@ class WindABM(Model):
             self.blade_mass_fractions.keys(), 0)
         self.bt_manufactured_q = self.initial_dic_from_key_list(
             self.blade_types.keys(), 0)
-        self.manufacturing_waste_q = self.initial_dic_from_key_list(
-            self.manufacturing_waste_ratio.keys(), 0)
+        self.manufacturing_waste_q = self.nested_init_dic(
+            0, self.eol_pathways, self.manufacturing_waste_ratio.keys())
         self.weighted_avr_mass_conv_factor = 0
         self.add_state_projections = \
             self.cap_projections.loc[

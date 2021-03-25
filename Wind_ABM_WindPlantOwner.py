@@ -195,9 +195,6 @@ class WindPlantOwner(Agent):
             converted_developer_costs[key] = converted_list
         return converted_developer_costs
 
-    # TODO: Continue HERE: move transport shred transport segment, distances
-    #  function and everything needed to compute eol costs for manufacturer
-
     @staticmethod
     def report_variables_if_lifetime_extended_or_else(
             eol_pathway, eol_second_choice, eol_unique_ids_selected,

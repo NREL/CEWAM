@@ -11,6 +11,8 @@ decisions, for instance, regarding the design of wind blades.
 
 from mesa import Agent
 import random
+import numpy as np
+import copy
 
 
 class Manufacturer(Agent):
@@ -101,23 +103,34 @@ class Manufacturer(Agent):
                 self.model.eol_pathways.keys(), 0)
             self.man_wst_costs = self.model.initial_dic_from_key_list(
                 self.model.eol_pathways.keys(), 0)
+            self.man_wst_transport_costs = self.model.eol_transportation_costs(
+                self.model.eol_pathways, self.model.eol_distances(
+                    self.model.variables_recyclers,
+                    self.model.variables_landfills,
+                    self.model.all_shortest_paths_or_trg, self.state_man,
+                    self.man_wst_barriers),
+                self.model.transport_shred_costs, self.model.transport_shreds,
+                self.model.transport_segment_costs,
+                self.model.transport_segments, self.model.variables_developers,
+                self.model.symetric_triang_distrib_draw, np.NaN, np.NaN,
+                np.NaN, self.model.blades_per_rotor)
+            self.recycling_shreds_onsite(
+                self.model.transport_shreds, self.man_wst_transport_costs[0],
+                self.model.symetric_triang_distrib_draw)
+            self.man_wst_u_ids_selected = self.model.initial_dic_from_key_list(
+                self.model.eol_pathways.keys(), 0)
+            self.init_m_wst_rec_cost = self.initial_man_wst_rec_costs(
+                self.eol_man_wst_path, self.model.symetric_triang_distrib_draw,
+                self.model.rec_processes_costs)
+            self.m_wst_rec_cost = copy.deepcopy(self.init_m_wst_rec_cost)
             # TODO: continue HERE: TPB for manufacturing waste
-            #  2) consider manufacturing waste recycled onsite or landfill
-            #  3) have the transport costs for landfill computed --> probably
-            #  will need to use the function in wind plant owner (put it
-            #  in model)
-            #  4) Don't forget to account for the learning effect if recycled
+            #  2) Don't forget to account for the learning effect if recycled
             #  onsite
         else:
             self.state_man = self.model.random_pick_dic_key(
                 self.model.growth_rates)
 
     def new_blade_design_adoption(self, current_blade_type):
-        """
-
-        :param current_blade_type:
-        :return:
-        """
         if current_blade_type != 'thermoplastic':
             blade_type = self.model.theory_planned_behavior_model(
                 self.model.tpb_bt_man_coeff, self.bt_att_level_ce,
@@ -127,6 +140,7 @@ class Manufacturer(Agent):
                 self.state_man, self.model.regulations_enacted)[0]
         else:
             blade_type = current_blade_type
+            self.man_eol_pathways['dissolution'] = True
         return blade_type
 
     @staticmethod
@@ -196,17 +210,52 @@ class Manufacturer(Agent):
         total_capacity_installed = sum(additional_capacity.values())
         producer_share = total_capacity_installed * producer_market_share * \
             wgt_avr_mass_c_fact
-        for key in manufacturing_waste_q.keys():
-            waste_ratio_range = manufacturing_waste_ratio[key]
+        for key, value in manufacturing_waste_ratio.items():
+            waste_ratio_range = value
             waste_ratio = self.model.symetric_triang_distrib_draw(
                 waste_ratio_range[0], waste_ratio_range[1])
-            manufacturing_waste_q[key] += material_mass_fractions[key] * \
-                waste_ratio * producer_share
+            manufacturing_waste_q[self.eol_man_wst_path][key] += \
+                material_mass_fractions[key] * waste_ratio * producer_share
         return manufacturing_waste_q
 
+    @staticmethod
+    def recycling_shreds_onsite(data, man_wst_transport_costs,
+                                symetric_triang_distrib_draw):
+        shredding_costs = data['shredding_costs']
+        shred_cost = symetric_triang_distrib_draw(shredding_costs[0],
+                                                  shredding_costs[1])
+        for key, value in man_wst_transport_costs.items():
+            if key != "landfill":
+                man_wst_transport_costs[key] = \
+                    [(x, shred_cost) for x, y in value]
+
     def costs_man_waste(self):
-        return {'dissolution': 0.1, 'mechanical_recycling': 0.1,
-                'landfill': 0.1}
+        # Manufacturing waste is transported to landfills as shreds
+        transport_mode = copy.deepcopy(self.model.eol_pathways_transport_mode)
+        transport_mode["landfill"] = 'transport_shreds'
+        recycling_costs = copy.deepcopy(self.model.variables_recyclers)
+        for key in recycling_costs.keys():
+            if key in self.man_eol_pathways:
+                recycling_costs[key] = [(self.unique_id, self.state_man, 1)]
+        man_wst_costs = self.model.costs_eol_pathways(
+            self.man_wst_transport_costs[0],
+            self.man_wst_transport_costs[1],
+            self.man_wst_transport_costs[2],
+            recycling_costs, self.model.variables_landfills,
+            self.model.variables_developers, 0, self.model.eol_pathways,
+            transport_mode, self.model.minimum_tr_proc_costs,
+            self.man_wst_u_ids_selected)
+        return man_wst_costs
+
+    @staticmethod
+    def initial_man_wst_rec_costs(eol_man_wst_path, sym_trig_dist,
+                                  rec_processes_costs):
+        init_rec_cost = {}
+        for key in eol_man_wst_path.keys():
+            proc_cost = rec_processes_costs[key]
+            cost = sym_trig_dist(proc_cost[0], proc_cost[1])
+            init_rec_cost[key] = cost
+        return init_rec_cost
 
     def update_agent_variables(self):
         """
