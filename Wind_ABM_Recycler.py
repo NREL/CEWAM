@@ -35,7 +35,8 @@ class Recycler(Agent):
             (self.unique_id, self.recycler_state, (self.init_recycler_cost -
                                                    self.recycler_revenue)))
         self.recycler_cost = self.init_recycler_cost
-        self.init_recycled_quantity = 0
+        self.init_recycled_quantity = self.model.recycling_init_cap[
+            self.recycler_type]
         self.recycled_quantity = 0
         self.model.waste_rec_land[self.unique_id] = 0
         self.learning_parameter = self.model.symetric_triang_distrib_draw(
@@ -44,21 +45,6 @@ class Recycler(Agent):
         self.model.average_recycler_costs[self.recycler_type] += \
             self.init_recycler_cost / self.model.recyclers[self.recycler_type]
         self.init_rec_quantity_updated = False
-
-    def initial_recycling_quantity(self, clock, unique_id, simulation_start,
-                                   waste_rec_land):
-        """
-        Compute the initial recycled quantity
-        :param clock: simulation time step
-        :param unique_id: the recycler agent's unique id
-        :param simulation_start: starting year of the simulation
-        :param waste_rec_land: waste that is either recycled or landfilled
-        """
-        if not self.init_rec_quantity_updated and \
-                waste_rec_land[unique_id] > 0 and \
-                (clock + simulation_start) > simulation_start:
-            self.init_recycled_quantity = waste_rec_land[unique_id]
-            self.init_rec_quantity_updated = True
 
     @staticmethod
     def material_recovery(recycled_quantity, blade_mass_fractions,
@@ -88,11 +74,7 @@ class Recycler(Agent):
         """
         Update instance (agent) variables
         """
-        self.initial_recycling_quantity(
-            self.model.clock, self.unique_id,
-            self.model.temporal_scope['simulation_start'],
-            self.model.waste_rec_land)
-        self.recycled_quantity = self.model.waste_rec_land[self.unique_id]
+        self.recycled_quantity += self.model.waste_rec_land[self.unique_id]
         self.recycler_cost = self.model.learning_effect(
             self.init_recycled_quantity, self.recycled_quantity,
             self.init_recycler_cost, self.recycler_cost,

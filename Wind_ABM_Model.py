@@ -13,9 +13,13 @@ outputs.
 # TODO: Next steps - continue HERE
 #  1) Continue with other agents - follow memo (including agent order)
 #    i) Manufacturer
-#      * decision to handle manufacturing waste (TPB)
 #      * have different blade lifetime for thermoplastic blades (shorter,
 #      longer) that get transferred to wpo; draw from triangular distribution
+#      * add the revenue from using manufacturing waste: revenue from recycling
+#      * add societal costs: revenue from recycling, costs from recycling,
+#        and avoided landfill costs --> use the global reporters in the model
+#        and the model variables to directly compute the revenue and costs from
+#        each CE, use a simple approach, don't start computing for each agent
 #      * unittest
 #    ii) Landfill
 #      * Capacity assessment
@@ -29,7 +33,16 @@ outputs.
 #      * projection of Turbine cap (moderate ATB technology)?
 #      (linear projection up to 2030) --> replace the average t_cap of new wpo
 #      by projection (and then infer p_tnum by p_cap/t_cap)
+#      * add societal costs: revenue from thermoplastic blades, costs from
+#        thermoplastic blades --> use the global reporters in the model and
+#        the model variables to directly compute the revenue and costs from
+#        each CE, use a simple approach, don't start computing for each agent
 #    v) Recycler:
+#      * add societal costs: revenue from recycling and lifetime extension,
+#        costs from recycling and lifetime extension, and avoided landfill
+#        costs --> use the global reporters in the model and the model
+#        variables to directly compute the revenue and costs from each CE,
+#        use a simple approach, don't start computing for each agent
 #      * add capacity constraints for recycler (use a dictionary of boolean
 #       with recycling eol pathway=False if all recycler reach capacity, set up
 #       costs to a big number (infinity may create issues) for the recycler
@@ -223,10 +236,10 @@ class WindABM(Model):
                  #  for others (see email Rebecca for references)? current:
                  #  -0.2, -0.05
                  learning_parameter={
-                     "dissolution": [-0.051, -0.05],
-                     "pyrolysis": [-0.051, -0.05],
-                     "mechanical_recycling": [-0.051, -0.05],
-                     "cement_co_processing": [-0.051, -0.05]},
+                     "dissolution": [-0.21, -0.2],
+                     "pyrolysis": [-0.21, -0.2],
+                     "mechanical_recycling": [-0.21, -0.2],
+                     "cement_co_processing": [-0.21, -0.2]},
                  blade_mass_fractions={
                      "steel": 0.05, "plastic": 0.09, "resin": 0.30,
                      "glass_fiber": 0.56},
@@ -269,6 +282,12 @@ class WindABM(Model):
                  attitude_man_waste_parameters={
                      "mean": 0.5, 'standard_deviation': 0.01, 'min': 0,
                      'max': 1},
+                 # TODO: below and everywhere else for the dissolution process
+                 #  find a source for the initial capacity
+                 recycling_init_cap={
+                     "dissolution": 1, "pyrolysis": 33100,
+                     "mechanical_recycling": 20000,
+                     "cement_co_processing": 20000}
                  ):
         """
         Initiate model.
@@ -373,10 +392,12 @@ class WindABM(Model):
         adoption in the manufacturers population
         :param tpb_man_waste_coeff: regression coefficient in the theory of 
         planned behavior (TPB) model of manufacturing waste management
-        :param: attitude_man_waste_parameters: parameters for a truncated 
+        :param attitude_man_waste_parameters: parameters for a truncated 
         normal distribution representing attitude among the population 
         toward CE eol behaviors and then infer non-circular behaviors 
         for manufacturing waste
+        :param recycling_init_cap: initial recycling capacity for each 
+        recycling process (metric tons)
         """
         # Variables from inputs (value defined externally):
         self.seed = copy.deepcopy(seed)
@@ -437,6 +458,7 @@ class WindABM(Model):
         self.man_waste_dist_init = copy.deepcopy(man_waste_dist_init)
         self.attitude_man_waste_parameters = copy.deepcopy(
             attitude_man_waste_parameters)
+        self.recycling_init_cap = copy.deepcopy(recycling_init_cap)
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -1076,7 +1098,7 @@ class WindABM(Model):
         :return: modified dictionary
         """
         for key, value in boolean_dic.items():
-            if not value:
+            if not value and key in dic:
                 dic.pop(key)
         return dic
 
@@ -1228,7 +1250,10 @@ class WindABM(Model):
         second_choices = [keys for keys, values in scores_behaviors.items() if
                           values == max(scores_behaviors.values())]
         random.shuffle(second_choices)
-        second_choice = second_choices[0]
+        if second_choices:
+            second_choice = second_choices[0]
+        else:
+            second_choice = first_choice
         return first_choice, second_choice
 
     @staticmethod
@@ -1304,7 +1329,7 @@ class WindABM(Model):
         due to economies of scales and other learning effects
         :return: the current recycling cost
         """
-        if volume > 0 and original_volume > 0:
+        if volume > 0:
             decreased_cost = learning_function(
                 original_volume, volume, original_cost, learning_parameter)
             if decreased_cost < current_cost:

@@ -119,13 +119,23 @@ class Manufacturer(Agent):
                 self.model.symetric_triang_distrib_draw)
             self.man_wst_u_ids_selected = self.model.initial_dic_from_key_list(
                 self.model.eol_pathways.keys(), 0)
-            self.init_m_wst_rec_cost = self.initial_man_wst_rec_costs(
-                self.eol_man_wst_path, self.model.symetric_triang_distrib_draw,
-                self.model.rec_processes_costs)
+            self.learning_parameters = {}
+            self.man_wst_volume = self.model.initial_dic_from_key_list(
+                self.man_eol_pathways.keys(), 0)
+            self.init_m_wst_rec_cost, self.learning_parameters = \
+                self.init_m_wst_rec_cost_learning_model(
+                    self.man_eol_pathways,
+                    self.model.symetric_triang_distrib_draw,
+                    self.model.rec_processes_costs,
+                    self.model.learning_parameter)
             self.m_wst_rec_cost = copy.deepcopy(self.init_m_wst_rec_cost)
-            # TODO: continue HERE: TPB for manufacturing waste
-            #  2) Don't forget to account for the learning effect if recycled
-            #  onsite
+            # TODO - continue HERE: have different blade lifetime for
+            #  thermoplastic blades (shorter, longer) that get transferred
+            #  to wpo; draw from triangular distribution --> set up a list of
+            #  lifetime from symetric_triang_draw of each manufacturer if the
+            #  manufacturer is producing blades. Then developer randomly pick
+            #  on o the lifetime and apply it to the blade and pass it on to
+            #  wpo
         else:
             self.state_man = self.model.random_pick_dic_key(
                 self.model.growth_rates)
@@ -214,8 +224,10 @@ class Manufacturer(Agent):
             waste_ratio_range = value
             waste_ratio = self.model.symetric_triang_distrib_draw(
                 waste_ratio_range[0], waste_ratio_range[1])
-            manufacturing_waste_q[self.eol_man_wst_path][key] += \
-                material_mass_fractions[key] * waste_ratio * producer_share
+            man_wst = material_mass_fractions[key] * waste_ratio * \
+                producer_share
+            manufacturing_waste_q[self.eol_man_wst_path][key] += man_wst
+            self.man_wst_volume[self.eol_man_wst_path] += man_wst
         return manufacturing_waste_q
 
     @staticmethod
@@ -236,7 +248,16 @@ class Manufacturer(Agent):
         recycling_costs = copy.deepcopy(self.model.variables_recyclers)
         for key in recycling_costs.keys():
             if key in self.man_eol_pathways:
-                recycling_costs[key] = [(self.unique_id, self.state_man, 1)]
+                volume = self.man_wst_volume[key]
+                original_volume = self.model.recycling_init_cap[key]
+                self.m_wst_rec_cost[key] = self.model.learning_effect(
+                    original_volume, volume, self.init_m_wst_rec_cost[key],
+                    self.m_wst_rec_cost[key], self.learning_parameters[key],
+                    self.model.learning_function)
+                # TODO: add manufacturing waste recycling revenue in the
+                #  recycling_costs[key] below: revenue from recycling
+                recycling_costs[key] = [(self.unique_id, self.state_man,
+                                         self.m_wst_rec_cost[key])]
         man_wst_costs = self.model.costs_eol_pathways(
             self.man_wst_transport_costs[0],
             self.man_wst_transport_costs[1],
@@ -248,14 +269,20 @@ class Manufacturer(Agent):
         return man_wst_costs
 
     @staticmethod
-    def initial_man_wst_rec_costs(eol_man_wst_path, sym_trig_dist,
-                                  rec_processes_costs):
+    def init_m_wst_rec_cost_learning_model(
+            man_eol_pathways, sym_trig_dist, rec_processes_costs,
+            learning_param_model):
         init_rec_cost = {}
-        for key in eol_man_wst_path.keys():
-            proc_cost = rec_processes_costs[key]
-            cost = sym_trig_dist(proc_cost[0], proc_cost[1])
-            init_rec_cost[key] = cost
-        return init_rec_cost
+        learning_parameters = {}
+        for key in man_eol_pathways.keys():
+            if key in rec_processes_costs:
+                proc_cost = rec_processes_costs[key]
+                cost = sym_trig_dist(proc_cost[0], proc_cost[1])
+                init_rec_cost[key] = cost
+                learning_params = learning_param_model[key]
+                l_param = sym_trig_dist(learning_params[0], learning_params[1])
+                learning_parameters[key] = l_param
+        return init_rec_cost, learning_parameters
 
     def update_agent_variables(self):
         """
