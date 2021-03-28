@@ -34,7 +34,8 @@ class Developer(Agent):
                 self.model.lifetime_extension_revenues[1])
         self.model.variables_developers[self.developer_type].append(
             (self.unique_id, self.model.transport_repair,
-             (self.lifetime_extension_cost - self.lifetime_extension_revenue)))
+             self.lifetime_extension_cost - self.lifetime_extension_revenue,
+             self.lifetime_extension_cost, self.lifetime_extension_revenue))
         self.le_feasibility = self.model.le_feasibility
         self.lifetime_extension_years = \
             self.model.symetric_triang_distrib_draw(
@@ -95,7 +96,8 @@ class Developer(Agent):
 
     def assign_wpo_blade_type(self, assigned_wpo, bt_costs, tp_blade_demanded,
                               tp_blade_supply, dissolution_available,
-                              blade_type_capacities, wpo_bt_list):
+                              blade_type_capacities, wpo_bt_list,
+                              total_blade_costs):
         """
         Assign wpo blade type (thermoplastic or thermoset) to wpo depending on
         the TPB
@@ -110,6 +112,7 @@ class Developer(Agent):
         :param blade_type_capacities: model reporter of new installed capacity
         by blade type in each state
         :param wpo_bt_list: list of blade type from each wpo
+        :param total_blade_costs: dictionary reporting blade costs ($)
         :return: the blade demanded up to (and including) current developer,
         dictionary with boolean to indicate wpo have thermoplastic blades, the
         new installed capacity by blade type in each state, and a list of blade
@@ -120,6 +123,7 @@ class Developer(Agent):
             wpo_blade_mass_conv_factor = assigned_wpo[i][1]
             wpo_p_cap = assigned_wpo[i][2]
             wpo_t_state = assigned_wpo[i][3]
+            wpo_mass_conv_factor = assigned_wpo[i][4]
             converted_bt_costs = self.convert_blade_cost(
                 bt_costs, wpo_blade_mass_conv_factor)
             wpo_blade_type, bt_second_choice = \
@@ -130,21 +134,24 @@ class Developer(Agent):
                     'blade_type', self.pos, converted_bt_costs,
                     self.bt_barriers, self.state_dev,
                     self.model.regulations_enacted)
-            tp_blade_demanded, dissolution_available, blade_type_capacities = \
-                self.balance_demand_to_supply(
+            tp_blade_demanded, dissolution_available, blade_type_capacities, \
+                total_blade_costs = self.balance_demand_to_supply(
                     wpo_blade_type, wpo_p_cap, tp_blade_demanded,
                     tp_blade_supply, wpo_unique_id, wpo_t_state,
                     dissolution_available, blade_type_capacities,
-                    bt_second_choice)
+                    bt_second_choice, wpo_mass_conv_factor, total_blade_costs,
+                    converted_bt_costs)
             wpo_bt_list.append(wpo_blade_type)
         return tp_blade_demanded, dissolution_available, \
-            blade_type_capacities, wpo_bt_list
+            blade_type_capacities, wpo_bt_list, total_blade_costs
 
+    # TODO: modify unittest
     @staticmethod
     def balance_demand_to_supply(wpo_blade_type, wpo_p_cap, tp_blade_demanded,
                                  tp_blade_supply, wpo_unique_id, wpo_t_state,
                                  dissolution_available, blade_type_capacities,
-                                 bt_second_choice):
+                                 bt_second_choice, wpo_mass_conv_factor,
+                                 total_blade_costs, converted_bt_costs):
         """
         Function to balance demand of blades from developers to supply from
         manufacturers, dissolution is set to True if the developer adopt a
@@ -163,6 +170,9 @@ class Developer(Agent):
         by blade type in each state
         :param bt_second_choice: second highest score choice in the TPB, which
         replaces wpo_blade_type if supply of thermoplastic blade is limited
+        :param wpo_mass_conv_factor: wpo conversion factor in ton/MW
+        :param total_blade_costs: dictionary reporting blade costs ($)
+        :param converted_bt_costs: costs of each blade type ($/ton)
         :return: the blade demanded up to (and including) current developer,
         nested dictionary dissolution_available, and the new installed capacity
         by blade type in each state
@@ -173,16 +183,26 @@ class Developer(Agent):
                 dissolution_available[wpo_unique_id] = {
                     'dissolution': True}
                 blade_type_capacities[wpo_t_state][wpo_blade_type] += wpo_p_cap
+                total_blade_costs[wpo_blade_type] += \
+                    wpo_p_cap * wpo_mass_conv_factor * \
+                    converted_bt_costs[wpo_blade_type]
             else:
                 dissolution_available[wpo_unique_id] = {
                     'dissolution': False}
                 blade_type_capacities[wpo_t_state][bt_second_choice] += \
                     wpo_p_cap
+                total_blade_costs[bt_second_choice] += \
+                    wpo_p_cap * wpo_mass_conv_factor * \
+                    converted_bt_costs[bt_second_choice]
         else:
             dissolution_available[wpo_unique_id] = {
                 'dissolution': False}
             blade_type_capacities[wpo_t_state][wpo_blade_type] += wpo_p_cap
-        return tp_blade_demanded, dissolution_available, blade_type_capacities
+            total_blade_costs[wpo_blade_type] += \
+                wpo_p_cap * wpo_mass_conv_factor * \
+                converted_bt_costs[wpo_blade_type]
+        return tp_blade_demanded, dissolution_available, \
+            blade_type_capacities, total_blade_costs
 
     @staticmethod
     def convert_blade_cost(bt_costs, conversion_factor):
@@ -196,7 +216,7 @@ class Developer(Agent):
         """
         converted_costs = {}
         for key, value in bt_costs.items():
-            converted_value = bt_costs[key] / conversion_factor
+            converted_value = value / conversion_factor
             converted_costs[key] = converted_value
         return converted_costs
 
@@ -218,12 +238,13 @@ class Developer(Agent):
             [], True)
         self.wpo_bt_list = []
         self.model.tp_blade_demanded, self.model.dissolution_available, \
-            self.model.blade_type_capacities, self.wpo_bt_list = \
-            self.assign_wpo_blade_type(
+            self.model.blade_type_capacities, self.wpo_bt_list, \
+            self.model.total_bt_costs = self.assign_wpo_blade_type(
                 self.assigned_wpo, self.bt_costs, self.model.tp_blade_demanded,
                 self.model.tp_blade_manufactured,
                 self.model.dissolution_available,
-                self.model.blade_type_capacities, self.wpo_bt_list)
+                self.model.blade_type_capacities, self.wpo_bt_list,
+                self.model.total_bt_costs)
         if self.wpo_bt_list:
             self.blade_type = self.model.most_common_element_list(
                 self.wpo_bt_list)

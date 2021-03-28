@@ -131,6 +131,7 @@ class WindPlantOwner(Agent):
             self.model.decommissioning_cost[0],
             self.model.decommissioning_cost[1]) / self.blade_mass_conv_factor
         self.eol_pathways_costs = {}
+        self.eol_pathways_revenues = {}
         self.average_lifetime = self.model.symetric_triang_distrib_draw(
             self.model.average_lifetime['thermoset'][0],
             self.model.average_lifetime['thermoset'][1])
@@ -193,8 +194,9 @@ class WindPlantOwner(Agent):
         converted_developer_costs = {}
         for key in developer_costs.keys():
             dev_costs_list = developer_costs[key]
-            converted_list = [(x, y, z / conversion_factor) for x, y, z in
-                              dev_costs_list]
+            converted_list = [
+                (x, y, z / conversion_factor, v / conversion_factor,
+                 w / conversion_factor) for x, y, z, v, w in dev_costs_list]
             converted_developer_costs[key] = converted_list
         return converted_developer_costs
 
@@ -202,7 +204,8 @@ class WindPlantOwner(Agent):
     def report_variables_if_lifetime_extended_or_else(
             eol_pathway, eol_second_choice, eol_unique_ids_selected,
             reporter_waste, reporter_adoption, reporter_rec_land, state, waste,
-            mass_conv_factor):
+            mass_conv_factor, total_costs, eol_pathways_costs,
+            eol_pathways_revenues, total_revenues):
         """
         Report waste according to the eol pathway - if lifetime extension is
         adopted, waste is reported to the secondary pathway, otherwise it is
@@ -218,6 +221,12 @@ class WindPlantOwner(Agent):
         :param state: the state of the wpo
         :param waste: the waste of the wpo (in MW)
         :param mass_conv_factor: the conversion factor (metric ton / MW)
+        :param total_costs: costs of all agent's decisions
+        :param eol_pathways_costs: nested dictionary reporter of eol pathways
+        costs
+        :param eol_pathways_revenues: nested dictionary reporter of eol
+        :param total_revenues: revenues of all agent's decisions
+        pathways revenues
         """
         if eol_pathway == 'lifetime_extension':
             reporter_waste[state][eol_second_choice] += waste * \
@@ -226,12 +235,29 @@ class WindPlantOwner(Agent):
             reporter_adoption[eol_second_choice] += 1
             reporter_rec_land[eol_unique_ids_selected[eol_second_choice]] += \
                 waste * mass_conv_factor
+            total_costs[state][eol_pathway] += \
+                (eol_pathways_costs[eol_pathway] +
+                 eol_pathways_revenues[eol_pathway]) * waste * mass_conv_factor
+            total_costs[state][eol_second_choice] += \
+                (eol_pathways_costs[eol_second_choice] +
+                 eol_pathways_revenues[eol_second_choice]) * waste * \
+                mass_conv_factor
+            total_revenues[state][eol_pathway] += \
+                eol_pathways_revenues[eol_pathway] * waste * mass_conv_factor
+            total_revenues[state][eol_second_choice] += \
+                eol_pathways_revenues[eol_second_choice] * waste * \
+                mass_conv_factor
         else:
             reporter_waste[state][eol_pathway] += waste * \
                                                         mass_conv_factor
             reporter_adoption[eol_pathway] += 1
             reporter_rec_land[eol_unique_ids_selected[eol_pathway]] += \
                 waste * mass_conv_factor
+            total_costs[state][eol_pathway] += \
+                (eol_pathways_costs[eol_pathway] +
+                 eol_pathways_revenues[eol_pathway]) * waste * mass_conv_factor
+            total_revenues[state][eol_pathway] += \
+                eol_pathways_revenues[eol_pathway] * waste * mass_conv_factor
 
     def other_agents_consequences(self):
         """
@@ -274,13 +300,14 @@ class WindPlantOwner(Agent):
             self.model.weibull_shape_factor)
         self.p_cap_waste -= self.waste
         self.cum_waste += self.waste
-        self.eol_pathways_costs = self.model.costs_eol_pathways(
-            self.eol_tr_cost_shreds, self.eol_tr_cost_segments,
-            self.eol_tr_cost_repair, self.model.variables_recyclers,
-            self.model.variables_landfills, self.variables_developers_wpo,
-            self.decommissioning_cost, self.model.eol_pathways,
-            self.model.eol_pathways_transport_mode,
-            self.model.minimum_tr_proc_costs, self.eol_unique_ids_selected)
+        self.eol_pathways_costs, self.eol_pathways_revenues = \
+            self.model.costs_eol_pathways(
+                self.eol_tr_cost_shreds, self.eol_tr_cost_segments,
+                self.eol_tr_cost_repair, self.model.variables_recyclers,
+                self.model.variables_landfills, self.variables_developers_wpo,
+                self.decommissioning_cost, self.model.eol_pathways,
+                self.model.eol_pathways_transport_mode,
+                self.model.minimum_tr_proc_costs, self.eol_unique_ids_selected)
         self.other_agents_consequences()
         # Agents' attributes that should not be updated every step
         if not self.agent_attributes_updated:
@@ -315,7 +342,9 @@ class WindPlantOwner(Agent):
             self.eol_pathway, self.eol_second_choice,
             self.eol_unique_ids_selected, self.model.states_waste_eol_path,
             self.model.eol_pathway_adoption, self.model.waste_rec_land,
-            self.t_state, self.waste, self.mass_conv_factor)
+            self.t_state, self.waste, self.mass_conv_factor,
+            self.model.total_eol_costs, self.eol_pathways_costs,
+            self.eol_pathways_revenues, self.model.total_eol_revenues)
         self.model.average_lifetimes_wpo.append(self.average_lifetime)
 
     def remove_agent(self):

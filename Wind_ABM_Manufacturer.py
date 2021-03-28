@@ -135,6 +135,7 @@ class Manufacturer(Agent):
             self.tb_lifetime = self.model.symetric_triang_distrib_draw(
                 self.model.average_lifetime['thermoplastic'][0],
                 self.model.average_lifetime['thermoplastic'][1])
+            self.m_wst_rev = {}
         else:
             self.state_man = self.model.random_pick_dic_key(
                 self.model.growth_rates)
@@ -253,12 +254,11 @@ class Manufacturer(Agent):
                     original_volume, volume, self.init_m_wst_rec_cost[key],
                     self.m_wst_rec_cost[key], self.learning_parameters[key],
                     self.model.learning_function)
-                # TODO: continue HERE: revenue from recycling - then add
-                #  revenue for recycler agents
-                recycling_costs[key] = [(self.unique_id, self.state_man,
-                                         self.m_wst_rec_cost[key] +
-                                         self.init_m_wst_rec_rev[key])]
-        man_wst_costs = self.model.costs_eol_pathways(
+                recycling_costs[key] = [
+                    (self.unique_id, self.state_man, self.m_wst_rec_cost[key] -
+                     self.init_m_wst_rec_rev[key], self.m_wst_rec_cost[key],
+                     self.init_m_wst_rec_rev[key])]
+        man_wst_costs, m_wst_rev = self.model.costs_eol_pathways(
             self.man_wst_transport_costs[0],
             self.man_wst_transport_costs[1],
             self.man_wst_transport_costs[2],
@@ -266,7 +266,7 @@ class Manufacturer(Agent):
             self.model.variables_developers, 0, self.model.eol_pathways,
             transport_mode, self.model.minimum_tr_proc_costs,
             self.man_wst_u_ids_selected)
-        return man_wst_costs
+        return man_wst_costs, m_wst_rev
 
     @staticmethod
     def init_m_wst_rec_cost_learning_model(
@@ -301,7 +301,7 @@ class Manufacturer(Agent):
                 self.development_tp_blade, self.bt_produced,
                 self.market_share, self.model.tp_production_share,
                 self.model.additional_cap)
-            self.man_wst_costs = self.costs_man_waste()
+            self.man_wst_costs, self.m_wst_rev = self.costs_man_waste()
             self.eol_man_wst_path = self.model.theory_planned_behavior_model(
                 self.model.tpb_man_waste_coeff, self.man_wst_att_level_ce,
                 self.man_wst_att_level_conv, self.man_eol_pathways,
@@ -331,6 +331,13 @@ class Manufacturer(Agent):
                     math.ceil(self.market_share *
                               self.model.manufacturers[
                                   self.manufacturer_type])))
+            self.model.total_man_waste_costs[self.eol_man_wst_path] = \
+                self.man_wst_volume[self.eol_man_wst_path] * \
+                (self.man_wst_costs[self.eol_man_wst_path] +
+                 self.m_wst_rev[self.eol_man_wst_path])
+            self.model.total_man_waste_revenues[self.eol_man_wst_path] = \
+                self.man_wst_volume[self.eol_man_wst_path] * \
+                self.m_wst_rev[self.eol_man_wst_path]
 
     def step(self):
         """

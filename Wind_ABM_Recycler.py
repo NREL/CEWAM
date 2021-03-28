@@ -32,8 +32,9 @@ class Recycler(Agent):
             self.model.rec_processes_revenues[self.recycler_type][0],
             self.model.rec_processes_revenues[self.recycler_type][1])
         self.model.variables_recyclers[self.recycler_type].append(
-            (self.unique_id, self.recycler_state, (self.init_recycler_cost -
-                                                   self.recycler_revenue)))
+            (self.unique_id, self.recycler_state, self.init_recycler_cost -
+             self.recycler_revenue, self.init_recycler_cost,
+             self.recycler_revenue))
         self.recycler_cost = self.init_recycler_cost
         self.init_recycled_quantity = self.model.recycling_init_cap[
             self.recycler_type]
@@ -86,7 +87,8 @@ class Recycler(Agent):
         """
         self.model.variables_recyclers[self.recycler_type].append(
             (self.unique_id, self.recycler_state,
-             self.recycler_cost - self.recycler_revenue))
+             self.recycler_cost - self.recycler_revenue, self.recycler_cost,
+             self.recycler_revenue))
         self.model.average_recycler_costs[self.recycler_type] += \
             self.recycler_cost / self.model.recyclers[self.recycler_type]
         self.model.recovered_materials = self.material_recovery(

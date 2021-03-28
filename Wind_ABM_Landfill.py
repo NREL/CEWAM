@@ -44,8 +44,10 @@ class Landfill(Agent):
         self.landfill_type = list(self.model.landfills.keys())[0]
         self.landfill_state = self.model.landfill_state_list.pop()
         self.landfill_cost = self.model.landfill_costs[self.landfill_state]
+        self.landfill_revenue = 0
         self.model.variables_landfills[self.landfill_type].append(
-            (self.unique_id, self.landfill_state, self.landfill_cost))
+            (self.unique_id, self.landfill_state, self.landfill_cost -
+             self.landfill_revenue, self.landfill_cost, self.landfill_revenue))
         self.closure = False
         self.model.waste_rec_land[self.unique_id] = 0
 
@@ -77,7 +79,9 @@ class Landfill(Agent):
         """
         if not self.closure:
             self.model.variables_landfills[self.landfill_type].append(
-                (self.unique_id, self.landfill_state, self.landfill_cost))
+                (self.unique_id, self.landfill_state, self.landfill_cost -
+                 self.landfill_revenue, self.landfill_cost,
+                 self.landfill_revenue))
 
     def step(self):
         """

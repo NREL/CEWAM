@@ -12,41 +12,21 @@ outputs.
 
 # TODO: Next steps - continue HERE
 #  1) Continue with other agents - follow memo (including agent order)
-#    i) Manufacturer
-#      * add the revenue from using manufacturing waste: revenue from recycling
-#      * add societal costs: revenue from recycling, costs from recycling,
-#        and avoided landfill costs --> use the global reporters in the model
-#        and the model variables to directly compute the revenue and costs from
-#        each CE, use a simple approach, don't start computing for each agent
-#      * unittest
-#    ii) Landfill
-#      * Capacity assessment
+#    i) Landfill ---- continue HERE ----
+#      * Capacity assessment --> start by looking at LMOP and waste business
+#      journal databases: what information is available in which? Can I just
+#      use the waste business journal database without the need for LMOP?
 #      * Model reporter variables
 #      * Unittests
-#    iii) Regulator
+#    ii) Regulator
 #      * Regulation enactment depending on landfill capacity
 #      * Model reporter variables
 #      * Unittests
-#     iv) Developer
+#     iii) Developer
 #      * projection of Turbine cap (moderate ATB technology)?
-#      (linear projection up to 2030) --> replace the average t_cap of new wpo
-#      by projection (and then infer p_tnum by p_cap/t_cap)
-#      * add societal costs: revenue from thermoplastic blades, costs from
-#        thermoplastic blades --> use the global reporters in the model and
-#        the model variables to directly compute the revenue and costs from
-#        each CE, use a simple approach, don't start computing for each agent
-#    v) Recycler:
-#      * add societal costs: revenue from recycling and lifetime extension,
-#        costs from recycling and lifetime extension, and avoided landfill
-#        costs --> use the global reporters in the model and the model
-#        variables to directly compute the revenue and costs from each CE,
-#        use a simple approach, don't start computing for each agent
-#      * add capacity constraints for recycler (use a dictionary of boolean
-#       with recycling eol pathway=False if all recycler reach capacity, set up
-#       costs to a big number (infinity may create issues) for the recycler
-#       reaching capacity
-#      * Fix the recycling function, use: C:\Users\jwalzber\Documents\Winter21
-#      \Wind_ABM\Modeling\LearningCurveDiscussion.pptx
+#      (linear projection up to 2030) --> replace the average t_cap of new
+#      wpo by projection (and then infer p_tnum by p_cap/t_cap)
+#     iv) Re-write all unittests and missing unittest for all agents
 #  2) More unittests:
 #    i) for recycler and other agents similar to recycler write
 #    unittests to check initial distribution of types
@@ -574,6 +554,18 @@ class WindABM(Model):
             self.manufacturers['wind_blade'], True, [])
         self.list_tb_lifetimes = []
         self.average_lifetimes_wpo = []
+        self.total_eol_costs = self.nested_init_dic(
+            0, self.growth_rates.keys(), self.eol_pathways.keys())
+        self.total_eol_revenues = self.nested_init_dic(
+            0, self.growth_rates.keys(), self.eol_pathways.keys())
+        self.total_man_waste_costs = self.initial_dic_from_key_list(
+            self.eol_pathways.keys(), 0)
+        self.total_man_waste_revenues = self.initial_dic_from_key_list(
+            self.eol_pathways.keys(), 0)
+        self.total_bt_costs = self.initial_dic_from_key_list(
+            self.blade_types.keys(), 0)
+        self.blade_type_mass = self.initial_dic_from_key_list(
+            self.blade_types.keys(), 0)
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -663,7 +655,17 @@ class WindABM(Model):
                 lambda a: str(self.manufacturing_waste_q),
             "Turbines average lifetime (years)":
                 lambda a: self.safe_div(sum(self.average_lifetimes_wpo),
-                                        len(self.average_lifetimes_wpo))}
+                                        len(self.average_lifetimes_wpo)),
+            "Total eol costs ($)":
+                lambda a: str(self.total_eol_costs),
+            "Total eol revenues ($)":
+                lambda a: str(self.total_eol_revenues),
+            "Total manufacturing waste costs ($)":
+                lambda a: str(self.total_man_waste_costs),
+            "Total manufacturing waste revenues ($)":
+                lambda a: str(self.total_man_waste_revenues),
+            "Total blade costs ($)":
+                lambda a: str(self.total_bt_costs)}
         self.agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
@@ -1396,6 +1398,7 @@ class WindABM(Model):
         :return: costs for each eol pathway
         """
         costs_eol_pathways = {}
+        rev_eol_pathways = {}
         process_costs = {}
         process_costs.update(variables_landfills)
         process_costs.update(variables_recyclers)
@@ -1405,26 +1408,35 @@ class WindABM(Model):
             if transport_mode == "transport_shreds":
                 transport_cost = eol_tr_costs_shreds[key]
                 process_costs_key = process_costs[key]
-                tr_proc_costs = minimum_tr_proc_costs(
+                opt_costs = minimum_tr_proc_costs(
                     process_costs_key, transport_cost)
+                tr_proc_costs = opt_costs[0]
+                revenue = opt_costs[1]
             elif transport_mode == "transport_segments":
                 transport_cost = eol_tr_costs_segments[key]
                 process_costs_key = process_costs[key]
-                tr_proc_costs = minimum_tr_proc_costs(
+                opt_costs = minimum_tr_proc_costs(
                     process_costs_key, transport_cost)
+                tr_proc_costs = opt_costs[0]
+                revenue = opt_costs[1]
             elif transport_mode == "transport_repair":
                 transport_cost = eol_tr_costs_repair[key]
                 process_costs_key = process_costs[key]
-                tr_proc_costs = minimum_tr_proc_costs(
+                opt_costs = minimum_tr_proc_costs(
                     process_costs_key, transport_cost)
+                tr_proc_costs = opt_costs[0]
+                revenue = opt_costs[1]
             else:
                 process_costs_key = process_costs[key]
                 transport_cost_shreds = eol_tr_costs_shreds[key]
-                tr_proc_costs_shreds = minimum_tr_proc_costs(
+                opt_costs_shreds = minimum_tr_proc_costs(
                     process_costs_key, transport_cost_shreds)
+                tr_proc_costs_shreds = opt_costs_shreds[0]
                 transport_cost_segments = eol_tr_costs_segments[key]
-                tr_proc_costs_segments = minimum_tr_proc_costs(
+                opt_costs_segments = minimum_tr_proc_costs(
                     process_costs_key, transport_cost_segments)
+                tr_proc_costs_segments = opt_costs_segments[0]
+                revenue = opt_costs_segments[1]
                 tr_proc_costs = min(
                     [tr_proc_costs_shreds, tr_proc_costs_segments],
                     key=lambda t: t[1])
@@ -1436,7 +1448,8 @@ class WindABM(Model):
             else:
                 costs_eol_pathways[key] = tr_proc_costs[1] + \
                                           decommissioning_cost
-        return costs_eol_pathways
+            rev_eol_pathways[key] = revenue
+        return costs_eol_pathways, rev_eol_pathways
 
     # TODO: write unittest
     @staticmethod
@@ -1452,14 +1465,22 @@ class WindABM(Model):
         lowest sum of transportation and process cost (second element of the
         tuple)
         """
-        list_process_cost = [(x, z) for x, y, z in process_costs]
+        list_process_cost = [(x, z) for x, y, z, v, w in process_costs]
         list_all_cost = transport_cost + list_process_cost
         dic_cost = {x: 0 for x, y in list_all_cost}
         for x, y in list_all_cost:
             dic_cost[x] += y
         list_tot_cost = list(map(tuple, dic_cost.items()))
         minimum_tr_proc_cost = min(list_tot_cost, key=lambda t: t[1])
-        return minimum_tr_proc_cost
+        revenue_list = [item for item in process_costs if
+                        item[0] == minimum_tr_proc_cost[0]]
+        if revenue_list:
+            revenue = revenue_list[0][4]
+        elif process_costs:
+            revenue = process_costs[0][4]
+        else:
+            revenue = 0
+        return minimum_tr_proc_cost, revenue
 
     # TODO: write unittest
     @staticmethod
@@ -1503,7 +1524,7 @@ class WindABM(Model):
                     t_cap, t_rd, blades_per_rotor)
             else:
                 eol_tr_costs_repair[key] = [
-                    (x, y) for x, y, z in variables_developers_wpo[key]]
+                    (x, y) for x, y, z, v, w in variables_developers_wpo[key]]
         return eol_tr_costs_shreds, eol_tr_costs_segments, eol_tr_costs_repair
 
     # TODO: write unittest
@@ -1525,10 +1546,10 @@ class WindABM(Model):
         transport_cost_shreds = data['transport_cost_shreds']
         transport_cost_shreds = symetric_triang_distrib_draw(
                     transport_cost_shreds[0], transport_cost_shreds[1])
-        # in the tuple: x is agent id, y is the distance to agent and z is
-        # agent process net cost
+        # in the tuple: x is agent id, y is the distance to agent, z is
+        # agent process net cost, v is agent cost, and w is agent revenue
         cost_shreds = [(x, shredding_costs + transport_cost_shreds * y) for
-                       x, y, z in distances]
+                       x, y, z, v, w in distances]
         return cost_shreds
 
     # TODO: write unittest
@@ -1562,7 +1583,7 @@ class WindABM(Model):
         # in the tuple: x is agent id, y is the distance to agent and z is
         # agent process net cost
         cost_segments = [(x, cutting_costs + transport_cost_segments * y)
-                         for x, y, z in distances]
+                         for x, y, z, v, w in distances]
         return cost_segments
 
     # TODO: write unittest
@@ -1588,10 +1609,10 @@ class WindABM(Model):
             possible_destinations[key] = possible_destinations_land[key]
         for key in possible_destinations.keys():
             list_destinations = possible_destinations[key]
-            # in the tuple: x is agent id, y is agent state and z is agent
-            # process net cost
-            list_distances = [(x, all_possible_distances[origin][y], z) for
-                              x, y, z in list_destinations]
+            # in the tuple: x is agent id, y is agent state, z is agent
+            # process net cost, v is agent cost, and w is agent revenue
+            list_distances = [(x, all_possible_distances[origin][y], z, v, w)
+                              for x, y, z, v, w in list_destinations]
             distances[key] = list_distances
             min_distance = min(list_distances, key=lambda t: t[1])[1]
             eol_pathways_barriers[key] = min_distance
