@@ -13,6 +13,7 @@ from mesa import Agent
 import random
 import numpy as np
 import copy
+import math
 
 
 class Manufacturer(Agent):
@@ -122,20 +123,18 @@ class Manufacturer(Agent):
             self.learning_parameters = {}
             self.man_wst_volume = self.model.initial_dic_from_key_list(
                 self.man_eol_pathways.keys(), 0)
-            self.init_m_wst_rec_cost, self.learning_parameters = \
+            self.init_m_wst_rec_cost, self.init_m_wst_rec_rev, \
+                self.learning_parameters = \
                 self.init_m_wst_rec_cost_learning_model(
                     self.man_eol_pathways,
                     self.model.symetric_triang_distrib_draw,
                     self.model.rec_processes_costs,
+                    self.model.rec_processes_revenues,
                     self.model.learning_parameter)
             self.m_wst_rec_cost = copy.deepcopy(self.init_m_wst_rec_cost)
-            # TODO - continue HERE: have different blade lifetime for
-            #  thermoplastic blades (shorter, longer) that get transferred
-            #  to wpo; draw from triangular distribution --> set up a list of
-            #  lifetime from symetric_triang_draw of each manufacturer if the
-            #  manufacturer is producing blades. Then developer randomly pick
-            #  on o the lifetime and apply it to the blade and pass it on to
-            #  wpo
+            self.tb_lifetime = self.model.symetric_triang_distrib_draw(
+                self.model.average_lifetime['thermoplastic'][0],
+                self.model.average_lifetime['thermoplastic'][1])
         else:
             self.state_man = self.model.random_pick_dic_key(
                 self.model.growth_rates)
@@ -254,10 +253,11 @@ class Manufacturer(Agent):
                     original_volume, volume, self.init_m_wst_rec_cost[key],
                     self.m_wst_rec_cost[key], self.learning_parameters[key],
                     self.model.learning_function)
-                # TODO: add manufacturing waste recycling revenue in the
-                #  recycling_costs[key] below: revenue from recycling
+                # TODO: continue HERE: revenue from recycling - then add
+                #  revenue for recycler agents
                 recycling_costs[key] = [(self.unique_id, self.state_man,
-                                         self.m_wst_rec_cost[key])]
+                                         self.m_wst_rec_cost[key] +
+                                         self.init_m_wst_rec_rev[key])]
         man_wst_costs = self.model.costs_eol_pathways(
             self.man_wst_transport_costs[0],
             self.man_wst_transport_costs[1],
@@ -271,18 +271,22 @@ class Manufacturer(Agent):
     @staticmethod
     def init_m_wst_rec_cost_learning_model(
             man_eol_pathways, sym_trig_dist, rec_processes_costs,
-            learning_param_model):
+            rec_processes_rev, learning_param_model):
         init_rec_cost = {}
+        init_rec_rev = {}
         learning_parameters = {}
         for key in man_eol_pathways.keys():
             if key in rec_processes_costs:
                 proc_cost = rec_processes_costs[key]
                 cost = sym_trig_dist(proc_cost[0], proc_cost[1])
                 init_rec_cost[key] = cost
+                proc_rev = rec_processes_rev[key]
+                rev = sym_trig_dist(proc_rev[0], proc_rev[1])
+                init_rec_rev[key] = rev
                 learning_params = learning_param_model[key]
                 l_param = sym_trig_dist(learning_params[0], learning_params[1])
                 learning_parameters[key] = l_param
-        return init_rec_cost, learning_parameters
+        return init_rec_cost, init_rec_rev, learning_parameters
 
     def update_agent_variables(self):
         """
@@ -322,6 +326,11 @@ class Manufacturer(Agent):
                 self.model.manufacturing_waste_ratio,
                 self.model.blade_mass_fractions,
                 self.model.manufacturing_waste_q)
+            self.model.list_tb_lifetimes.extend(
+                [self.tb_lifetime] * int(
+                    math.ceil(self.market_share *
+                              self.model.manufacturers[
+                                  self.manufacturer_type])))
 
     def step(self):
         """

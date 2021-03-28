@@ -131,7 +131,10 @@ class WindPlantOwner(Agent):
             self.model.decommissioning_cost[0],
             self.model.decommissioning_cost[1]) / self.blade_mass_conv_factor
         self.eol_pathways_costs = {}
-        self.average_lifetime = self.model.average_lifetime
+        self.average_lifetime = self.model.symetric_triang_distrib_draw(
+            self.model.average_lifetime['thermoset'][0],
+            self.model.average_lifetime['thermoset'][1])
+        self.init_average_lifetime = self.average_lifetime
         self.eol_second_choice = random.choice(self.model.filter_list(
             self.model.list_init_eol_second_choice, self.eol_pathway))
         self.eol_second_choice_share = 0
@@ -244,6 +247,8 @@ class WindPlantOwner(Agent):
             self.wpo_eol_pathways = self.model.boolean_dic_based_on_dicts(
                 self.wpo_eol_pathways, True, True,
                 self.model.dissolution_available[self.unique_id])
+        if self.wpo_eol_pathways['dissolution']:
+            self.average_lifetime = random.choice(self.model.list_tb_lifetimes)
         for value in self.model.regulations_enacted.values():
             if value[self.t_state] and not self.regulation_new_decision:
                 self.agent_attributes_updated = False
@@ -256,7 +261,7 @@ class WindPlantOwner(Agent):
         # Agents' attributes that should be updated every step
         self.average_lifetime, self.eol_second_choice_share = \
             self.model.lifetime_extension(
-                self.eol_pathway, self.model.average_lifetime,
+                self.eol_pathway, self.init_average_lifetime,
                 self.le_characteristics)
         self.waste = self.model.waste_generation(
             self.model.temporal_scope['simulation_start'], self.model.clock,
@@ -265,7 +270,7 @@ class WindPlantOwner(Agent):
             self.model.waste_generation(
             self.model.temporal_scope['simulation_start'],
             self.model.clock, self.p_year, self.p_cap_waste,
-            self.model.average_lifetime,
+            self.init_average_lifetime,
             self.model.weibull_shape_factor)
         self.p_cap_waste -= self.waste
         self.cum_waste += self.waste
@@ -311,6 +316,7 @@ class WindPlantOwner(Agent):
             self.eol_unique_ids_selected, self.model.states_waste_eol_path,
             self.model.eol_pathway_adoption, self.model.waste_rec_land,
             self.t_state, self.waste, self.mass_conv_factor)
+        self.model.average_lifetimes_wpo.append(self.average_lifetime)
 
     def remove_agent(self):
         """

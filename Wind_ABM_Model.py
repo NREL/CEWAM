@@ -13,8 +13,6 @@ outputs.
 # TODO: Next steps - continue HERE
 #  1) Continue with other agents - follow memo (including agent order)
 #    i) Manufacturer
-#      * have different blade lifetime for thermoplastic blades (shorter,
-#      longer) that get transferred to wpo; draw from triangular distribution
 #      * add the revenue from using manufacturing waste: revenue from recycling
 #      * add societal costs: revenue from recycling, costs from recycling,
 #        and avoided landfill costs --> use the global reporters in the model
@@ -118,7 +116,9 @@ class WindABM(Model):
                  # TODO: growth rates from 95-by-35.Adv and
                  #  95-by-35+Elec.Adv+DR scenarios in: C:\Users\jwalzber\
                  #  Documents\Winter21\Wind_ABM\Modeling\Data\ProjectedCapacity
-                 average_lifetime=20.0,
+                 # TODO: change mock-up value with real value from literature
+                 average_lifetime={'thermoset': [20.0, 20.1],
+                                   'thermoplastic': [18, 22.0]},
                  weibull_shape_factor=2.2,
                  blade_size_to_mass_model={'coefficient': 0.0026,
                                            'power': 2.1447},
@@ -287,7 +287,7 @@ class WindABM(Model):
                  recycling_init_cap={
                      "dissolution": 1, "pyrolysis": 33100,
                      "mechanical_recycling": 20000,
-                     "cement_co_processing": 20000}
+                     "cement_co_processing": 20000},
                  ):
         """
         Initiate model.
@@ -572,6 +572,8 @@ class WindABM(Model):
             self.remove_item_dic_from_boolean_dic(
                 self.man_waste_dist_init.copy(), self.eol_pathways),
             self.manufacturers['wind_blade'], True, [])
+        self.list_tb_lifetimes = []
+        self.average_lifetimes_wpo = []
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -658,7 +660,10 @@ class WindABM(Model):
             "Manufactured blades (MW)":
                 lambda a: str(self.bt_manufactured_q),
             "Manufacturing waste (metric tons)":
-                lambda a: str(self.manufacturing_waste_q)}
+                lambda a: str(self.manufacturing_waste_q),
+            "Turbines average lifetime (years)":
+                lambda a: self.safe_div(sum(self.average_lifetimes_wpo),
+                                        len(self.average_lifetimes_wpo))}
         self.agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
@@ -1759,6 +1764,7 @@ class WindABM(Model):
             False, self.choices_circularity.keys(), self.growth_rates.keys())
         self.le_characteristics = []
         self.dissolution_available = {}
+        self.list_tb_lifetimes = []
 
     def reinitialize_global_variables_dev_man_rec_wpo(self):
         """
@@ -1779,6 +1785,7 @@ class WindABM(Model):
         self.weighted_avr_mass_conv_factor = self.weighted_average(
             [i[2] for i in self.variables_additional_wpo],
             [i[4] for i in self.variables_additional_wpo])
+        self.average_lifetimes_wpo = []
 
     def update_model_variables_end_of_step(self):
         """
