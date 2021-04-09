@@ -92,7 +92,8 @@ class WindABM(Model):
                  external_files={
                      "state_distances": "StatesAdjacencyMatrix.csv", "uswtdb":
                      "uswtdb_v3_3_20210114.csv", "projections":
-                         "nrel_mid_case_projections.csv"},
+                         "nrel_mid_case_projections.csv",
+                     "wbj_database": "WBJ Landfills 2020.csv"},
                  # TODO: growth rates from 95-by-35.Adv and
                  #  95-by-35+Elec.Adv+DR scenarios in: C:\Users\jwalzber\
                  #  Documents\Winter21\Wind_ABM\Modeling\Data\ProjectedCapacity
@@ -118,8 +119,8 @@ class WindABM(Model):
                      "pyrolysis": 0.005, "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
                  # TODO w_b = -0.21, w_sn=0.56
-                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.30, 'w_sn': 0.0,
-                                'w_pbc': -0.13, 'w_p': 0.11, 'w_b': -0.0},
+                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.30, 'w_sn': 0.56,
+                                'w_pbc': -0.13, 'w_p': 0.11, 'w_b': -0.21},
                  # TODO: change back to mu=0.5, sigma=0.1
                  attitude_eol_parameters={
                      "mean": 0.97, 'standard_deviation': 0.01, 'min': 0,
@@ -188,7 +189,7 @@ class WindABM(Model):
                  #  tons and not in US tons
                  lifetime_extension_years=[5, 15],
                  # TODO: 0.55
-                 le_feasibility=0.0,
+                 le_feasibility=0.55,
                  # TODO: report this parameter and source in Memo report
                  #  https://doi.org/10.1016/j.resconrec.2021.105439 assumption
                  #  is that early failure blades might be treated differently
@@ -566,6 +567,8 @@ class WindABM(Model):
             self.blade_types.keys(), 0)
         self.blade_type_mass = self.initial_dic_from_key_list(
             self.blade_types.keys(), 0)
+        self.wbj_database = self.landfill_data(
+            self.external_files["wbj_database"])
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -909,6 +912,39 @@ class WindABM(Model):
             uswtdb['t_cap']**cap_to_diameter_model['power'], inplace=True)
         uswtdb = uswtdb.replace({'t_state': state_abrev})
         return uswtdb
+
+    @staticmethod
+    def landfill_data(database):
+        wbj_database = pd.read_csv(database, thousands=',')
+        wbj_database = wbj_database[
+            ['Facility Name', 'State', 'Longitude', 'Latitude', 'Start Date',
+             'Close Date', 'Waste Types Accepted', '$/ Ton',
+             'Remaining Capacity (tons)', 'Total Waste in 2020_tons']]
+        wbj_database = wbj_database.dropna()
+        wbj_database['Remaining Capacity (tons)'] = wbj_database[
+            'Remaining Capacity (tons)'].astype(float)
+        wbj_database['Total Waste in 2020_tons'] = wbj_database[
+            'Total Waste in 2020_tons'].astype(float)
+        wbj_database = wbj_database[
+            wbj_database['Remaining Capacity (tons)'] > 0]
+        wbj_database['Close Date'] = wbj_database['Close Date'].astype(
+            'datetime64')
+        wbj_database['Start Date'] = wbj_database['Start Date'].astype(
+            'datetime64')
+        wbj_database = wbj_database[wbj_database['Close Date'] > '1/1/2020']
+        wbj_database['current_date'] = pd.Timestamp('2020-01-01')
+        wbj_database['years_opened'] = round(
+            (wbj_database['current_date'] -
+             wbj_database['Start Date']).dt.days / 365)
+        wbj_database['yearly_waste'] = \
+            wbj_database['Total Waste in 2020_tons'] / \
+            wbj_database['years_opened']
+        wbj_database['accept_c&d_waste'] = wbj_database[
+            'Waste Types Accepted'].str.find('C&D Waste')
+        wbj_database['accept_c&d_waste'] = np.where(
+            wbj_database['accept_c&d_waste'] >= 0, True, False)
+        # TODO: need to convert in metric tons if price in $/US ton
+        return wbj_database
 
     @staticmethod
     def p_install_growth_model(uswtdb):

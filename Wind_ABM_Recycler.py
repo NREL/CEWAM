@@ -39,6 +39,7 @@ class Recycler(Agent):
         self.init_recycled_quantity = self.model.recycling_init_cap[
             self.recycler_type]
         self.recycled_quantity = 0
+        self.yearly_recycled_quantity = 0
         self.model.waste_rec_land[self.unique_id] = 0
         self.learning_parameter = self.model.symetric_triang_distrib_draw(
             self.model.learning_parameter[self.recycler_type][0],
@@ -76,6 +77,8 @@ class Recycler(Agent):
         Update instance (agent) variables
         """
         self.recycled_quantity += self.model.waste_rec_land[self.unique_id]
+        self.yearly_recycled_quantity = self.model.waste_rec_land[
+            self.unique_id]
         self.recycler_cost = self.model.learning_effect(
             self.init_recycled_quantity, self.recycled_quantity,
             self.init_recycler_cost, self.recycler_cost,
@@ -92,7 +95,7 @@ class Recycler(Agent):
         self.model.average_recycler_costs[self.recycler_type] += \
             self.recycler_cost / self.model.recyclers[self.recycler_type]
         self.model.recovered_materials = self.material_recovery(
-            self.recycled_quantity, self.model.blade_mass_fractions,
+            self.yearly_recycled_quantity, self.model.blade_mass_fractions,
             self.model.rec_recovery_fractions, self.recycler_type,
             self.model.recovered_materials)
 

@@ -205,7 +205,7 @@ class WindPlantOwner(Agent):
             eol_pathway, eol_second_choice, eol_unique_ids_selected,
             reporter_waste, reporter_adoption, reporter_rec_land, state, waste,
             mass_conv_factor, total_costs, eol_pathways_costs,
-            eol_pathways_revenues, total_revenues):
+            eol_pathways_revenues, total_revenues, decommissioning_cost):
         """
         Report waste according to the eol pathway - if lifetime extension is
         adopted, waste is reported to the secondary pathway, otherwise it is
@@ -226,6 +226,8 @@ class WindPlantOwner(Agent):
         costs
         :param eol_pathways_revenues: nested dictionary reporter of eol
         :param total_revenues: revenues of all agent's decisions
+        :param decommissioning_cost: decommissioning costs (value is
+        independent of eol pathways)
         pathways revenues
         """
         if eol_pathway == 'lifetime_extension':
@@ -239,7 +241,7 @@ class WindPlantOwner(Agent):
                 (eol_pathways_costs[eol_pathway] +
                  eol_pathways_revenues[eol_pathway]) * waste * mass_conv_factor
             total_costs[state][eol_second_choice] += \
-                (eol_pathways_costs[eol_second_choice] +
+                (eol_pathways_costs[eol_second_choice] - decommissioning_cost +
                  eol_pathways_revenues[eol_second_choice]) * waste * \
                 mass_conv_factor
             total_revenues[state][eol_pathway] += \
@@ -254,7 +256,7 @@ class WindPlantOwner(Agent):
             reporter_rec_land[eol_unique_ids_selected[eol_pathway]] += \
                 waste * mass_conv_factor
             total_costs[state][eol_pathway] += \
-                (eol_pathways_costs[eol_pathway] +
+                (eol_pathways_costs[eol_pathway] - decommissioning_cost +
                  eol_pathways_revenues[eol_pathway]) * waste * mass_conv_factor
             total_revenues[state][eol_pathway] += \
                 eol_pathways_revenues[eol_pathway] * waste * mass_conv_factor
@@ -344,7 +346,8 @@ class WindPlantOwner(Agent):
             self.model.eol_pathway_adoption, self.model.waste_rec_land,
             self.t_state, self.waste, self.mass_conv_factor,
             self.model.total_eol_costs, self.eol_pathways_costs,
-            self.eol_pathways_revenues, self.model.total_eol_revenues)
+            self.eol_pathways_revenues, self.model.total_eol_revenues,
+            self.decommissioning_cost)
         self.model.average_lifetimes_wpo.append(self.average_lifetime)
 
     def remove_agent(self):
