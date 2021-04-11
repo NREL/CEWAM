@@ -30,9 +30,8 @@ class Regulator(Agent):
         """
         for key, value in kwargs.items():
             setattr(self, key, value)
-
-        self.internal_clock = 0
-
+        # Variables internal to the class -
+        self.internal_clock = self.model.clock
         # TODO: replace mock-up values below
         self.regulator_state = self.model.regulator_states_list.pop()
         self.regulations_enacted = self.model.initial_dic_from_key_list(

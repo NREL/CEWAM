@@ -10,6 +10,7 @@ decisions, for instance, what type of recycling to perform.
 """
 
 from mesa import Agent
+import numpy as np
 
 
 class Recycler(Agent):
@@ -21,7 +22,7 @@ class Recycler(Agent):
         for key, value in kwargs.items():
             setattr(self, key, value)
         # Variables internal to the class -
-        self.internal_clock = 0
+        self.internal_clock = self.model.clock
         self.recycler_type = self.model.list_recycler_types.pop()
         self.recycler_state = self.model.assign_elements_from_list(
             self.model.recyclers_states[self.recycler_type], True)
@@ -41,6 +42,7 @@ class Recycler(Agent):
         self.recycled_quantity = 0
         self.yearly_recycled_quantity = 0
         self.model.waste_rec_land[self.unique_id] = 0
+        self.model.rec_land_volume[self.unique_id] = 0
         self.learning_parameter = self.model.symetric_triang_distrib_draw(
             self.model.learning_parameter[self.recycler_type][0],
             self.model.learning_parameter[self.recycler_type][1])

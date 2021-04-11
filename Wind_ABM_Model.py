@@ -13,9 +13,7 @@ outputs.
 # TODO: Next steps - continue HERE
 #  1) Continue with other agents - follow memo (including agent order)
 #    i) Landfill ---- continue HERE ----
-#      * Capacity assessment --> start by looking at LMOP and waste business
-#      journal databases: what information is available in which? Can I just
-#      use the waste business journal database without the need for LMOP?
+#      * Model rule for landfill
 #      * Model reporter variables
 #      * Unittests
 #    ii) Regulator
@@ -77,7 +75,6 @@ class WindABM(Model):
                  recyclers={
                      "dissolution": 7, "pyrolysis": 2,
                      "mechanical_recycling": 2, "cement_co_processing": 1},
-                 landfills={"landfill": 47},
                  small_world_networks={
                      "wind_plant_owners": {
                          "node_degree": 15, "rewiring_prob": 0.1},
@@ -114,6 +111,7 @@ class WindABM(Model):
                      "lifetime_extension": True, "dissolution": False,
                      "pyrolysis": True, "mechanical_recycling": True,
                      "cement_co_processing": True, "landfill": True},
+                 # TODO
                  eol_pathways_dist_init={
                      "lifetime_extension": 0.005, "dissolution": 0.0,
                      "pyrolysis": 0.005, "mechanical_recycling": 0.005,
@@ -146,26 +144,6 @@ class WindABM(Model):
                      "dissolution": [0, 1E-6], "pyrolysis": [280.5, 550],
                      "mechanical_recycling": [212.3, 286],
                      "cement_co_processing": [99, 132]},
-                 landfill_costs={
-                     'Alabama': 33.41, 'Arizona': 43.39, 'Arkansas': 40.23,
-                     'California': 55.56, 'Colorado': 62.04, 'Delaware': 85.00,
-                     'Florida': 55.08, 'Georgia': 48.77, 'Idaho': 68.71,
-                     'Illinois': 51.78, 'Indiana': 47.91, 'Iowa': 48.47,
-                     'Kansas': 39.32, 'Kentucky': 29.82, 'Louisiana': 33.28,
-                     'Maine': 78.50, 'Maryland': 68.57, 'Massachusetts': 77.00,
-                     'Michigan': 41.97, 'Minnesota': 63.52,
-                     'Mississippi': 38.70, 'Missouri': 62.42, 'Montana': 49.36,
-                     'Nebraska': 39.21, 'Nevada': 74.20,
-                     'New Hampshire': 74.34, 'New Jersey': 81.91,
-                     'New Mexico': 38.28, 'New York': 68.40,
-                     'North Carolina': 43.87, 'North Dakota': 46.98,
-                     'Ohio': 44.35, 'Oklahoma': 50.22, 'Oregon': 71.28,
-                     'Pennsylvania': 68.07, 'Rhode Island': 110.00,
-                     'South Carolina': 44.03, 'South Dakota': 49.14,
-                     'Tennessee': 50.24, 'Texas': 40.18, 'Utah': 32.08,
-                     'Vermont': 66.53, 'Virginia': 52.22, 'Washington': 89.08,
-                     'West Virginia': 51.50, 'Wisconsin': 65.00,
-                     'Wyoming': 74.45},
                  transport_shreds={'shredding_costs': [99, 132],
                                    'transport_cost_shreds': [0.0314, 0.0820]},
                  transport_segments={
@@ -269,6 +247,11 @@ class WindABM(Model):
                      "dissolution": 1, "pyrolysis": 33100,
                      "mechanical_recycling": 20000,
                      "cement_co_processing": 20000},
+                 conversion_factors={'metric_short_ton': 1.10231},
+                 landfill_closure_threshold=[0.9, 1],
+                 waste_volume_model={
+                     'waste_volume': True, 'transport_segments': 0.034,
+                     'transport_shreds': 1.009, 'transport_repair': np.nan}
                  ):
         """
         Initiate model.
@@ -277,7 +260,6 @@ class WindABM(Model):
         manufacturer type
         :param developers: number of developers (dev)
         :param recyclers: number of reyclers (rec) for each recycler type
-        :param landfills: number of landfills
         :param small_world_networks: characteristics of the small-world 
         networks representing social relationships within agent types (if 
         rewiring prob set to 0: regular lattice, if set to 1: random network)
@@ -312,7 +294,6 @@ class WindABM(Model):
         the lifetime extension eol pathway ($/blade)
         :param rec_processes_costs: process costs of different recycling 
         pathways ($/metric ton), e.g., energy, labor etc. costs of pyrolysis
-        :param landfill_costs: dictionary with landfill costs for each state
         :param transport_shreds: shredding_costs: grinding to 1-3 cm cost 
         ($/metric ton), transport_cost_shreds: transportation costs for 
         shredded blades ($/(metric ton-km))
@@ -379,6 +360,11 @@ class WindABM(Model):
         for manufacturing waste
         :param recycling_init_cap: initial recycling capacity for each 
         recycling process (metric tons)
+        :param  conversion_factors: dictionary of conversion factors
+        :param landfill_closure_threshold: threshold value below which landfill
+        closes (percentage of cumulative waste versus 2020 remaining capacity)
+        :param waste_volume_model: dictionary containing conversion factors 
+        to express waste in volume rather than mass unit (metric ton/m3)
         """
         # Variables from inputs (value defined externally):
         self.seed = copy.deepcopy(seed)
@@ -387,7 +373,6 @@ class WindABM(Model):
         self.manufacturers = copy.deepcopy(manufacturers)
         self.developers = copy.deepcopy(developers)
         self.recyclers = copy.deepcopy(recyclers)
-        self.landfills = copy.deepcopy(landfills)
         self.small_world_networks = copy.deepcopy(small_world_networks)
         self.external_files = copy.deepcopy(external_files)
         self.average_lifetime = copy.deepcopy(average_lifetime)
@@ -404,7 +389,6 @@ class WindABM(Model):
         self.decommissioning_cost = copy.deepcopy(decommissioning_cost)
         self.lifetime_extension_costs = copy.deepcopy(lifetime_extension_costs)
         self.rec_processes_costs = copy.deepcopy(rec_processes_costs)
-        self.landfill_costs = copy.deepcopy(landfill_costs)
         self.transport_shreds = copy.deepcopy(transport_shreds)
         self.transport_segments = copy.deepcopy(transport_segments)
         self.transport_repair = copy.deepcopy(transport_repair)
@@ -440,6 +424,10 @@ class WindABM(Model):
         self.attitude_man_waste_parameters = copy.deepcopy(
             attitude_man_waste_parameters)
         self.recycling_init_cap = copy.deepcopy(recycling_init_cap)
+        self.conversion_factors = copy.deepcopy(conversion_factors)
+        self.landfill_closure_threshold = copy.deepcopy(
+            landfill_closure_threshold)
+        self.waste_volume_model = copy.deepcopy(waste_volume_model)
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -467,6 +455,10 @@ class WindABM(Model):
             self.cap_to_diameter_model,
             self.temporal_scope['simulation_start'],
             self.temporal_scope['pre_simulation'])
+        self.wbj_database = self.landfill_data(
+            self.external_files["wbj_database"], self.state_abrev,
+            self.temporal_scope, self.conversion_factors['metric_short_ton'],
+            self.waste_volume_model)
         self.cap_projections = \
             pd.read_csv(self.external_files["projections"])
         self.growth_rates = self.compute_growth_rates(
@@ -506,7 +498,7 @@ class WindABM(Model):
         self.variables_recyclers = self.initial_dic_from_key_list(
             self.recyclers.keys(), [])
         self.variables_landfills = self.initial_dic_from_key_list(
-            self.landfills.keys(), [])
+            self.wbj_database['landfill_type'].unique().tolist(), [])
         self.variables_developers = self.initial_dic_from_key_list(
             self.developers.keys(), [])
         self.variables_manufacturers = self.initial_dic_from_key_list(
@@ -523,7 +515,6 @@ class WindABM(Model):
         self.le_characteristics = []
         self.eol_pathway_adoption = self.initial_dic_from_key_list(
             self.eol_pathways.keys(), 0)
-        self.landfill_state_list = list(self.landfill_costs.keys())
         self.all_additional_cap_installed = False
         self.list_recycler_types = self.roulette_wheel_choice(
             self.recyclers, sum(self.recyclers.values()), True, [])
@@ -535,6 +526,7 @@ class WindABM(Model):
         self.blade_type_capacities = self.nested_init_dic(
             0, self.growth_rates.keys(), self.blade_types.keys())
         self.waste_rec_land = {}
+        self.rec_land_volume = {}
         self.average_recycler_costs = self.initial_dic_from_key_list(
             self.eol_pathways.keys(), 0)
         self.recovered_materials = self.initial_dic_from_key_list(
@@ -567,8 +559,6 @@ class WindABM(Model):
             self.blade_types.keys(), 0)
         self.blade_type_mass = self.initial_dic_from_key_list(
             self.blade_types.keys(), 0)
-        self.wbj_database = self.landfill_data(
-            self.external_files["wbj_database"])
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -590,12 +580,13 @@ class WindABM(Model):
                 self.small_world_networks["recyclers"]["node_degree"],
                 self.small_world_networks["recyclers"]["rewiring_prob"],
                 sum(self.recyclers.values()), Recycler)
+        self.first_land_id = self.unique_id
         self.G_land, self.grid_land, self.schedule_land = \
             self.network_grid_schedule_agents(
-                sum(self.landfills.values()),
+                self.wbj_database.shape[0],
                 self.small_world_networks["landfills"]["node_degree"],
                 self.small_world_networks["landfills"]["rewiring_prob"],
-                sum(self.landfills.values()), Landfill)
+                self.wbj_database.shape[0], Landfill)
         self.G_man, self.grid_man, self.schedule_man = \
             self.network_grid_schedule_agents(
                 sum(self.manufacturers.values()),
@@ -914,7 +905,12 @@ class WindABM(Model):
         return uswtdb
 
     @staticmethod
-    def landfill_data(database):
+    def landfill_data(database, state_abrev, temporal_scope, metric_short_ton,
+                      waste_volume_model):
+        if waste_volume_model['waste_volume']:
+            m_v_conv_factor = waste_volume_model['transport_shreds']
+        else:
+            m_v_conv_factor = 1
         wbj_database = pd.read_csv(database, thousands=',')
         wbj_database = wbj_database[
             ['Facility Name', 'State', 'Longitude', 'Latitude', 'Start Date',
@@ -922,28 +918,33 @@ class WindABM(Model):
              'Remaining Capacity (tons)', 'Total Waste in 2020_tons']]
         wbj_database = wbj_database.dropna()
         wbj_database['Remaining Capacity (tons)'] = wbj_database[
-            'Remaining Capacity (tons)'].astype(float)
+            'Remaining Capacity (tons)'].astype(float) * metric_short_ton \
+            / m_v_conv_factor
         wbj_database['Total Waste in 2020_tons'] = wbj_database[
-            'Total Waste in 2020_tons'].astype(float)
+            'Total Waste in 2020_tons'].astype(float) * metric_short_ton \
+            / m_v_conv_factor
         wbj_database = wbj_database[
             wbj_database['Remaining Capacity (tons)'] > 0]
-        wbj_database['Close Date'] = wbj_database['Close Date'].astype(
-            'datetime64')
-        wbj_database['Start Date'] = wbj_database['Start Date'].astype(
-            'datetime64')
-        wbj_database = wbj_database[wbj_database['Close Date'] > '1/1/2020']
-        wbj_database['current_date'] = pd.Timestamp('2020-01-01')
-        wbj_database['years_opened'] = round(
-            (wbj_database['current_date'] -
-             wbj_database['Start Date']).dt.days / 365)
-        wbj_database['yearly_waste'] = \
-            wbj_database['Total Waste in 2020_tons'] / \
-            wbj_database['years_opened']
+        wbj_database['Close Date'] = pd.DatetimeIndex(
+            wbj_database['Close Date'].astype('datetime64')).year
+        wbj_database['Start Date'] = pd.DatetimeIndex(
+            wbj_database['Start Date'].astype('datetime64')).year
+        wbj_database = wbj_database[wbj_database['Close Date'] >
+                                    temporal_scope['simulation_start']]
+        wbj_database['current_date'] = temporal_scope['simulation_start']
+        wbj_database['years_opened'] = wbj_database['current_date'] - \
+            wbj_database['Start Date']
+        # assumes that waste in 2020 is a typical year
+        wbj_database['yearly_waste'] = wbj_database['Total Waste in 2020_tons']
         wbj_database['accept_c&d_waste'] = wbj_database[
             'Waste Types Accepted'].str.find('C&D Waste')
-        wbj_database['accept_c&d_waste'] = np.where(
-            wbj_database['accept_c&d_waste'] >= 0, True, False)
-        # TODO: need to convert in metric tons if price in $/US ton
+        # by default, consider wind blades as C&D waste
+        wbj_database = wbj_database[wbj_database['accept_c&d_waste'] >= 0]
+        wbj_database = wbj_database[(wbj_database['State'] != 'AK') &
+                                    (wbj_database['State'] != 'HI')]
+        wbj_database['landfill_type'] = 'landfill'
+        wbj_database = wbj_database.replace({'State': state_abrev})
+        wbj_database = wbj_database.reset_index(drop=True)
         return wbj_database
 
     @staticmethod
@@ -1436,6 +1437,7 @@ class WindABM(Model):
         costs_eol_pathways = {}
         rev_eol_pathways = {}
         process_costs = {}
+        eol_path_transport = {}
         process_costs.update(variables_landfills)
         process_costs.update(variables_recyclers)
         process_costs.update(variables_developers)
@@ -1473,10 +1475,12 @@ class WindABM(Model):
                     process_costs_key, transport_cost_segments)
                 tr_proc_costs_segments = opt_costs_segments[0]
                 revenue = opt_costs_segments[1]
-                tr_proc_costs = min(
-                    [tr_proc_costs_shreds, tr_proc_costs_segments],
-                    key=lambda t: t[1])
-            # in the tuple (x, y): x = agent id, y = transport + process net
+                undefined_options = {
+                    tr_proc_costs_shreds: 'transport_shreds',
+                    tr_proc_costs_segments: 'transport_segments'}
+                tr_proc_costs = min(undefined_options, key=lambda t: t[1])
+                transport_mode = undefined_options[tr_proc_costs]
+            # in the tuple (x, y, z): x = agent id, y = transport + process net
             # costs
             eol_unique_ids_selected[key] = tr_proc_costs[0]
             if key == 'lifetime_extension':
@@ -1485,7 +1489,8 @@ class WindABM(Model):
                 costs_eol_pathways[key] = tr_proc_costs[1] + \
                                           decommissioning_cost
             rev_eol_pathways[key] = revenue
-        return costs_eol_pathways, rev_eol_pathways
+            eol_path_transport[key] = transport_mode
+        return costs_eol_pathways, rev_eol_pathways, eol_path_transport
 
     # TODO: write unittest
     @staticmethod
@@ -1507,7 +1512,10 @@ class WindABM(Model):
         for x, y in list_all_cost:
             dic_cost[x] += y
         list_tot_cost = list(map(tuple, dic_cost.items()))
-        minimum_tr_proc_cost = min(list_tot_cost, key=lambda t: t[1])
+        if list_process_cost:
+            minimum_tr_proc_cost = min(list_tot_cost, key=lambda t: t[1])
+        else:
+            minimum_tr_proc_cost = (np.nan, np.nan)
         revenue_list = [item for item in process_costs if
                         item[0] == minimum_tr_proc_cost[0]]
         if revenue_list:
@@ -1650,8 +1658,11 @@ class WindABM(Model):
             list_distances = [(x, all_possible_distances[origin][y], z, v, w)
                               for x, y, z, v, w in list_destinations]
             distances[key] = list_distances
-            min_distance = min(list_distances, key=lambda t: t[1])[1]
-            eol_pathways_barriers[key] = min_distance
+            if list_distances:
+                min_distance = min(list_distances, key=lambda t: t[1])[1]
+                eol_pathways_barriers[key] = min_distance
+            else:
+                eol_pathways_barriers[key] = np.nan
         return distances
 
     @staticmethod
@@ -1808,6 +1819,8 @@ class WindABM(Model):
             self.eol_pathways.keys(), 0)
         self.waste_rec_land = self.initial_dic_from_key_list(
             self.waste_rec_land.keys(), 0)
+        self.rec_land_volume = self.initial_dic_from_key_list(
+            self.waste_rec_land.keys(), 0)
 
     def reinitialize_global_variables_rec_land_reg_dev(self):
         """
@@ -1816,7 +1829,7 @@ class WindABM(Model):
         self.variables_recyclers = self.initial_dic_from_key_list(
             self.recyclers.keys(), [])
         self.variables_landfills = self.initial_dic_from_key_list(
-            self.landfills.keys(), [])
+            self.wbj_database['landfill_type'].unique().tolist(), [])
         self.regulations_enacted = self.nested_init_dic(
             False, self.choices_circularity.keys(), self.growth_rates.keys())
         self.le_characteristics = []

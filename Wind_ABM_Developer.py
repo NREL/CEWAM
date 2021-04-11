@@ -22,7 +22,7 @@ class Developer(Agent):
         for key, value in kwargs.items():
             setattr(self, key, value)
         # Variables internal to the class -
-        self.internal_clock = 0
+        self.internal_clock = self.model.clock
         self.developer_type = list(self.model.developers.keys())[0]
         self.lifetime_extension_tr_cost = self.model.transport_repair
         self.lifetime_extension_cost = self.model.symetric_triang_distrib_draw(

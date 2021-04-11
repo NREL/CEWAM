@@ -25,7 +25,7 @@ class Manufacturer(Agent):
         for key, value in kwargs.items():
             setattr(self, key, value)
         # Variables internal to the class -
-        self.internal_clock = 0
+        self.internal_clock = self.model.clock
         self.manufacturer_type = self.model.list_manufacturer_types.pop()
         # Original equipment manufacturer only (wind_blade manufacturer type)
         if self.manufacturer_type == 'wind_blade':
@@ -258,14 +258,15 @@ class Manufacturer(Agent):
                     (self.unique_id, self.state_man, self.m_wst_rec_cost[key] -
                      self.init_m_wst_rec_rev[key], self.m_wst_rec_cost[key],
                      self.init_m_wst_rec_rev[key])]
-        man_wst_costs, m_wst_rev = self.model.costs_eol_pathways(
-            self.man_wst_transport_costs[0],
-            self.man_wst_transport_costs[1],
-            self.man_wst_transport_costs[2],
-            recycling_costs, self.model.variables_landfills,
-            self.model.variables_developers, 0, self.model.eol_pathways,
-            transport_mode, self.model.minimum_tr_proc_costs,
-            self.man_wst_u_ids_selected)
+        man_wst_costs, m_wst_rev, unused_variable = \
+            self.model.costs_eol_pathways(
+                self.man_wst_transport_costs[0],
+                self.man_wst_transport_costs[1],
+                self.man_wst_transport_costs[2],
+                recycling_costs, self.model.variables_landfills,
+                self.model.variables_developers, 0, self.model.eol_pathways,
+                transport_mode, self.model.minimum_tr_proc_costs,
+                self.man_wst_u_ids_selected)
         return man_wst_costs, m_wst_rev
 
     @staticmethod
