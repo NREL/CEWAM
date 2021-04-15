@@ -12,19 +12,11 @@ outputs.
 
 # TODO: Next steps - continue HERE
 #  1) Continue with other agents - follow memo (including agent order)
-#    i) Landfill ---- continue HERE ----
-#      * Model rule for landfill
-#      * Model reporter variables
-#      * Unittests
-#    ii) Regulator
-#      * Regulation enactment depending on landfill capacity
-#      * Model reporter variables
-#      * Unittests
-#     iii) Developer
+#    i) Developer
 #      * projection of Turbine cap (moderate ATB technology)?
 #      (linear projection up to 2030) --> replace the average t_cap of new
 #      wpo by projection (and then infer p_tnum by p_cap/t_cap)
-#     iv) Re-write all unittests and missing unittest for all agents
+#    ii) Re-write all unittests and missing unittest for all agents
 #  2) More unittests:
 #    i) for recycler and other agents similar to recycler write
 #    unittests to check initial distribution of types
@@ -250,8 +242,11 @@ class WindABM(Model):
                  conversion_factors={'metric_short_ton': 1.10231},
                  landfill_closure_threshold=[0.9, 1],
                  waste_volume_model={
-                     'waste_volume': True, 'transport_segments': 0.034,
-                     'transport_shreds': 1.009, 'transport_repair': np.nan}
+                     'waste_volume': False, 'transport_segments': 0.034,
+                     'transport_shreds': 0.33, 'transport_repair': np.nan,
+                     'landfill_density': 1.009, 'cdw_density': 1.47,
+                     'land_cost_conv': 0.47},
+                 reg_landfill_threshold=[0.9, 1]
                  ):
         """
         Initiate model.
@@ -365,6 +360,8 @@ class WindABM(Model):
         closes (percentage of cumulative waste versus 2020 remaining capacity)
         :param waste_volume_model: dictionary containing conversion factors 
         to express waste in volume rather than mass unit (metric ton/m3)
+        :param reg_landfill_threshold: percentage of landfill initial capacity 
+        upon which regulator initiate a landfill ban
         """
         # Variables from inputs (value defined externally):
         self.seed = copy.deepcopy(seed)
@@ -428,6 +425,7 @@ class WindABM(Model):
         self.landfill_closure_threshold = copy.deepcopy(
             landfill_closure_threshold)
         self.waste_volume_model = copy.deepcopy(waste_volume_model)
+        self.reg_landfill_threshold = copy.deepcopy(reg_landfill_threshold)
         # Internal variables:
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
@@ -559,6 +557,10 @@ class WindABM(Model):
             self.blade_types.keys(), 0)
         self.blade_type_mass = self.initial_dic_from_key_list(
             self.blade_types.keys(), 0)
+        self.landfill_remaining_cap = self.initial_dic_from_key_list(
+            self.growth_rates.keys(), 0)
+        self.init_land_capacity = self.initial_dic_from_key_list(
+            self.growth_rates.keys(), 0)
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -659,7 +661,16 @@ class WindABM(Model):
             "Total manufacturing waste revenues ($)":
                 lambda a: str(self.total_man_waste_revenues),
             "Total blade costs ($)":
-                lambda a: str(self.total_bt_costs)}
+                lambda a: str(self.total_bt_costs),
+            "Landfill waste volume model": lambda a: self.waste_volume_model[
+                'waste_volume'],
+            "Landfills remaining capacity (ton or m3)":
+                lambda a: str(self.landfill_remaining_cap),
+            "Landfills initial capacity (ton or m3)":
+                lambda a: str(self.init_land_capacity),
+            "Landfill ban enacted":
+                lambda a: str({key: value['landfill'] for key, value in
+                               self.bans_enacted.items()})}
         self.agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
@@ -908,9 +919,11 @@ class WindABM(Model):
     def landfill_data(database, state_abrev, temporal_scope, metric_short_ton,
                       waste_volume_model):
         if waste_volume_model['waste_volume']:
-            m_v_conv_factor = waste_volume_model['transport_shreds']
+            m_v_conv_factor_land = waste_volume_model['landfill_density']
+            m_v_conv_factor_cdw = waste_volume_model['cdw_density']
         else:
-            m_v_conv_factor = 1
+            m_v_conv_factor_land = 1
+            m_v_conv_factor_cdw = 1
         wbj_database = pd.read_csv(database, thousands=',')
         wbj_database = wbj_database[
             ['Facility Name', 'State', 'Longitude', 'Latitude', 'Start Date',
@@ -919,10 +932,10 @@ class WindABM(Model):
         wbj_database = wbj_database.dropna()
         wbj_database['Remaining Capacity (tons)'] = wbj_database[
             'Remaining Capacity (tons)'].astype(float) * metric_short_ton \
-            / m_v_conv_factor
+            / m_v_conv_factor_land
         wbj_database['Total Waste in 2020_tons'] = wbj_database[
             'Total Waste in 2020_tons'].astype(float) * metric_short_ton \
-            / m_v_conv_factor
+            / m_v_conv_factor_cdw
         wbj_database = wbj_database[
             wbj_database['Remaining Capacity (tons)'] > 0]
         wbj_database['Close Date'] = pd.DatetimeIndex(
@@ -936,10 +949,10 @@ class WindABM(Model):
             wbj_database['Start Date']
         # assumes that waste in 2020 is a typical year
         wbj_database['yearly_waste'] = wbj_database['Total Waste in 2020_tons']
-        wbj_database['accept_c&d_waste'] = wbj_database[
-            'Waste Types Accepted'].str.find('C&D Waste')
+        wbj_database['accept_blade_waste'] = wbj_database[
+            'Waste Types Accepted'].str.find('C&D Waste' or 'Indust. Waste')
         # by default, consider wind blades as C&D waste
-        wbj_database = wbj_database[wbj_database['accept_c&d_waste'] >= 0]
+        wbj_database = wbj_database[wbj_database['accept_blade_waste'] >= 0]
         wbj_database = wbj_database[(wbj_database['State'] != 'AK') &
                                     (wbj_database['State'] != 'HI')]
         wbj_database['landfill_type'] = 'landfill'
@@ -1410,7 +1423,8 @@ class WindABM(Model):
             eol_tr_costs_shreds, eol_tr_costs_segments, eol_tr_costs_repair,
             variables_recyclers, variables_landfills, variables_developers,
             decommissioning_cost, eol_pathways, transport_mode_model,
-            minimum_tr_proc_costs, eol_unique_ids_selected):
+            minimum_tr_proc_costs, eol_unique_ids_selected,
+            convert_unit_land_cost, waste_volume_model):
         """
         Compute costs for each eol pathway accounting for decommissioning costs
         (similar for each eol pathway), transportation costs (including
@@ -1432,6 +1446,9 @@ class WindABM(Model):
         (transport and process) costs
         :param eol_unique_ids_selected: report the unique_ids of selected
         agents for each eol pathways
+        :param convert_unit_land_cost: function to convert landfill costs
+        :param waste_volume_model: model to convert volumes in tons to volumes
+        in m3 according to the state of the EOL blades (shreds or segments)
         :return: costs for each eol pathway
         """
         costs_eol_pathways = {}
@@ -1441,18 +1458,21 @@ class WindABM(Model):
         process_costs.update(variables_landfills)
         process_costs.update(variables_recyclers)
         process_costs.update(variables_developers)
+        # print(process_costs)
         for key in eol_pathways.keys():
             transport_mode = transport_mode_model[key]
             if transport_mode == "transport_shreds":
                 transport_cost = eol_tr_costs_shreds[key]
-                process_costs_key = process_costs[key]
+                process_costs_key = convert_unit_land_cost(
+                    waste_volume_model, key, process_costs, transport_mode)
                 opt_costs = minimum_tr_proc_costs(
                     process_costs_key, transport_cost)
                 tr_proc_costs = opt_costs[0]
                 revenue = opt_costs[1]
             elif transport_mode == "transport_segments":
                 transport_cost = eol_tr_costs_segments[key]
-                process_costs_key = process_costs[key]
+                process_costs_key = convert_unit_land_cost(
+                    waste_volume_model, key, process_costs, transport_mode)
                 opt_costs = minimum_tr_proc_costs(
                     process_costs_key, transport_cost)
                 tr_proc_costs = opt_costs[0]
@@ -1465,14 +1485,18 @@ class WindABM(Model):
                 tr_proc_costs = opt_costs[0]
                 revenue = opt_costs[1]
             else:
-                process_costs_key = process_costs[key]
+                process_costs_key_shreds = convert_unit_land_cost(
+                    waste_volume_model, key, process_costs, 'transport_shreds')
+                process_costs_key_segments = convert_unit_land_cost(
+                    waste_volume_model, key, process_costs,
+                    'transport_segments')
                 transport_cost_shreds = eol_tr_costs_shreds[key]
                 opt_costs_shreds = minimum_tr_proc_costs(
-                    process_costs_key, transport_cost_shreds)
+                    process_costs_key_shreds, transport_cost_shreds)
                 tr_proc_costs_shreds = opt_costs_shreds[0]
                 transport_cost_segments = eol_tr_costs_segments[key]
                 opt_costs_segments = minimum_tr_proc_costs(
-                    process_costs_key, transport_cost_segments)
+                    process_costs_key_segments, transport_cost_segments)
                 tr_proc_costs_segments = opt_costs_segments[0]
                 revenue = opt_costs_segments[1]
                 undefined_options = {
@@ -1491,6 +1515,24 @@ class WindABM(Model):
             rev_eol_pathways[key] = revenue
             eol_path_transport[key] = transport_mode
         return costs_eol_pathways, rev_eol_pathways, eol_path_transport
+
+    @staticmethod
+    def convert_unit_land_cost(waste_volume_model, key, process_costs,
+                               transport_mode):
+        if waste_volume_model['waste_volume'] and key == 'landfill':
+            process_costs_key = process_costs[key]
+            # costs without conversion: (1 ton) * $/ton
+            # costs with conversion: (1 ton) / ton/m3 * $/ton * ton/m3
+            # (first conversion = waste, second conversion = landfill prices)
+            conversion_factor = waste_volume_model['land_cost_conv'] / \
+                waste_volume_model[transport_mode]
+            process_costs_key = tuple([
+                (x, y, z * conversion_factor, v * conversion_factor,
+                 w * conversion_factor) for x, y, z, v, w in
+                process_costs_key])
+        else:
+            process_costs_key = process_costs[key]
+        return process_costs_key
 
     # TODO: write unittest
     @staticmethod
@@ -1828,8 +1870,6 @@ class WindABM(Model):
         """
         self.variables_recyclers = self.initial_dic_from_key_list(
             self.recyclers.keys(), [])
-        self.variables_landfills = self.initial_dic_from_key_list(
-            self.wbj_database['landfill_type'].unique().tolist(), [])
         self.regulations_enacted = self.nested_init_dic(
             False, self.choices_circularity.keys(), self.growth_rates.keys())
         self.le_characteristics = []
@@ -1845,6 +1885,8 @@ class WindABM(Model):
         self.tp_blade_demanded = 0
         self.average_recycler_costs = self.initial_dic_from_key_list(
             self.eol_pathways.keys(), 0)
+        self.variables_landfills = self.initial_dic_from_key_list(
+            self.wbj_database['landfill_type'].unique().tolist(), [])
 
     def update_model_variables_start_of_step(self):
         """
@@ -1856,6 +1898,8 @@ class WindABM(Model):
             [i[2] for i in self.variables_additional_wpo],
             [i[4] for i in self.variables_additional_wpo])
         self.average_lifetimes_wpo = []
+        self.landfill_remaining_cap = self.initial_dic_from_key_list(
+            self.growth_rates.keys(), 0)
 
     def update_model_variables_end_of_step(self):
         """

@@ -46,6 +46,8 @@ class Landfill(Agent):
             self.model.landfill_closure_threshold[1])
         self.model.waste_rec_land[self.unique_id] = 0
         self.model.rec_land_volume[self.unique_id] = 0
+        self.model.init_land_capacity[self.landfill_state] += \
+            self.init_remaining_capacity
 
     @staticmethod
     def closure_update(other_regulations, landfill_state, remaining_capacity,
@@ -60,6 +62,19 @@ class Landfill(Agent):
             closure = False
         return closure
 
+    @staticmethod
+    def volume_model(waste_volume_model, yearly_waste, waste_rec_land,
+                     rec_land_volume, unique_id, remaining_capacity):
+        if waste_volume_model['waste_volume']:
+            waste_added_to_landfill = yearly_waste + rec_land_volume[unique_id]
+        else:
+            waste_added_to_landfill = yearly_waste + waste_rec_land[unique_id]
+        remaining_capacity = remaining_capacity - waste_added_to_landfill
+        if remaining_capacity > 0:
+            return remaining_capacity
+        else:
+            return 0
+
     def update_agent_variables(self):
         """
         Update instance (agent) variables
@@ -70,14 +85,10 @@ class Landfill(Agent):
             self.init_remaining_capacity,
             self.model.temporal_scope['simulation_start'], self.model.clock,
             self.close_date)
-        self.remaining_capacity -= (self.yearly_waste +
-                                    self.model.waste_rec_land[self.unique_id])
-
-    # TODO:
-    #  * Continue landfill
-    #  * mass to volume --> need to be used in landfills
-    #  * cost conversion (directly in landfill database) then need to be
-    #  accounted in wpo decisions (in costs_eol function in model)
+        self.remaining_capacity = self.volume_model(
+            self.model.waste_volume_model, self.yearly_waste,
+            self.model.waste_rec_land, self.model.rec_land_volume,
+            self.unique_id, self.remaining_capacity)
 
     def report_agent_variables(self):
         """
@@ -88,6 +99,8 @@ class Landfill(Agent):
                 (self.unique_id, self.landfill_state, self.landfill_cost -
                  self.landfill_revenue, self.landfill_cost,
                  self.landfill_revenue))
+        self.model.landfill_remaining_cap[self.landfill_state] += \
+            self.remaining_capacity
 
     def remove_agent(self):
         """

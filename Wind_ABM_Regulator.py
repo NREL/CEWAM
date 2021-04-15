@@ -32,7 +32,6 @@ class Regulator(Agent):
             setattr(self, key, value)
         # Variables internal to the class -
         self.internal_clock = self.model.clock
-        # TODO: replace mock-up values below
         self.regulator_state = self.model.regulator_states_list.pop()
         self.regulations_enacted = self.model.initial_dic_from_key_list(
             self.model.eol_pathways, False)
@@ -40,17 +39,27 @@ class Regulator(Agent):
             self.model.eol_pathways, False)
         self.other_regulations = self.model.initial_dic_from_key_list(
             self.model.eol_pathways, False)
+        self.threshold = self.model.symetric_triang_distrib_draw(
+            self.model.reg_landfill_threshold[0],
+            self.model.reg_landfill_threshold[1])
 
-    # TODO: change mock_up for real function below
-    def mock_up(self):
-        # if self.regulator_state == "Washington" and self.model.clock == 9:
-        #    self.bans['landfill'] = True
-        pass
+    @staticmethod
+    def initiate_landfill_ban(state, landfill_remaining_cap,
+                              init_land_capacity, threshold, safe_div):
+        percentage_landfills_remain = safe_div(landfill_remaining_cap[state],
+                                               init_land_capacity[state])
+        if percentage_landfills_remain < (1 - threshold):
+            return True
+        else:
+            return False
 
     def update_agent_variables(self):
         """
         Update instance (agent) variables
         """
+        self.bans['landfill'] = self.initiate_landfill_ban(
+            self.regulator_state, self.model.landfill_remaining_cap,
+            self.model.init_land_capacity, self.threshold, self.model.safe_div)
         self.regulations_enacted = self.model.boolean_dic_based_on_dicts(
             self.regulations_enacted, True, True, self.bans,
             self.other_regulations)
@@ -72,7 +81,6 @@ class Regulator(Agent):
         multiple scheduler, step needs to pass the global scheduler.
         """
         if self.internal_clock == self.model.clock:
-            self.mock_up()
             self.update_agent_variables()
             self.report_agent_variables()
             self.internal_clock += 1
