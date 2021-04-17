@@ -10,7 +10,6 @@ decisions, for instance, what type of recycling to perform.
 """
 
 from mesa import Agent
-import numpy as np
 
 
 class Recycler(Agent):

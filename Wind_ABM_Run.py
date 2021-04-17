@@ -89,4 +89,4 @@ class WindABMRun:
 
 
 # Comment line below when running WindWBMRun tests
-WindABMRun(number_steps=5).run_model()
+WindABMRun(number_steps=31).run_model()

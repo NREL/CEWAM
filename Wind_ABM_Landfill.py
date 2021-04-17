@@ -10,6 +10,7 @@ decisions, for instance, to accept Wind Blades or not.
 """
 
 from mesa import Agent
+import numpy as np
 
 
 class Landfill(Agent):
@@ -48,6 +49,7 @@ class Landfill(Agent):
         self.model.rec_land_volume[self.unique_id] = 0
         self.model.init_land_capacity[self.landfill_state] += \
             self.init_remaining_capacity
+        self.blade_waste = 0
 
     @staticmethod
     def closure_update(other_regulations, landfill_state, remaining_capacity,
@@ -67,28 +69,30 @@ class Landfill(Agent):
                      rec_land_volume, unique_id, remaining_capacity):
         if waste_volume_model['waste_volume']:
             waste_added_to_landfill = yearly_waste + rec_land_volume[unique_id]
+            blade_waste = rec_land_volume[unique_id]
         else:
             waste_added_to_landfill = yearly_waste + waste_rec_land[unique_id]
+            blade_waste = waste_rec_land[unique_id]
         remaining_capacity = remaining_capacity - waste_added_to_landfill
         if remaining_capacity > 0:
-            return remaining_capacity
+            return remaining_capacity, blade_waste
         else:
-            return 0
+            return 0, blade_waste
 
     def update_agent_variables(self):
         """
         Update instance (agent) variables
         """
+        self.remaining_capacity, self.blade_waste = self.volume_model(
+            self.model.waste_volume_model, self.yearly_waste,
+            self.model.waste_rec_land, self.model.rec_land_volume,
+            self.unique_id, self.remaining_capacity)
         self.closure = self.closure_update(
             self.model.other_regulations_enacted, self.landfill_state,
             self.remaining_capacity, self.closure_threshold,
             self.init_remaining_capacity,
             self.model.temporal_scope['simulation_start'], self.model.clock,
             self.close_date)
-        self.remaining_capacity = self.volume_model(
-            self.model.waste_volume_model, self.yearly_waste,
-            self.model.waste_rec_land, self.model.rec_land_volume,
-            self.unique_id, self.remaining_capacity)
 
     def report_agent_variables(self):
         """
@@ -99,8 +103,13 @@ class Landfill(Agent):
                 (self.unique_id, self.landfill_state, self.landfill_cost -
                  self.landfill_revenue, self.landfill_cost,
                  self.landfill_revenue))
+        else:
+            self.model.variables_landfills[self.landfill_type].append(
+                (self.unique_id, self.landfill_state, np.nan,
+                 np.nan, np.nan))
         self.model.landfill_remaining_cap[self.landfill_state] += \
             self.remaining_capacity
+        self.model.state_blade_waste[self.landfill_state] += self.blade_waste
 
     def remove_agent(self):
         """

@@ -12,11 +12,14 @@ outputs.
 
 # TODO: Next steps - continue HERE
 #  1) Continue with other agents - follow memo (including agent order)
-#    i) Developer
+#    i) Manufacturer:
+#      * Add the landfill manufacturing waste to landfill! Accounting for
+#      volume model.
+#    ii) Developer:
 #      * projection of Turbine cap (moderate ATB technology)?
 #      (linear projection up to 2030) --> replace the average t_cap of new
 #      wpo by projection (and then infer p_tnum by p_cap/t_cap)
-#    ii) Re-write all unittests and missing unittest for all agents
+#    iii) Re-write all unittests and missing unittest for all agents
 #  2) More unittests:
 #    i) for recycler and other agents similar to recycler write
 #    unittests to check initial distribution of types
@@ -98,7 +101,6 @@ class WindABM(Model):
                      'pre_simulation': 2000, 'simulation_start': 2020,
                      'simulation_end': 2050},
                  blades_per_rotor=3,
-                 # TODO: landfill True lifetime extension True
                  eol_pathways={
                      "lifetime_extension": True, "dissolution": False,
                      "pyrolysis": True, "mechanical_recycling": True,
@@ -244,7 +246,7 @@ class WindABM(Model):
                  waste_volume_model={
                      'waste_volume': False, 'transport_segments': 0.034,
                      'transport_shreds': 0.33, 'transport_repair': np.nan,
-                     'landfill_density': 1.009, 'cdw_density': 1.47,
+                     'landfill_density': 1.009, 'cdw_density': 1.009,
                      'land_cost_conv': 0.47},
                  reg_landfill_threshold=[0.9, 1]
                  ):
@@ -561,6 +563,8 @@ class WindABM(Model):
             self.growth_rates.keys(), 0)
         self.init_land_capacity = self.initial_dic_from_key_list(
             self.growth_rates.keys(), 0)
+        self.state_blade_waste = self.initial_dic_from_key_list(
+            self.growth_rates.keys(), 0)
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -670,7 +674,9 @@ class WindABM(Model):
                 lambda a: str(self.init_land_capacity),
             "Landfill ban enacted":
                 lambda a: str({key: value['landfill'] for key, value in
-                               self.bans_enacted.items()})}
+                               self.bans_enacted.items()}),
+            "Blade waste in landfill":
+                lambda a: str(self.state_blade_waste)}
         self.agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
@@ -1458,7 +1464,6 @@ class WindABM(Model):
         process_costs.update(variables_landfills)
         process_costs.update(variables_recyclers)
         process_costs.update(variables_developers)
-        # print(process_costs)
         for key in eol_pathways.keys():
             transport_mode = transport_mode_model[key]
             if transport_mode == "transport_shreds":
@@ -1550,9 +1555,10 @@ class WindABM(Model):
         """
         list_process_cost = [(x, z) for x, y, z, v, w in process_costs]
         list_all_cost = transport_cost + list_process_cost
-        dic_cost = {x: 0 for x, y in list_all_cost}
+        dic_cost = {x: 0 for x, y in list_process_cost}
         for x, y in list_all_cost:
-            dic_cost[x] += y
+            if x in dic_cost:
+                dic_cost[x] += y
         list_tot_cost = list(map(tuple, dic_cost.items()))
         if list_process_cost:
             minimum_tr_proc_cost = min(list_tot_cost, key=lambda t: t[1])
@@ -1850,6 +1856,12 @@ class WindABM(Model):
         weighted_variables = [x * y for x, y in zip(weights, list_variables)]
         weighted_average = sum(weighted_variables)
         return weighted_average
+
+    def divide_dics(self, dic1, dic2):
+        out_dic = {}
+        for key in dic1.keys():
+            out_dic[key] = self.safe_div(dic1[key], dic2[key])
+        return out_dic
 
     def reinitialize_global_variables_wpo(self):
         """
