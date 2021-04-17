@@ -12,14 +12,11 @@ outputs.
 
 # TODO: Next steps - continue HERE
 #  1) Continue with other agents - follow memo (including agent order)
-#    i) Manufacturer:
-#      * Add the landfill manufacturing waste to landfill! Accounting for
-#      volume model.
-#    ii) Developer:
+#    i) Developer:
 #      * projection of Turbine cap (moderate ATB technology)?
 #      (linear projection up to 2030) --> replace the average t_cap of new
 #      wpo by projection (and then infer p_tnum by p_cap/t_cap)
-#    iii) Re-write all unittests and missing unittest for all agents
+#    ii) Re-write all unittests and missing unittest for all agents
 #  2) More unittests:
 #    i) for recycler and other agents similar to recycler write
 #    unittests to check initial distribution of types
@@ -102,9 +99,9 @@ class WindABM(Model):
                      'simulation_end': 2050},
                  blades_per_rotor=3,
                  eol_pathways={
-                     "lifetime_extension": True, "dissolution": False,
-                     "pyrolysis": True, "mechanical_recycling": True,
-                     "cement_co_processing": True, "landfill": True},
+                     "lifetime_extension": False, "dissolution": False,
+                     "pyrolysis": True, "mechanical_recycling": False,
+                     "cement_co_processing": False, "landfill": True},
                  # TODO
                  eol_pathways_dist_init={
                      "lifetime_extension": 0.005, "dissolution": 0.0,

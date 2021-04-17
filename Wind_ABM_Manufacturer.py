@@ -136,6 +136,7 @@ class Manufacturer(Agent):
                 self.model.average_lifetime['thermoplastic'][0],
                 self.model.average_lifetime['thermoplastic'][1])
             self.m_wst_rev = {}
+            self.yearly_man_waste = 0
         else:
             self.state_man = self.model.random_pick_dic_key(
                 self.model.growth_rates)
@@ -228,7 +229,8 @@ class Manufacturer(Agent):
                 producer_share
             manufacturing_waste_q[self.eol_man_wst_path][key] += man_wst
             self.man_wst_volume[self.eol_man_wst_path] += man_wst
-        return manufacturing_waste_q
+        yearly_man_wst = producer_share
+        return manufacturing_waste_q, yearly_man_wst
 
     @staticmethod
     def recycling_shreds_onsite(data, man_wst_transport_costs,
@@ -290,6 +292,19 @@ class Manufacturer(Agent):
                 learning_parameters[key] = l_param
         return init_rec_cost, init_rec_rev, learning_parameters
 
+    @staticmethod
+    def landfill_waste(waste_volume_model, eol_man_wst_path, reporter_rec_land,
+                       rec_land_volume, man_wst_u_ids_selected,
+                       yearly_man_waste):
+        if eol_man_wst_path == 'landfill':
+            reporter_rec_land[man_wst_u_ids_selected[eol_man_wst_path]] += \
+                yearly_man_waste
+            if waste_volume_model['waste_volume']:
+                rec_land_volume[man_wst_u_ids_selected[eol_man_wst_path]] += \
+                    yearly_man_waste / waste_volume_model['transport_shreds']
+        else:
+            pass
+
     def update_agent_variables(self):
         """
         Update instance (agent) variables
@@ -322,12 +337,13 @@ class Manufacturer(Agent):
             self.model.bt_manufactured_q = \
                 self.model.instant_to_cumulative_dic(
                     self.bt_produced, self.model.bt_manufactured_q)
-            self.model.manufacturing_waste_q = self.manufacturing_waste(
-                self.model.additional_cap, self.market_share,
-                self.model.weighted_avr_mass_conv_factor,
-                self.model.manufacturing_waste_ratio,
-                self.model.blade_mass_fractions,
-                self.model.manufacturing_waste_q)
+            self.model.manufacturing_waste_q, self.yearly_man_waste = \
+                self.manufacturing_waste(
+                    self.model.additional_cap, self.market_share,
+                    self.model.weighted_avr_mass_conv_factor,
+                    self.model.manufacturing_waste_ratio,
+                    self.model.blade_mass_fractions,
+                    self.model.manufacturing_waste_q)
             self.model.list_tb_lifetimes.extend(
                 [self.tb_lifetime] * int(
                     math.ceil(self.market_share *
@@ -340,6 +356,10 @@ class Manufacturer(Agent):
             self.model.total_man_waste_revenues[self.eol_man_wst_path] = \
                 self.man_wst_volume[self.eol_man_wst_path] * \
                 self.m_wst_rev[self.eol_man_wst_path]
+            self.landfill_waste(
+                self.model.waste_volume_model, self.eol_man_wst_path,
+                self.model.waste_rec_land, self.model.rec_land_volume,
+                self.man_wst_u_ids_selected, self.yearly_man_waste)
 
     def step(self):
         """
