@@ -73,8 +73,7 @@ class Manufacturer(Agent):
             self.development_tp_blade = False
             self.bt_produced = self.model.initial_dic_from_key_list(
                 self.model.blade_types.keys(), 0)
-            self.market_share = self.model.man_market_share[
-                self.manufacturer_type].pop()
+            self.market_share = 1 / self.model.manufacturers['wind_blade']
             self.eol_man_wst_path = self.model.list_man_waste.pop()
             self.man_eol_pathways = {
                 key: self.model.eol_pathways[key] for

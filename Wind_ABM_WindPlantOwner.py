@@ -59,18 +59,10 @@ class WindPlantOwner(Agent):
                                   str(self.unique_id)))
             self.p_year = self.model.clock + \
                 self.model.temporal_scope['simulation_start']
-            if self.t_state not in self.model.uswtdb['t_state'].to_list():
-                self.p_tnum = self.model.uswtdb['p_tnum'].mean()
-            else:
-                self.p_tnum = self.p_cap / \
-                    self.model.uswtdb.groupby('t_state').mean().loc[
-                        self.t_state]['t_cap']
-            self.t_cap = self.p_cap / self.p_tnum
-            if self.t_state not in self.model.uswtdb['t_state'].to_list():
-                self.t_rd = self.model.uswtdb['t_rd'].mean()
-            else:
-                self.t_rd = self.model.uswtdb.groupby('t_state').mean().loc[
-                                   self.t_state]['t_rd']
+            self.t_cap, self.t_rd = self.model.atb_model(
+                self.model.atb_land_wind, self.model.clock,
+                self.model.temporal_scope['simulation_start'])
+            self.p_tnum = self.p_cap / self.t_cap
             if hasattr(self, 'new_p_cap'):
                 self.eol_pathway = self.model.most_common_element_list(
                     self.model.list_add_agent_eol_path)

@@ -11,29 +11,42 @@ outputs.
 """
 
 # TODO: Next steps - continue HERE
-#  1) Continue with other agents - follow memo (including agent order)
-#    i) Developer:
-#      * projection of Turbine cap (moderate ATB technology)?
-#      (linear projection up to 2030) --> replace the average t_cap of new
-#      wpo by projection (and then infer p_tnum by p_cap/t_cap)
-#    ii) Re-write all unittests and missing unittest for all agents
+#  0) Calibration:
+#    * Build reporters used for calibrating with the waste tire, plastic and
+#    glass cases (I could have a figure showing all three + baseline case
+#    * Start by roughly reducing the range for each parameters
+#    * Use a machine learning metamodel to calibrate the ABM quicker -->
+#    calibrate with attitude values and if necessary TPB coefficients (within
+#    defined values for uncertainty assessment described in the memo report)
+#   * Calibrate with the waste tire, plastic and glass cases (average of the
+#   three) from 2020 to 2070 with stabilization from 2050 to 2070
+#  1) Re-write all unittests and missing unittest for all agents
 #  2) More unittests:
 #    i) for recycler and other agents similar to recycler write
 #    unittests to check initial distribution of types
 #    ii) also try to build unittests to check that outputs are correct
 #    ("mini extreme scenario" to test that the model output intermediate
 #    variables (like adoption of pathways and such correctly)
-#  3) Use a machine learning metamodel to calibrate the ABM quicker -->
-#  calibrate with attitude values and if necessary TPB coefficients (within
-#  defined values for uncertainty assessment described in the memo report)
-#  4) Think more about how the learning effect is computed
-#  5) A reinforcement learning could be used in the future (long term)
-#  6) Avoid calling the scheduler unless there are no other choices
-#  7) lifetime extension: use doi:10.1088/1757-899X/429/1/012024 to write about
+#  3) Scenario analysis:
+#    * Different wind power capacity projections: growth rates from
+#    95-by-35.Adv and 95-by-35+Elec.Adv+DR scenarios in: C:\Users\jwalzber\
+#    Documents\Winter21\Wind_ABM\Modeling\Data\ProjectedCapacity
+#    * Additional recycling facilities and/or lower recycling costs
+#    * Thermoplastic blade model:
+#      - Start by finding estimations for all the necessary parameters (contact
+#      Robynne Murray from NREL (author of:
+#      https://doi.org/10.1016/j.renene.2018.07.032) and ask her questions
+#      - Then I can launch simulations
+#  4) A reinforcement learning could be used in the future (long term)
+#  5) lifetime extension: use doi:10.1088/1757-899X/429/1/012024 to write about
 #  green procurement
-#  8) (Optional) Improving code:
-#    i) The "initial_dic_from_key_list" function could be replaced by:
-#    a = dict.fromkeys(a, 0)
+#  6) (Optional) Improving code:
+#    i) Find where the code is slow
+#    ii) Compile file before running - use: "python -m nuitka
+#    Wind_ABM_Run.py --include-module=Wind_ABM_Model
+#    --include-module=Wind_ABM_WindPlantOwner [and other modules]" in Anaconda
+#    prompt
+#    iii) generate documentation using Sphinx and autodoc or something else
 
 from mesa import Model
 from Wind_ABM_WindPlantOwner import WindPlantOwner
@@ -61,12 +74,11 @@ class WindABM(Model):
     def __init__(self,
                  seed=None,
                  manufacturers={
-                     "wind_blade": 7, "plastics_n_boards": 100, "cement": 97},
+                     "wind_blade": 16, "plastics_n_boards": 100, "cement": 97},
                  developers={'lifetime_extension': 10},
-                 # TODO: recycler "mechanical_recycling": 3
                  recyclers={
                      "dissolution": 7, "pyrolysis": 2,
-                     "mechanical_recycling": 2, "cement_co_processing": 1},
+                     "mechanical_recycling": 3, "cement_co_processing": 1},
                  small_world_networks={
                      "wind_plant_owners": {
                          "node_degree": 15, "rewiring_prob": 0.1},
@@ -83,12 +95,8 @@ class WindABM(Model):
                      "uswtdb_v3_3_20210114.csv", "projections":
                          "nrel_mid_case_projections.csv",
                      "wbj_database": "WBJ Landfills 2020.csv"},
-                 # TODO: growth rates from 95-by-35.Adv and
-                 #  95-by-35+Elec.Adv+DR scenarios in: C:\Users\jwalzber\
-                 #  Documents\Winter21\Wind_ABM\Modeling\Data\ProjectedCapacity
-                 # TODO: change mock-up value with real value from literature
                  average_lifetime={'thermoset': [20.0, 20.1],
-                                   'thermoplastic': [18, 22.0]},
+                                   'thermoplastic': [20.0, 20.01]},
                  weibull_shape_factor=2.2,
                  blade_size_to_mass_model={'coefficient': 0.0026,
                                            'power': 2.1447},
@@ -99,38 +107,25 @@ class WindABM(Model):
                      'simulation_end': 2050},
                  blades_per_rotor=3,
                  eol_pathways={
-                     "lifetime_extension": False, "dissolution": False,
-                     "pyrolysis": True, "mechanical_recycling": False,
-                     "cement_co_processing": False, "landfill": True},
-                 # TODO
+                     "lifetime_extension": True, "dissolution": False,
+                     "pyrolysis": True, "mechanical_recycling": True,
+                     "cement_co_processing": True, "landfill": True},
                  eol_pathways_dist_init={
                      "lifetime_extension": 0.005, "dissolution": 0.0,
                      "pyrolysis": 0.005, "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
-                 # TODO w_b = -0.21, w_sn=0.56
                  tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.30, 'w_sn': 0.56,
                                 'w_pbc': -0.13, 'w_p': 0.11, 'w_b': -0.21},
-                 # TODO: change back to mu=0.5, sigma=0.1
                  attitude_eol_parameters={
-                     "mean": 0.97, 'standard_deviation': 0.01, 'min': 0,
+                     "mean": 0.5, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
-                 # TODO: complete dic with circular choices from other
-                 #  decision than eol (e.g., conventional vs thermoplastic
-                 #  blades)
                  choices_circularity={
                      "lifetime_extension": True, "dissolution": True,
                      "pyrolysis": True, "mechanical_recycling": True,
                      "cement_co_processing": True, "landfill": False,
                      "thermoset": False, "thermoplastic": True},
-                 # TODO: all $/blade need to be converted into $/tons based
-                 #  on agents characteristics OR even better: use $/ton
-                 #  directly
                  decommissioning_cost=[1300, 33000],
-                 # TODO: find values for dissolution recycling process
                  lifetime_extension_costs=[600, 6000],
-                 # TODO: replaced co-processing costs of 0 by shredding costs
-                 #  before transportation --> check that this assumption makes
-                 #  sense
                  rec_processes_costs={
                      "dissolution": [0, 1E-6], "pyrolysis": [280.5, 550],
                      "mechanical_recycling": [212.3, 286],
@@ -141,28 +136,19 @@ class WindABM(Model):
                      'cutting_costs': 27.56, 'transport_cost_segments': 8.7,
                      'length_segment': 30, 'segment_per_truck': 2},
                  transport_repair=1.57,
-                 # TODO: how are blade transported?
                  eol_pathways_transport_mode={
                      "lifetime_extension": 'transport_repair',
                      "dissolution": 'undefined', "pyrolysis": 'undefined',
                      "mechanical_recycling": 'undefined',
                      "cement_co_processing": 'undefined',
                      "landfill": 'undefined'},
-                 # TODO: find values for dissolution recycling process
                  lifetime_extension_revenues=[124, 1.7E6],
                  rec_processes_revenues={
                      "dissolution": [0, 1E-6], "pyrolysis": [660, 1320],
-                     "mechanical_recycling":
-                         [242, 302.5], "cement_co_processing": [0, 1E-6]},
-                 # TODO: make sure that all data using tons are in metric
-                 #  tons and not in US tons
+                     "mechanical_recycling": [242, 302.5],
+                     "cement_co_processing": [0, 1E-6]},
                  lifetime_extension_years=[5, 15],
-                 # TODO: 0.55
                  le_feasibility=0.55,
-                 # TODO: report this parameter and source in Memo report
-                 #  https://doi.org/10.1016/j.resconrec.2021.105439 assumption
-                 #  is that early failure blades might be treated differently
-                 #  than EOL blades
                  early_failure_share=0.03,
                  blade_types={"thermoset": True, "thermoplastic": True},
                  blade_types_dist_init={"thermoset": 1.0,
@@ -174,17 +160,13 @@ class WindABM(Model):
                      'max': 1},
                  blade_costs={"thermoset": [50E3, 500E3],
                               "thermoplastic_rate": 0.953},
-                 # TODO: "mechanical_recycling": ["Iowa", "Texas", "Florida"]
                  recyclers_states={
                      "dissolution": ["Texas", "Oklahoma", "North Carolina",
                                      "South Carolina", "Tennessee", "Ohio",
                                      "Ohio"],
                      "pyrolysis": ["South Carolina", "Tennessee"],
-                     "mechanical_recycling": ["Iowa", "Texas"],
+                     "mechanical_recycling": ["Iowa", "Texas", "Florida"],
                      "cement_co_processing": ["Missouri"]},
-                 # TODO: 0 for cement co-processing? 0.39-0.52 or 0.05 or 0.2
-                 #  for others (see email Rebecca for references)? current:
-                 #  -0.2, -0.05
                  learning_parameter={
                      "dissolution": [-0.21, -0.2],
                      "pyrolysis": [-0.21, -0.2],
@@ -202,38 +184,33 @@ class WindABM(Model):
                                               "resin": 1, "glass_fiber": 1},
                      "cement_co_processing": {"steel": 1, "plastic": 0,
                                               "resin": 0, "glass_fiber": 1}},
-                 # TODO: replace values below by ts: 1, tp: 0
-                 bt_man_dist_init={"thermoset": 0.5, "thermoplastic": 0.5},
+                 bt_man_dist_init={"thermoset": 1, "thermoplastic": 0.0},
                  attitude_bt_man_parameters={
                      'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
                  tpb_bt_man_coeff={'w_bi': 1.00, 'w_a': 0.15, 'w_sn': 0.35,
                                    'w_pbc': -0.24, 'w_p': 0.00, 'w_b': 0.00},
                  lag_time_tp_blade_dev=5,
-                 man_market_share={'wind_blade': [
-                     0.416, 0.34, 0.16, 0.06, 0.02, 0.002, 0.002]},
                  tp_production_share=0.5,
                  manufacturing_waste_ratio={
                      "steel": [0.12, 0.3], "plastic": [0.12, 0.3],
                      "resin": [0.12, 0.3], "glass_fiber": [0.12, 0.3]},
-                 # TODO: find the states of main US wind blade manufacturers
                  oem_states={
-                     "wind_blade": ["Texas", "Texas", "Texas", "Texas",
-                                    "Texas", "Texas", "Texas"]},
-                 # TODO: assumption that only 1% of manufacturer currently
-                 #  recycle manufacturing waste --> try to find a source to
-                 #  document the fate of manufacturing waste
+                     "wind_blade": [
+                         "Washington", "Oregon", "California", "Colorado",
+                         "North Dakota", "South Dakota", "South Dakota",
+                         "Minnesota", "Texas", "Iowa", "Illinois", "Arkansas",
+                         "Michigan", "Pennsylvania", "Rhode Island",
+                         "Maryland"]},
                  man_waste_dist_init={
-                     "dissolution": 0.0, "mechanical_recycling": 0.01,
-                     "landfill": 0.99},
+                     "dissolution": 0.0, "mechanical_recycling": 0.02,
+                     "landfill": 0.98},
                  tpb_man_waste_coeff={
                      'w_bi': 1.00, 'w_a': 0.30, 'w_sn': 0.56, 'w_pbc': -0.13,
                      'w_p': 0.00, 'w_b': 0.00},
                  attitude_man_waste_parameters={
                      "mean": 0.5, 'standard_deviation': 0.01, 'min': 0,
                      'max': 1},
-                 # TODO: below and everywhere else for the dissolution process
-                 #  find a source for the initial capacity
                  recycling_init_cap={
                      "dissolution": 1, "pyrolysis": 33100,
                      "mechanical_recycling": 20000,
@@ -245,7 +222,11 @@ class WindABM(Model):
                      'transport_shreds': 0.33, 'transport_repair': np.nan,
                      'landfill_density': 1.009, 'cdw_density': 1.009,
                      'land_cost_conv': 0.47},
-                 reg_landfill_threshold=[0.9, 1]
+                 reg_landfill_threshold=[0.9, 1],
+                 atb_land_wind={
+                     'start': {'year': 2018, 't_cap': 2.4, 't_rd': 116},
+                     'end': {'year': 2030, 't_cap': 5.5, 't_rd': 175}},
+                 regulation_scenario=True
                  ):
         """
         Initiate model.
@@ -337,7 +318,6 @@ class WindABM(Model):
         planned behavior (TPB) model of new blade design adoption
         :param lag_time_tp_blade_dev: number o years needed to develop
         thermoplastic blades
-        :param man_market_share: market share of manufacturer agents
         :param tp_production_share: share of production assigned to 
         thermoplastic blades
         :param manufacturing_waste_ratio: manufacturing waste ratio for each
@@ -361,6 +341,9 @@ class WindABM(Model):
         to express waste in volume rather than mass unit (metric ton/m3)
         :param reg_landfill_threshold: percentage of landfill initial capacity 
         upon which regulator initiate a landfill ban
+        :param atb_land_wind: annual technology baseline scenario for
+        land wind reporting current and projected capacity and rotor diameter
+        :param regulation_scenario: include regulator agents actions
         """
         # Variables from inputs (value defined externally):
         self.seed = copy.deepcopy(seed)
@@ -410,7 +393,6 @@ class WindABM(Model):
             attitude_bt_man_parameters)
         self.tpb_bt_man_coeff = copy.deepcopy(tpb_bt_man_coeff)
         self.lag_time_tp_blade_dev = copy.deepcopy(lag_time_tp_blade_dev)
-        self.man_market_share = copy.deepcopy(man_market_share)
         self.tp_production_share = copy.deepcopy(tp_production_share)
         self.manufacturing_waste_ratio = copy.deepcopy(
             manufacturing_waste_ratio)
@@ -425,7 +407,10 @@ class WindABM(Model):
             landfill_closure_threshold)
         self.waste_volume_model = copy.deepcopy(waste_volume_model)
         self.reg_landfill_threshold = copy.deepcopy(reg_landfill_threshold)
+        self.atb_land_wind = copy.deepcopy(atb_land_wind)
+        self.regulation_scenario = copy.deepcopy(regulation_scenario)
         # Internal variables:
+        self.running = True  # required for batch runs
         self.clock = 0  # keep track of simulation time step
         self.unique_id = 0
         self.all_cap = 0
@@ -562,6 +547,12 @@ class WindABM(Model):
             self.growth_rates.keys(), 0)
         self.state_blade_waste = self.initial_dic_from_key_list(
             self.growth_rates.keys(), 0)
+        self.yearly_waste_ratios = self.nested_init_dic(
+            0, list(range(self.temporal_scope['simulation_start'],
+                          self.temporal_scope['simulation_end'])),
+            self.eol_pathways)
+        self.past_eol_waste = self.initial_dic_from_key_list(
+            self.eol_pathways, 0)
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -673,7 +664,9 @@ class WindABM(Model):
                 lambda a: str({key: value['landfill'] for key, value in
                                self.bans_enacted.items()}),
             "Blade waste in landfill":
-                lambda a: str(self.state_blade_waste)}
+                lambda a: str(self.state_blade_waste),
+            "Yearly waste ratios":
+                lambda a: str(self.yearly_waste_ratios)}
         self.agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
@@ -1711,6 +1704,20 @@ class WindABM(Model):
         return distances
 
     @staticmethod
+    def atb_model(atb_land_wind, time_step, simulation_start):
+        start = atb_land_wind['start']
+        end = atb_land_wind['end']
+        t_cap_lin_reg_coeff = (end['t_cap'] - start['t_cap']) / \
+                              (end['year'] - start['year'])
+        t_rd_lin_reg_coeff = (end['t_rd'] - start['t_rd']) / \
+                             (end['year'] - start['year'])
+        t_cap = start['t_cap'] + t_cap_lin_reg_coeff * \
+            (time_step + simulation_start - start['year'])
+        t_rd = start['t_rd'] + t_rd_lin_reg_coeff * \
+            (time_step + simulation_start - start['year'])
+        return t_cap, t_rd
+
+    @staticmethod
     def assign_elements_from_list(list_elements, exclusive_assignment):
         """
         Choose an element from a list, either randomly or the last element of
@@ -1854,11 +1861,24 @@ class WindABM(Model):
         weighted_average = sum(weighted_variables)
         return weighted_average
 
-    def divide_dics(self, dic1, dic2):
-        out_dic = {}
-        for key in dic1.keys():
-            out_dic[key] = self.safe_div(dic1[key], dic2[key])
-        return out_dic
+    @staticmethod
+    def compute_yearly_waste_ratios(
+            yearly_waste_ratios, states_waste_eol_path, simulation_start,
+            clock, eol_pathways, past_eol_waste, safe_div):
+        eol_path_waste = dict.fromkeys(eol_pathways.keys(), 0)
+        yearly_waste = {}
+        total_waste = 0
+        for value in states_waste_eol_path.values():
+            for key, value2 in value.items():
+                eol_path_waste[key] += value2
+        for key in eol_path_waste.keys():
+            yearly_waste[key] = eol_path_waste[key] - past_eol_waste[key]
+            total_waste += yearly_waste[key]
+        for key in eol_path_waste.keys():
+            yearly_waste_ratios[simulation_start + clock][key] = safe_div(
+                yearly_waste[key], total_waste)
+        past_eol_waste = copy.deepcopy(eol_path_waste)
+        return yearly_waste_ratios, past_eol_waste
 
     def reinitialize_global_variables_wpo(self):
         """
@@ -1909,6 +1929,11 @@ class WindABM(Model):
         self.average_lifetimes_wpo = []
         self.landfill_remaining_cap = self.initial_dic_from_key_list(
             self.growth_rates.keys(), 0)
+        self.yearly_waste_ratios, self.past_eol_waste = \
+            self.compute_yearly_waste_ratios(
+                self.yearly_waste_ratios, self.states_waste_eol_path,
+                self.temporal_scope['simulation_start'], self.clock,
+                self.eol_pathways, self.past_eol_waste, self.safe_div)
 
     def update_model_variables_end_of_step(self):
         """

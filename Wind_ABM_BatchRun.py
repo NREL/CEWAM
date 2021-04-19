@@ -1,0 +1,249 @@
+# -*- coding:utf-8 -*-
+"""
+Created on April 17 2020
+
+@author Julien Walzberg - Julien.Walzberg@nrel.gov
+
+BatchRun - Circular Economy Wind Agent-based Model (CEWAM)
+This module run batch runs of the model according to user inputs.
+"""
+
+
+from Wind_ABM_Model import *
+from mesa.batchrunner import BatchRunnerMP
+import time
+
+# TODO: Continue here: modify and simplify batch run
+
+
+if __name__ == '__main__':
+    t0 = time.time()
+    all_fixed_params = {
+        "seed": None,
+        "manufacturers": {"wind_blade": 16, "plastics_n_boards": 100,
+                          "cement": 97},
+        "developers": {'lifetime_extension': 10},
+        "recyclers": {"dissolution": 7, "pyrolysis": 2,
+                      "mechanical_recycling": 3, "cement_co_processing": 1},
+        "small_world_networks": {
+            "wind_plant_owners": {"node_degree": 15, "rewiring_prob": 0.1},
+            "developers": {"node_degree": 5, "rewiring_prob": 0.1},
+            "recyclers": {"node_degree": 5, "rewiring_prob": 0.1},
+            "manufacturers": {"node_degree": 15, "rewiring_prob": 0.1},
+            "original_equipment_manufacturer": {"node_degree": 5,
+                                                "rewiring_prob": 0.1},
+            "landfills": {"node_degree": 5, "rewiring_prob": 0.1},
+            "regulators": {"node_degree": 5, "rewiring_prob": 0.1}},
+        "external_files": {
+            "state_distances": "StatesAdjacencyMatrix.csv",
+            "uswtdb": "uswtdb_v3_3_20210114.csv",
+            "projections": "nrel_mid_case_projections.csv",
+            "wbj_database": "WBJ Landfills 2020.csv"},
+        "average_lifetime": {'thermoset': [20.0, 20.1],
+                             'thermoplastic': [20.0, 20.01]},
+        "weibull_shape_factor": 2.2,
+        "blade_size_to_mass_model": {'coefficient': 0.0026, 'power': 2.1447},
+        "cap_to_diameter_model": {'coefficient': 57, 'power': 0.44},
+        "temporal_scope": {'pre_simulation': 2000, 'simulation_start': 2020,
+                           'simulation_end': 2050},
+        "blades_per_rotor": 3,
+        "eol_pathways": {"lifetime_extension": True, "dissolution": False,
+                         "pyrolysis": True, "mechanical_recycling": True,
+                         "cement_co_processing": True, "landfill": True},
+        "eol_pathways_dist_init": {
+            "lifetime_extension": 0.005, "dissolution": 0.0,
+            "pyrolysis": 0.005, "mechanical_recycling": 0.005,
+            "cement_co_processing": 0.005, "landfill": 0.98},
+        "tpb_eol_coeff": {'w_bi': 0.33, 'w_a': 0.30, 'w_sn': 0.56,
+                          'w_pbc': -0.13, 'w_p': 0.11, 'w_b': -0.21},
+        "attitude_eol_parameters": {"mean": 0.5, 'standard_deviation': 0.1,
+                                    'min': 0, 'max': 1},
+        "choices_circularity": {
+            "lifetime_extension": True, "dissolution": True, "pyrolysis": True,
+            "mechanical_recycling": True, "cement_co_processing": True,
+            "landfill": False, "thermoset": False, "thermoplastic": True},
+        "decommissioning_cost": [1300, 33000],
+        "lifetime_extension_costs": [600, 6000],
+        "rec_processes_costs": {
+            "dissolution": [0, 1E-6], "pyrolysis": [280.5, 550],
+            "mechanical_recycling": [212.3, 286],
+            "cement_co_processing": [99, 132]},
+        "transport_shreds": {'shredding_costs': [99, 132],
+                             'transport_cost_shreds': [0.0314, 0.0820]},
+        "transport_segments": {
+            'cutting_costs': 27.56, 'transport_cost_segments': 8.7,
+            'length_segment': 30, 'segment_per_truck': 2},
+        "transport_repair": 1.57,
+        "eol_pathways_transport_mode": {
+            "lifetime_extension": 'transport_repair',
+            "dissolution": 'undefined', "pyrolysis": 'undefined',
+            "mechanical_recycling": 'undefined',
+            "cement_co_processing": 'undefined', "landfill": 'undefined'},
+        "lifetime_extension_revenues": [124, 1.7E6],
+        "rec_processes_revenues": {
+            "dissolution": [0, 1E-6], "pyrolysis": [660, 1320],
+            "mechanical_recycling": [242, 302.5],
+            "cement_co_processing": [0, 1E-6]},
+        "lifetime_extension_years": [5, 15],
+        "le_feasibility": 0.55,
+        "early_failure_share": 0.03,
+        "blade_types": {"thermoset": True, "thermoplastic": True},
+        "blade_types_dist_init": {"thermoset": 1.0, "thermoplastic": 0.0},
+        "tpb_bt_coeff": {'w_bi': 1.00, 'w_a': 0.30, 'w_sn': 0.21,
+                         'w_pbc': -0.32, 'w_p': 0.00, 'w_b': 0.00},
+        "attitude_bt_parameters": {'mean': 0.5, 'standard_deviation': 0.1,
+                                   'min': 0, 'max': 1},
+        "blade_costs": {"thermoset": [50E3, 500E3],
+                        "thermoplastic_rate": 0.953},
+        "recyclers_states": {
+            "dissolution": ["Texas", "Oklahoma", "North Carolina",
+                            "South Carolina", "Tennessee", "Ohio", "Ohio"],
+            "pyrolysis": ["South Carolina", "Tennessee"],
+            "mechanical_recycling": ["Iowa", "Texas", "Florida"],
+            "cement_co_processing": ["Missouri"]},
+        "learning_parameter": {
+            "dissolution": [-0.21, -0.2], "pyrolysis": [-0.21, -0.2],
+            "mechanical_recycling": [-0.21, -0.2],
+            "cement_co_processing": [-0.21, -0.2]},
+        "blade_mass_fractions": {"steel": 0.05, "plastic": 0.09, "resin": 0.30,
+                                 "glass_fiber": 0.56},
+        "rec_recovery_fractions": {
+            "dissolution": {"steel": 1, "plastic": 1, "resin": 1,
+                            "glass_fiber": 1},
+            "pyrolysis": {"steel": 1, "plastic": 0, "resin": 0,
+                          "glass_fiber": 0.5},
+            "mechanical_recycling": {"steel": 1, "plastic": 1, "resin": 1,
+                                     "glass_fiber": 1},
+            "cement_co_processing": {"steel": 1, "plastic": 0, "resin": 0,
+                                     "glass_fiber": 1}},
+        "bt_man_dist_init": {"thermoset": 1, "thermoplastic": 0.0},
+        "attitude_bt_man_parameters": {
+            'mean': 0.5, 'standard_deviation': 0.1, 'min': 0, 'max': 1},
+        "tpb_bt_man_coeff": {'w_bi': 1.00, 'w_a': 0.15, 'w_sn': 0.35,
+                             'w_pbc': -0.24, 'w_p': 0.00, 'w_b': 0.00},
+        "lag_time_tp_blade_dev": 5,
+        "tp_production_share": 0.5,
+        "manufacturing_waste_ratio": {
+            "steel": [0.12, 0.3], "plastic": [0.12, 0.3],
+            "resin": [0.12, 0.3], "glass_fiber": [0.12, 0.3]},
+        "oem_states": {
+            "wind_blade": ["Washington", "Oregon", "California", "Colorado",
+                           "North Dakota", "South Dakota", "South Dakota",
+                           "Minnesota", "Texas", "Iowa", "Illinois",
+                           "Arkansas", "Michigan", "Pennsylvania",
+                           "Rhode Island", "Maryland"]},
+        "man_waste_dist_init": {
+            "dissolution": 0.0, "mechanical_recycling": 0.02,
+            "landfill": 0.98},
+        "tpb_man_waste_coeff": {'w_bi': 1.00, 'w_a': 0.30, 'w_sn': 0.56,
+                                'w_pbc': -0.13, 'w_p': 0.00, 'w_b': 0.00},
+        "attitude_man_waste_parameters": {
+            "mean": 0.5, 'standard_deviation': 0.01, 'min': 0, 'max': 1},
+        "recycling_init_cap": {"dissolution": 1, "pyrolysis": 33100,
+                               "mechanical_recycling": 20000,
+                               "cement_co_processing": 20000},
+        "conversion_factors": {'metric_short_ton': 1.10231},
+        "landfill_closure_threshold": [0.9, 1],
+        "waste_volume_model": {
+            'waste_volume': False, 'transport_segments': 0.034,
+            'transport_shreds': 0.33, 'transport_repair': np.nan,
+            'landfill_density': 1.009, 'cdw_density': 1.009,
+            'land_cost_conv': 0.47},
+        "reg_landfill_threshold": [0.9, 1],
+        "atb_land_wind": {'start': {'year': 2018, 't_cap': 2.4, 't_rd': 116},
+                          'end': {'year': 2030, 't_cap': 5.5, 't_rd': 175}},
+        "regulation_scenario": True}
+
+    def batch_parameters(sobol):
+        if not sobol:
+            nr_processes = 6
+            variable_params = {
+                "seed": list(range(1))}
+            fixed_params = all_fixed_params.copy()
+            for key in variable_params.keys():
+                fixed_params.pop(key)
+            tot_run = 1
+            for var_p in variable_params.values():
+                tot_run *= len(var_p)
+            print("Total number of run:", tot_run)
+            return nr_processes, variable_params, fixed_params
+        else:
+            pass
+
+    # noinspection PyShadowingNames
+    # The variables parameters will be invoke along with the fixed parameters
+    # allowing for either or both to be honored.
+    def run_batch(sobol):
+        nr_processes, variable_params, fixed_params = batch_parameters(sobol)
+        batch_run = BatchRunnerMP(
+            WindABM,
+            nr_processes=nr_processes,
+            variable_parameters=variable_params,
+            fixed_parameters=fixed_params,
+            iterations=1,
+            max_steps=30,
+            model_reporters={
+                "Year": lambda a:
+                WindABM().clock +
+                WindABM().temporal_scope['simulation_start'] - 1,
+                "Cumulative capacity (MW)": lambda a: WindABM().all_cap,
+                "State cumulative capacity (MW)":
+                    lambda a: str(WindABM().states_cap),
+                "Cumulative waste (metric tons)":
+                    lambda a: WindABM().all_waste,
+                "State waste (metric tons)":
+                    lambda a: str(WindABM().states_waste),
+                "State waste - eol pathways (metric tons)":
+                    lambda a: str(WindABM().states_waste_eol_path),
+                "Number wpo agents": lambda a: WindABM().number_wpo_agent,
+                "eol pathway adoption":
+                    lambda a: str(WindABM().eol_pathway_adoption),
+                "Blade type adoption (MW)":
+                    lambda a: str(WindABM().blade_type_capacities),
+                "Average recycling costs ($/metric ton)":
+                    lambda a: str(WindABM().average_recycler_costs),
+                "Recovered materials (metric tons)":
+                    lambda a: str(WindABM().recovered_materials),
+                "Manufactured blades (MW)":
+                    lambda a: str(WindABM().bt_manufactured_q),
+                "Manufacturing waste (metric tons)":
+                    lambda a: str(WindABM().manufacturing_waste_q),
+                "Turbines average lifetime (years)":
+                    lambda a: WindABM().safe_div(
+                        sum(WindABM().average_lifetimes_wpo),
+                        len(WindABM().average_lifetimes_wpo)),
+                "Total eol costs ($)":
+                    lambda a: str(WindABM().total_eol_costs),
+                "Total eol revenues ($)":
+                    lambda a: str(WindABM().total_eol_revenues),
+                "Total manufacturing waste costs ($)":
+                    lambda a: str(WindABM().total_man_waste_costs),
+                "Total manufacturing waste revenues ($)":
+                    lambda a: str(WindABM().total_man_waste_revenues),
+                "Total blade costs ($)":
+                    lambda a: str(WindABM().total_bt_costs),
+                "Landfill waste volume model":
+                    lambda a: WindABM().waste_volume_model['waste_volume'],
+                "Landfills remaining capacity (ton or m3)":
+                    lambda a: str(WindABM().landfill_remaining_cap),
+                "Landfills initial capacity (ton or m3)":
+                    lambda a: str(WindABM().init_land_capacity),
+                "Landfill ban enacted":
+                    lambda a: str({key: value['landfill'] for key, value in
+                                   WindABM().bans_enacted.items()}),
+                "Blade waste in landfill":
+                    lambda a: str(WindABM().state_blade_waste),
+                "Yearly waste ratios":
+                    lambda a: str(WindABM().yearly_waste_ratios)})
+        batch_run.run_all()
+        if not sobol:
+            run_data = batch_run.get_model_vars_dataframe()
+            run_data.to_csv("BatchRun%s.csv")
+        else:
+            pass
+
+    run_batch(sobol=False)
+
+    t1 = time.time()
+    print(t1 - t0)
+    print("Done!")

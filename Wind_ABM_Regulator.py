@@ -15,12 +15,6 @@ decisions, for instance, to ban some landfills from accepting blades.
 
 from mesa import Agent
 
-# TODO:
-#  1) build regulation enacting
-#  2) the percentage for regulator to act should be determined from EPA
-#  database looking at the landfill that already closed and what was their
-#  amount of waste left / the initial capacity
-
 
 class Regulator(Agent):
     def __init__(self, unique_id, model, **kwargs):
@@ -57,12 +51,14 @@ class Regulator(Agent):
         """
         Update instance (agent) variables
         """
-        self.bans['landfill'] = self.initiate_landfill_ban(
-            self.regulator_state, self.model.landfill_remaining_cap,
-            self.model.init_land_capacity, self.threshold, self.model.safe_div)
-        self.regulations_enacted = self.model.boolean_dic_based_on_dicts(
-            self.regulations_enacted, True, True, self.bans,
-            self.other_regulations)
+        if self.model.regulation_scenario:
+            self.bans['landfill'] = self.initiate_landfill_ban(
+                self.regulator_state, self.model.landfill_remaining_cap,
+                self.model.init_land_capacity, self.threshold,
+                self.model.safe_div)
+            self.regulations_enacted = self.model.boolean_dic_based_on_dicts(
+                self.regulations_enacted, True, True, self.bans,
+                self.other_regulations)
 
     def report_agent_variables(self):
         """
