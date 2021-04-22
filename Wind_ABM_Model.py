@@ -95,8 +95,8 @@ class WindABM(Model):
                      "uswtdb_v3_3_20210114.csv", "projections":
                          "nrel_mid_case_projections.csv",
                      "wbj_database": "WBJ Landfills 2020.csv"},
-                 average_lifetime={'thermoset': [20.0, 20.1],
-                                   'thermoplastic': [20.0, 20.01]},
+                 average_lifetime={'thermoset': [20.0, 20.0001],
+                                   'thermoplastic': [20.0, 20.0001]},
                  weibull_shape_factor=2.2,
                  blade_size_to_mass_model={'coefficient': 0.0026,
                                            'power': 2.1447},
@@ -509,7 +509,7 @@ class WindABM(Model):
             0, self.growth_rates.keys(), self.blade_types.keys())
         self.waste_rec_land = {}
         self.rec_land_volume = {}
-        self.average_recycler_costs = self.initial_dic_from_key_list(
+        self.average_eol_costs = self.initial_dic_from_key_list(
             self.eol_pathways.keys(), 0)
         self.recovered_materials = self.initial_dic_from_key_list(
             self.blade_mass_fractions.keys(), 0)
@@ -553,6 +553,7 @@ class WindABM(Model):
             self.eol_pathways)
         self.past_eol_waste = self.initial_dic_from_key_list(
             self.eol_pathways, 0)
+        self.landfill_count = 0
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -634,7 +635,7 @@ class WindABM(Model):
             "Blade type adoption (MW)":
                 lambda a: str(self.blade_type_capacities),
             "Average recycling costs ($/metric ton)":
-                lambda a: str(self.average_recycler_costs),
+                lambda a: str(self.average_eol_costs),
             "Recovered materials (metric tons)":
                 lambda a: str(self.recovered_materials),
             "Manufactured blades (MW)":
@@ -656,6 +657,7 @@ class WindABM(Model):
                 lambda a: str(self.total_bt_costs),
             "Landfill waste volume model": lambda a: self.waste_volume_model[
                 'waste_volume'],
+            "Landfill number": lambda a: str(self.landfill_count),
             "Landfills remaining capacity (ton or m3)":
                 lambda a: str(self.landfill_remaining_cap),
             "Landfills initial capacity (ton or m3)":
@@ -1912,8 +1914,6 @@ class WindABM(Model):
         self.variables_additional_wpo = []
         self.tp_blade_manufactured = 0
         self.tp_blade_demanded = 0
-        self.average_recycler_costs = self.initial_dic_from_key_list(
-            self.eol_pathways.keys(), 0)
         self.variables_landfills = self.initial_dic_from_key_list(
             self.wbj_database['landfill_type'].unique().tolist(), [])
 
@@ -1934,6 +1934,7 @@ class WindABM(Model):
                 self.yearly_waste_ratios, self.states_waste_eol_path,
                 self.temporal_scope['simulation_start'], self.clock,
                 self.eol_pathways, self.past_eol_waste, self.safe_div)
+        self.landfill_count = len(self.schedule_land.agents)
 
     def update_model_variables_end_of_step(self):
         """
@@ -1950,6 +1951,8 @@ class WindABM(Model):
         # Extend initial eol pathways distribution as based on current adoption
         self.list_add_agent_eol_path = self.roulette_wheel_choice(
             self.eol_pathway_dist_dic, self.p_install_growth, False, [])
+        self.average_eol_costs = self.initial_dic_from_key_list(
+            self.eol_pathways.keys(), 0)
 
     def step(self):
         """

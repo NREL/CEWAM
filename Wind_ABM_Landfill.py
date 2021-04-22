@@ -50,6 +50,8 @@ class Landfill(Agent):
         self.model.init_land_capacity[self.landfill_state] += \
             self.init_remaining_capacity
         self.blade_waste = 0
+        self.model.average_eol_costs[self.landfill_type] += \
+            self.landfill_cost / self.model.wbj_database.shape[0]
 
     @staticmethod
     def closure_update(other_regulations, landfill_state, remaining_capacity,
@@ -110,6 +112,8 @@ class Landfill(Agent):
         self.model.landfill_remaining_cap[self.landfill_state] += \
             self.remaining_capacity
         self.model.state_blade_waste[self.landfill_state] += self.blade_waste
+        self.model.average_eol_costs[self.landfill_type] += \
+            self.landfill_cost / self.model.landfill_count
 
     def remove_agent(self):
         """

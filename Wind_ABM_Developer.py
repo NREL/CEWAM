@@ -85,6 +85,9 @@ class Developer(Agent):
             self.model.growth_rates)
         self.bt_barriers = self.model.initial_dic_from_key_list(
             self.model.blade_types.keys(), 0)
+        self.model.average_eol_costs[self.developer_type] += \
+            self.lifetime_extension_cost / \
+            self.model.developers[self.developer_type]
 
     def install_additional_cap(self):
         """Determine additional capacity in each state"""

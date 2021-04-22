@@ -45,7 +45,7 @@ class Recycler(Agent):
         self.learning_parameter = self.model.symetric_triang_distrib_draw(
             self.model.learning_parameter[self.recycler_type][0],
             self.model.learning_parameter[self.recycler_type][1])
-        self.model.average_recycler_costs[self.recycler_type] += \
+        self.model.average_eol_costs[self.recycler_type] += \
             self.init_recycler_cost / self.model.recyclers[self.recycler_type]
         self.init_rec_quantity_updated = False
 
@@ -93,7 +93,7 @@ class Recycler(Agent):
             (self.unique_id, self.recycler_state,
              self.recycler_cost - self.recycler_revenue, self.recycler_cost,
              self.recycler_revenue))
-        self.model.average_recycler_costs[self.recycler_type] += \
+        self.model.average_eol_costs[self.recycler_type] += \
             self.recycler_cost / self.model.recyclers[self.recycler_type]
         self.model.recovered_materials = self.material_recovery(
             self.yearly_recycled_quantity, self.model.blade_mass_fractions,
