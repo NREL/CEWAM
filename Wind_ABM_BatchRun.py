@@ -8,7 +8,7 @@ BatchRun - Circular Economy Wind Agent-based Model (CEWAM)
 This module run batch runs of the model according to user inputs.
 """
 
-
+'test'
 from Wind_ABM_Model import *
 from mesa.batchrunner import BatchRunnerMP
 import time
