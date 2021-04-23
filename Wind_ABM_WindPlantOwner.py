@@ -11,6 +11,7 @@ decisions, for instance, regarding EOL management.
 
 from mesa import Agent
 import random
+import numpy as np
 
 
 class WindPlantOwner(Agent):
@@ -242,18 +243,23 @@ class WindPlantOwner(Agent):
                 rec_land_volume[eol_unique_ids_selected[eol_second_choice]] \
                     += waste * mass_conv_factor / \
                     waste_volume_model[eol_transport[eol_second_choice]]
-            total_costs[state][eol_pathway] += \
-                (eol_pathways_costs[eol_pathway] +
-                 eol_pathways_revenues[eol_pathway]) * waste * mass_conv_factor
-            total_costs[state][eol_second_choice] += \
-                (eol_pathways_costs[eol_second_choice] - decommissioning_cost +
-                 eol_pathways_revenues[eol_second_choice]) * waste * \
-                mass_conv_factor
-            total_revenues[state][eol_pathway] += \
-                eol_pathways_revenues[eol_pathway] * waste * mass_conv_factor
-            total_revenues[state][eol_second_choice] += \
-                eol_pathways_revenues[eol_second_choice] * waste * \
-                mass_conv_factor
+            if not np.isnan(eol_pathways_costs[eol_pathway]):
+                total_costs[state][eol_pathway] += \
+                    (eol_pathways_costs[eol_pathway] +
+                     eol_pathways_revenues[eol_pathway]) * waste * \
+                    mass_conv_factor
+                total_costs[state][eol_second_choice] += \
+                    (eol_pathways_costs[eol_second_choice] -
+                     decommissioning_cost +
+                     eol_pathways_revenues[eol_second_choice]) * waste * \
+                    mass_conv_factor
+            if not np.isnan(eol_pathways_costs[eol_pathway]):
+                total_revenues[state][eol_pathway] += \
+                    eol_pathways_revenues[eol_pathway] * waste * \
+                    mass_conv_factor
+                total_revenues[state][eol_second_choice] += \
+                    eol_pathways_revenues[eol_second_choice] * waste * \
+                    mass_conv_factor
         else:
             reporter_waste[state][eol_pathway] += waste * \
                                                         mass_conv_factor
@@ -264,11 +270,15 @@ class WindPlantOwner(Agent):
                 rec_land_volume[eol_unique_ids_selected[eol_pathway]] \
                     += waste * mass_conv_factor / \
                     waste_volume_model[eol_transport[eol_pathway]]
-            total_costs[state][eol_pathway] += \
-                (eol_pathways_costs[eol_pathway] - decommissioning_cost +
-                 eol_pathways_revenues[eol_pathway]) * waste * mass_conv_factor
-            total_revenues[state][eol_pathway] += \
-                eol_pathways_revenues[eol_pathway] * waste * mass_conv_factor
+            if not np.isnan(eol_pathways_costs[eol_pathway]):
+                total_costs[state][eol_pathway] += \
+                    (eol_pathways_costs[eol_pathway] - decommissioning_cost +
+                     eol_pathways_revenues[eol_pathway]) * waste * \
+                    mass_conv_factor
+            if not np.isnan(eol_pathways_costs[eol_pathway]):
+                total_revenues[state][eol_pathway] += \
+                    eol_pathways_revenues[eol_pathway] * waste * \
+                    mass_conv_factor
 
     def other_agents_consequences(self):
         """

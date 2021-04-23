@@ -213,8 +213,8 @@ class WindABM(Model):
                      'max': 1},
                  recycling_init_cap={
                      "dissolution": 1, "pyrolysis": 33100,
-                     "mechanical_recycling": 20000,
-                     "cement_co_processing": 20000},
+                     "mechanical_recycling": 54200,
+                     "cement_co_processing": 54200},
                  conversion_factors={'metric_short_ton': 1.10231},
                  landfill_closure_threshold=[0.9, 1],
                  waste_volume_model={
@@ -657,7 +657,7 @@ class WindABM(Model):
                 lambda a: str(self.total_bt_costs),
             "Landfill waste volume model": lambda a: self.waste_volume_model[
                 'waste_volume'],
-            "Landfill number": lambda a: str(self.landfill_count),
+            "Landfill number": lambda a: self.landfill_count,
             "Landfills remaining capacity (ton or m3)":
                 lambda a: str(self.landfill_remaining_cap),
             "Landfills initial capacity (ton or m3)":
@@ -727,7 +727,7 @@ class WindABM(Model):
         the Dijkstra algorithm.
         :param graph: graph from which shortest paths need to be computed
         :param target_states: target (or origin) to compute shortest paths,
-        if the value is smaller than the graph number of nodes, the the output
+        if the value is smaller than the graph number of nodes, the output
         is a rectangular matrix
         :param distances_to_target: an empty list that will be filled with
         shortest paths
@@ -1935,6 +1935,8 @@ class WindABM(Model):
                 self.temporal_scope['simulation_start'], self.clock,
                 self.eol_pathways, self.past_eol_waste, self.safe_div)
         self.landfill_count = len(self.schedule_land.agents)
+        self.average_eol_costs = self.initial_dic_from_key_list(
+            self.eol_pathways.keys(), 0)
 
     def update_model_variables_end_of_step(self):
         """
@@ -1951,8 +1953,6 @@ class WindABM(Model):
         # Extend initial eol pathways distribution as based on current adoption
         self.list_add_agent_eol_path = self.roulette_wheel_choice(
             self.eol_pathway_dist_dic, self.p_install_growth, False, [])
-        self.average_eol_costs = self.initial_dic_from_key_list(
-            self.eol_pathways.keys(), 0)
 
     def step(self):
         """

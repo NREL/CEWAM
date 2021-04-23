@@ -13,7 +13,9 @@ from Wind_ABM_Model import *
 from mesa.batchrunner import BatchRunnerMP
 import time
 
-# TODO: Continue here: modify and simplify batch run
+# TODO: Continue here:
+#  1) fix pull issue in home computer and launch preliminary calibration
+#  2) rewrite the sobol code
 
 
 if __name__ == '__main__':
@@ -183,62 +185,63 @@ if __name__ == '__main__':
             iterations=1,
             max_steps=30,
             model_reporters={
-                "Year": lambda a:
-                WindABM().clock +
-                WindABM().temporal_scope['simulation_start'] - 1,
-                "Cumulative capacity (MW)": lambda a: WindABM().all_cap,
+                "Year":
+                    lambda a: getattr(a, "clock") +
+                    fixed_params["temporal_scope"]['simulation_start'] - 1,
+                "Cumulative capacity (MW)": lambda a: getattr(a, "all_cap"),
                 "State cumulative capacity (MW)":
-                    lambda a: str(WindABM().states_cap),
+                    lambda a: getattr(a, "states_cap"),
                 "Cumulative waste (metric tons)":
-                    lambda a: WindABM().all_waste,
+                    lambda a: getattr(a, "all_waste"),
                 "State waste (metric tons)":
-                    lambda a: str(WindABM().states_waste),
+                    lambda a: getattr(a, "states_waste"),
                 "State waste - eol pathways (metric tons)":
-                    lambda a: str(WindABM().states_waste_eol_path),
-                "Number wpo agents": lambda a: WindABM().number_wpo_agent,
+                    lambda a: getattr(a, "states_waste_eol_path"),
+                "Number wpo agents": lambda a: getattr(a, "number_wpo_agent"),
                 "eol pathway adoption":
-                    lambda a: str(WindABM().eol_pathway_adoption),
+                    lambda a: getattr(a, "eol_pathway_adoption"),
                 "Blade type adoption (MW)":
-                    lambda a: str(WindABM().blade_type_capacities),
+                    lambda a: getattr(a, "blade_type_capacities"),
                 "Average recycling costs ($/metric ton)":
-                    lambda a: str(WindABM().average_recycler_costs),
+                    lambda a: getattr(a, "average_eol_costs"),
                 "Recovered materials (metric tons)":
-                    lambda a: str(WindABM().recovered_materials),
+                    lambda a: getattr(a, "recovered_materials"),
                 "Manufactured blades (MW)":
-                    lambda a: str(WindABM().bt_manufactured_q),
+                    lambda a: getattr(a, "bt_manufactured_q"),
                 "Manufacturing waste (metric tons)":
-                    lambda a: str(WindABM().manufacturing_waste_q),
+                    lambda a: getattr(a, "manufacturing_waste_q"),
                 "Turbines average lifetime (years)":
-                    lambda a: WindABM().safe_div(
-                        sum(WindABM().average_lifetimes_wpo),
-                        len(WindABM().average_lifetimes_wpo)),
+                    lambda a: a.safe_div(
+                        sum(getattr(a, "average_lifetimes_wpo")),
+                        len(getattr(a, "average_lifetimes_wpo"))),
                 "Total eol costs ($)":
-                    lambda a: str(WindABM().total_eol_costs),
+                    lambda a: getattr(a, "total_eol_costs"),
                 "Total eol revenues ($)":
-                    lambda a: str(WindABM().total_eol_revenues),
+                    lambda a: getattr(a, "total_eol_revenues"),
                 "Total manufacturing waste costs ($)":
-                    lambda a: str(WindABM().total_man_waste_costs),
+                    lambda a: getattr(a, "total_man_waste_costs"),
                 "Total manufacturing waste revenues ($)":
-                    lambda a: str(WindABM().total_man_waste_revenues),
+                    lambda a: getattr(a, "total_man_waste_revenues"),
                 "Total blade costs ($)":
-                    lambda a: str(WindABM().total_bt_costs),
+                    lambda a: getattr(a, "total_bt_costs"),
                 "Landfill waste volume model":
-                    lambda a: WindABM().waste_volume_model['waste_volume'],
+                    lambda a: a.waste_volume_model['waste_volume'],
+                "Landfill number": lambda a: getattr(a, "landfill_count"),
                 "Landfills remaining capacity (ton or m3)":
-                    lambda a: str(WindABM().landfill_remaining_cap),
+                    lambda a: getattr(a, "landfill_remaining_cap"),
                 "Landfills initial capacity (ton or m3)":
-                    lambda a: str(WindABM().init_land_capacity),
+                    lambda a: getattr(a, "init_land_capacity"),
                 "Landfill ban enacted":
-                    lambda a: str({key: value['landfill'] for key, value in
-                                   WindABM().bans_enacted.items()}),
+                    lambda a: {key: value['landfill'] for key, value in
+                               a.bans_enacted.items()},
                 "Blade waste in landfill":
-                    lambda a: str(WindABM().state_blade_waste),
+                    lambda a: getattr(a, "state_blade_waste"),
                 "Yearly waste ratios":
-                    lambda a: str(WindABM().yearly_waste_ratios)})
+                    lambda a: getattr(a, "yearly_waste_ratios")})
         batch_run.run_all()
         if not sobol:
             run_data = batch_run.get_model_vars_dataframe()
-            run_data.to_csv("BatchRun%s.csv")
+            run_data.to_csv("results\\BatchRun.csv")
         else:
             pass
 
