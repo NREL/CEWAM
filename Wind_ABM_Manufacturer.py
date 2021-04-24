@@ -268,7 +268,8 @@ class Manufacturer(Agent):
                 self.model.variables_developers, 0, self.model.eol_pathways,
                 transport_mode, self.model.minimum_tr_proc_costs,
                 self.man_wst_u_ids_selected, self.model.convert_unit_land_cost,
-                self.model.waste_volume_model)
+                self.model.waste_volume_model,
+                self.model.transport_shreds_mandate, self.state_man)
         return man_wst_costs, m_wst_rev
 
     @staticmethod

@@ -331,7 +331,8 @@ class WindPlantOwner(Agent):
                 self.model.eol_pathways_transport_mode,
                 self.model.minimum_tr_proc_costs, self.eol_unique_ids_selected,
                 self.model.convert_unit_land_cost,
-                self.model.waste_volume_model)
+                self.model.waste_volume_model,
+                self.model.transport_shreds_mandate, self.t_state)
         self.other_agents_consequences()
         # Agents' attributes that should not be updated every step
         if not self.agent_attributes_updated:

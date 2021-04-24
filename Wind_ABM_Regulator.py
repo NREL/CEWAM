@@ -9,10 +9,6 @@ This module contains the Regulator class. Regulators make several
 decisions, for instance, to ban some landfills from accepting blades.
 """
 
-# Notes:
-# Remove unused library imports
-
-
 from mesa import Agent
 
 
@@ -36,6 +32,11 @@ class Regulator(Agent):
         self.threshold = self.model.symetric_triang_distrib_draw(
             self.model.reg_landfill_threshold[0],
             self.model.reg_landfill_threshold[1])
+        self.lag_time = round(self.model.symetric_triang_distrib_draw(
+            self.model.regulation_scenario['empirically_based']['lag_time'][0],
+            self.model.regulation_scenario['empirically_based']
+            ['lag_time'][1]))
+        self.empirical_reg = self.model.empirical_regulations.pop()
 
     @staticmethod
     def initiate_landfill_ban(state, landfill_remaining_cap,
@@ -47,18 +48,37 @@ class Regulator(Agent):
         else:
             return False
 
+    @staticmethod
+    def init_other_landfill_reg(
+            clock, lag_time, empirical_reg, bans, other_regulations,
+            transport_shreds_mandate, state):
+        if clock >= lag_time:
+            if empirical_reg == 'ban_shreds':
+                bans['landfill'] = True
+                transport_shreds_mandate['landfill'][state] = True
+            elif empirical_reg == 'ban_whole_only':
+                other_regulations['landfill'] = True
+            else:
+                bans['landfill'] = False
+                other_regulations['landfill'] = False
+
     def update_agent_variables(self):
         """
         Update instance (agent) variables
         """
-        if self.model.regulation_scenario:
+        if self.model.regulation_scenario['remaining_cap_based']:
             self.bans['landfill'] = self.initiate_landfill_ban(
                 self.regulator_state, self.model.landfill_remaining_cap,
                 self.model.init_land_capacity, self.threshold,
                 self.model.safe_div)
-            self.regulations_enacted = self.model.boolean_dic_based_on_dicts(
-                self.regulations_enacted, True, True, self.bans,
-                self.other_regulations)
+        elif self.model.regulation_scenario['empirically_based']['regulation']:
+            self.init_other_landfill_reg(
+                self.model.clock, self.lag_time, self.empirical_reg, self.bans,
+                self.other_regulations, self.model.transport_shreds_mandate,
+                self.regulator_state)
+        self.regulations_enacted = self.model.boolean_dic_based_on_dicts(
+            self.regulations_enacted, True, True, self.bans,
+            self.other_regulations)
 
     def report_agent_variables(self):
         """

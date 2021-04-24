@@ -226,7 +226,12 @@ class WindABM(Model):
                  atb_land_wind={
                      'start': {'year': 2018, 't_cap': 2.4, 't_rd': 116},
                      'end': {'year': 2030, 't_cap': 5.5, 't_rd': 175}},
-                 regulation_scenario=True
+                 regulation_scenario={
+                     'remaining_cap_based': False, 'empirically_based':
+                         {'regulation': True, 'lag_time': [18, 32],
+                          'regulation_freq': {
+                              'ban_shreds': 0.23, 'ban_whole_only': 0.25,
+                              'no_ban': 0.52}}}
                  ):
         """
         Initiate model.
@@ -554,6 +559,11 @@ class WindABM(Model):
         self.past_eol_waste = self.initial_dic_from_key_list(
             self.eol_pathways, 0)
         self.landfill_count = 0
+        self.empirical_regulations = self.roulette_wheel_choice(
+            self.regulation_scenario['empirically_based']['regulation_freq'],
+            self.regulators, False, [])
+        self.transport_shreds_mandate = self.nested_init_dic(
+            False, self.choices_circularity.keys(), self.growth_rates.keys())
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -1024,7 +1034,7 @@ class WindABM(Model):
         :param dic_frequencies: a dictionary containing frequencies (determines
         the size of the wedges in the roulette wheel)
         :param num_choices: number of choices (number of roulette draws)
-        :param deterministic: if True randomly select the pick (where the ball
+        :param deterministic: if False randomly select the pick (where the ball
         falls on the wheel), otherwise choose the pick as to distribute values
         to exactly respect the dictionary's frequencies
         :param list_choice: the list of choices distributed according to the
@@ -1422,7 +1432,8 @@ class WindABM(Model):
             variables_recyclers, variables_landfills, variables_developers,
             decommissioning_cost, eol_pathways, transport_mode_model,
             minimum_tr_proc_costs, eol_unique_ids_selected,
-            convert_unit_land_cost, waste_volume_model):
+            convert_unit_land_cost, waste_volume_model,
+            transport_shreds_mandate, state):
         """
         Compute costs for each eol pathway accounting for decommissioning costs
         (similar for each eol pathway), transportation costs (including
@@ -1447,6 +1458,9 @@ class WindABM(Model):
         :param convert_unit_land_cost: function to convert landfill costs
         :param waste_volume_model: model to convert volumes in tons to volumes
         in m3 according to the state of the EOL blades (shreds or segments)
+        :param transport_shreds_mandate: force transport mode to be in shreds
+        form as some regulation (e.g., of landfills) may require shreds form
+        :param state: wpo location state
         :return: costs for each eol pathway
         """
         costs_eol_pathways = {}
@@ -1457,7 +1471,10 @@ class WindABM(Model):
         process_costs.update(variables_recyclers)
         process_costs.update(variables_developers)
         for key in eol_pathways.keys():
-            transport_mode = transport_mode_model[key]
+            if transport_shreds_mandate[key][state]:
+                transport_mode = "transport_shreds"
+            else:
+                transport_mode = transport_mode_model[key]
             if transport_mode == "transport_shreds":
                 transport_cost = eol_tr_costs_shreds[key]
                 process_costs_key = convert_unit_land_cost(
