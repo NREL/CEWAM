@@ -1233,7 +1233,7 @@ class WindABM(Model):
             scores[key] = score_key
         return scores
 
-    def pressure(self, state, regulations):
+    def pressure(self, state, regulations, choices_circularity):
         """
         Computes the TPB pressure scores for each circular and non-circular
         choices as measured by the weighted (by the distance to the agent)
@@ -1256,7 +1256,10 @@ class WindABM(Model):
             pressure_max = sum(
                 [(max_dist - all_or_trg_distances[item]) / max_dist for
                  item in value.keys()])
-            scores[key] = weighted_sum / pressure_max
+            if choices_circularity[key]:
+                scores[key] = weighted_sum / pressure_max
+            else:
+                scores[key] = -1 * weighted_sum / pressure_max
         return scores
 
     def theory_planned_behavior_model(
@@ -1295,7 +1298,7 @@ class WindABM(Model):
             cost_choices)
         scores_b = self.perceived_behavioral_control_and_barrier(
             barrier_choices)
-        scores_p = self.pressure(state, regulations)
+        scores_p = self.pressure(state, regulations, choices_circularity)
         scores_behaviors = {}
         for key, value in dic_choices.items():
             scores_behaviors[key] = tpb_weights['w_bi'] * (
