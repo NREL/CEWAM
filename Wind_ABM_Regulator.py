@@ -55,9 +55,9 @@ class Regulator(Agent):
         if clock >= lag_time:
             if empirical_reg == 'ban_shreds':
                 bans['landfill'] = True
-                transport_shreds_mandate['landfill'][state] = True
             elif empirical_reg == 'ban_whole_only':
                 other_regulations['landfill'] = True
+                transport_shreds_mandate['landfill'][state] = True
             else:
                 bans['landfill'] = False
                 other_regulations['landfill'] = False

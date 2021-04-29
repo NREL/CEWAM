@@ -54,12 +54,11 @@ class Landfill(Agent):
             self.landfill_cost / self.model.wbj_database.shape[0]
 
     @staticmethod
-    def closure_update(other_regulations, landfill_state, remaining_capacity,
-                       closure_threshold, init_remaining_capacity,
-                       simulation_start, clock, close_date):
+    def closure_update(remaining_capacity, closure_threshold,
+                       init_remaining_capacity, simulation_start, clock,
+                       close_date):
         year = clock + simulation_start
-        if other_regulations[landfill_state]['landfill'] or \
-                remaining_capacity < (1 - closure_threshold) * \
+        if remaining_capacity < (1 - closure_threshold) * \
                 init_remaining_capacity or year > close_date:
             closure = True
         else:
@@ -90,7 +89,6 @@ class Landfill(Agent):
             self.model.waste_rec_land, self.model.rec_land_volume,
             self.unique_id, self.remaining_capacity)
         self.closure = self.closure_update(
-            self.model.other_regulations_enacted, self.landfill_state,
             self.remaining_capacity, self.closure_threshold,
             self.init_remaining_capacity,
             self.model.temporal_scope['simulation_start'], self.model.clock,

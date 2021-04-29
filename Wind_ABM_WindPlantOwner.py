@@ -248,6 +248,7 @@ class WindPlantOwner(Agent):
                     (eol_pathways_costs[eol_pathway] +
                      eol_pathways_revenues[eol_pathway]) * waste * \
                     mass_conv_factor
+            if not np.isnan(eol_pathways_costs[eol_second_choice]):
                 total_costs[state][eol_second_choice] += \
                     (eol_pathways_costs[eol_second_choice] -
                      decommissioning_cost +
@@ -257,6 +258,7 @@ class WindPlantOwner(Agent):
                 total_revenues[state][eol_pathway] += \
                     eol_pathways_revenues[eol_pathway] * waste * \
                     mass_conv_factor
+            if not np.isnan(eol_pathways_costs[eol_second_choice]):
                 total_revenues[state][eol_second_choice] += \
                     eol_pathways_revenues[eol_second_choice] * waste * \
                     mass_conv_factor

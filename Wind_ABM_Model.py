@@ -114,10 +114,10 @@ class WindABM(Model):
                      "lifetime_extension": 0.005, "dissolution": 0.0,
                      "pyrolysis": 0.005, "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
-                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.30, 'w_sn': 0.56,
-                                'w_pbc': -0.13, 'w_p': 0.11, 'w_b': -0.21},
+                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.36, 'w_sn': 0.672,
+                                'w_pbc': -0.13, 'w_p': 0.132, 'w_b': -0.252},
                  attitude_eol_parameters={
-                     "mean": 0.5, 'standard_deviation': 0.1, 'min': 0,
+                     "mean": 0.85, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
                  choices_circularity={
                      "lifetime_extension": True, "dissolution": True,
@@ -228,7 +228,7 @@ class WindABM(Model):
                      'end': {'year': 2030, 't_cap': 5.5, 't_rd': 175}},
                  regulation_scenario={
                      'remaining_cap_based': False, 'empirically_based':
-                         {'regulation': True, 'lag_time': [18, 32],
+                         {'regulation': True, 'lag_time': [5, 10],
                           'regulation_freq': {
                               'ban_shreds': 0.23, 'ban_whole_only': 0.25,
                               'no_ban': 0.52}}}
