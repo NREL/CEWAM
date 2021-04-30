@@ -228,7 +228,7 @@ class WindABM(Model):
                      'end': {'year': 2030, 't_cap': 5.5, 't_rd': 175}},
                  regulation_scenario={
                      'remaining_cap_based': False, 'empirically_based':
-                         {'regulation': True, 'lag_time': [5, 10],
+                         {'regulation': True, 'lag_time': [18, 32],
                           'regulation_freq': {
                               'ban_shreds': 0.23, 'ban_whole_only': 0.25,
                               'no_ban': 0.52}}}
@@ -937,7 +937,6 @@ class WindABM(Model):
             ['Facility Name', 'State', 'Longitude', 'Latitude', 'Start Date',
              'Close Date', 'Waste Types Accepted', '$/ Ton',
              'Remaining Capacity (tons)', 'Total Waste in 2020_tons']]
-        wbj_database = wbj_database.dropna()
         wbj_database['Remaining Capacity (tons)'] = wbj_database[
             'Remaining Capacity (tons)'].astype(float) * metric_short_ton \
             / m_v_conv_factor_land
@@ -948,6 +947,7 @@ class WindABM(Model):
             wbj_database['Remaining Capacity (tons)'] > 0]
         wbj_database['Close Date'] = pd.DatetimeIndex(
             wbj_database['Close Date'].astype('datetime64')).year
+        wbj_database['Close Date'] = wbj_database['Close Date'].fillna(2050)
         wbj_database['Start Date'] = pd.DatetimeIndex(
             wbj_database['Start Date'].astype('datetime64')).year
         wbj_database = wbj_database[wbj_database['Close Date'] >
@@ -965,6 +965,7 @@ class WindABM(Model):
                                     (wbj_database['State'] != 'HI')]
         wbj_database['landfill_type'] = 'landfill'
         wbj_database = wbj_database.replace({'State': state_abrev})
+        wbj_database = wbj_database.dropna()
         wbj_database = wbj_database.reset_index(drop=True)
         return wbj_database
 
@@ -1242,6 +1243,9 @@ class WindABM(Model):
         :param regulations: a nested dictionary of choices and states that
         containing Booleans with True when the regulator in the state has
         enacted regulation(s) for the given choice and False otherwise
+        :param choices_circularity: dictionary qualifying choices in terms of
+        circularity, this may affect agents decision (e.g., agents may hold a
+        different attitude depending on the choice circularity
         :return: the pressure scores for each choice
         """
         scores = {}
