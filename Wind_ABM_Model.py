@@ -74,7 +74,7 @@ class WindABM(Model):
     def __init__(self,
                  seed=None,
                  manufacturers={
-                     "wind_blade": 16, "plastics_n_boards": 100, "cement": 97},
+                     "wind_blade": 5, "plastics_n_boards": 100, "cement": 97},
                  developers={'lifetime_extension': 10},
                  recyclers={
                      "dissolution": 7, "pyrolysis": 2,
@@ -87,7 +87,7 @@ class WindABM(Model):
                      "manufacturers": {"node_degree": 15,
                                        "rewiring_prob": 0.1},
                      "original_equipment_manufacturer": {
-                         "node_degree": 5, "rewiring_prob": 0.1},
+                         "node_degree": 4, "rewiring_prob": 0.1},
                      "landfills": {"node_degree": 5, "rewiring_prob": 0.1},
                      "regulators": {"node_degree": 5, "rewiring_prob": 0.1}},
                  external_files={
@@ -144,7 +144,7 @@ class WindABM(Model):
                      "landfill": 'undefined'},
                  lifetime_extension_revenues=[124, 1.7E6],
                  rec_processes_revenues={
-                     "dissolution": [0, 1E-6], "pyrolysis": [660, 1320],
+                     "dissolution": [0, 1E-6], "pyrolysis": [336, 672],
                      "mechanical_recycling": [242, 302.5],
                      "cement_co_processing": [0, 1E-6]},
                  lifetime_extension_years=[5, 15],
@@ -161,9 +161,17 @@ class WindABM(Model):
                  blade_costs={"thermoset": [50E3, 500E3],
                               "thermoplastic_rate": 0.953},
                  recyclers_states={
-                     "dissolution": ["Texas", "Oklahoma", "North Carolina",
-                                     "South Carolina", "Tennessee", "Ohio",
-                                     "Ohio"],
+                     "dissolution": [
+                         "Alabama", "Alabama", "Colorado", "Colorado",
+                         "Iowa", "Illinois", "Massachusetts", "Maine", "Maine",
+                         "Michigan", "Michigan", "Michigan", "Michigan",
+                         "Michigan", "Missouri", "Missouri", "Missouri",
+                         "North Carolina", "North Carolina", "North Carolina",
+                         "North Carolina", "North Carolina", "New Jersey",
+                         "Ohio", "Ohio", "Ohio", "Ohio", "Ohio",
+                         "Pennsylvania", "Pennsylvania", "South Carolina",
+                         "South Carolina", "South Carolina", "South Carolina",
+                         "Texas", "Texas", "Texas", "Texas", "Texas"],
                      "pyrolysis": ["South Carolina", "Tennessee"],
                      "mechanical_recycling": ["Iowa", "Texas", "Florida"],
                      "cement_co_processing": ["Missouri"]},
@@ -197,11 +205,8 @@ class WindABM(Model):
                      "resin": [0.12, 0.3], "glass_fiber": [0.12, 0.3]},
                  oem_states={
                      "wind_blade": [
-                         "Washington", "Oregon", "California", "Colorado",
-                         "North Dakota", "South Dakota", "South Dakota",
-                         "Minnesota", "Texas", "Iowa", "Illinois", "Arkansas",
-                         "Michigan", "Pennsylvania", "Rhode Island",
-                         "Maryland"]},
+                         "Colorado", "North Dakota", "South Dakota", "Iowa",
+                         "Iowa"]},
                  man_waste_dist_init={
                      "dissolution": 0.0, "mechanical_recycling": 0.02,
                      "landfill": 0.98},
@@ -1685,8 +1690,8 @@ class WindABM(Model):
         # converting $/truck_load-km in $/m_blade-km
         transport_cost_meter = transport_cost_segments / (
                 data['length_segment'] * data['segment_per_truck'])
-        mass_to_meter = mass_conv_factor * t_cap / (
-                t_rd / 2) * blades_per_rotor
+        mass_to_meter = mass_conv_factor * t_cap / ((
+                t_rd / 2) * blades_per_rotor)
         transport_cost_segments = transport_cost_meter / mass_to_meter
         # in the tuple: x is agent id, y is the distance to agent and z is
         # agent process net cost
