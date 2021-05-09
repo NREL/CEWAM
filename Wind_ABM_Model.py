@@ -138,10 +138,11 @@ class WindABM(Model):
                  transport_repair=1.57,
                  eol_pathways_transport_mode={
                      "lifetime_extension": 'transport_repair',
-                     "dissolution": 'undefined', "pyrolysis": 'undefined',
-                     "mechanical_recycling": 'undefined',
-                     "cement_co_processing": 'undefined',
-                     "landfill": 'undefined'},
+                     "dissolution": 'transport_segment',
+                     "pyrolysis": 'transport_segment',
+                     "mechanical_recycling": 'transport_segment',
+                     "cement_co_processing": 'transport_segment',
+                     "landfill": 'transport_segment'},
                  lifetime_extension_revenues=[124, 1.7E6],
                  rec_processes_revenues={
                      "dissolution": [0, 1E-6], "pyrolysis": [336, 672],
