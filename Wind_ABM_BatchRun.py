@@ -22,17 +22,25 @@ if __name__ == '__main__':
     t0 = time.time()
     all_fixed_params = {
         "seed": None,
-        "manufacturers": {"wind_blade": 16, "plastics_n_boards": 100,
+        "calibration": 1,
+        "calibration_2": 1,
+        "calibration_3": 1,
+        "calibration_4": 1,
+        "calibration_5": 1,
+        "calibration_6": 1,
+        "calibration_7": 1,
+        "calibration_8": 1,
+        "manufacturers": {"wind_blade": 5, "plastics_n_boards": 100,
                           "cement": 97},
         "developers": {'lifetime_extension': 10},
-        "recyclers": {"dissolution": 7, "pyrolysis": 2,
-                      "mechanical_recycling": 3, "cement_co_processing": 1},
+        "recyclers": {"dissolution": 41, "pyrolysis": 2,
+                      "mechanical_recycling": 2, "cement_co_processing": 1},
         "small_world_networks": {
             "wind_plant_owners": {"node_degree": 15, "rewiring_prob": 0.1},
             "developers": {"node_degree": 5, "rewiring_prob": 0.1},
             "recyclers": {"node_degree": 5, "rewiring_prob": 0.1},
             "manufacturers": {"node_degree": 15, "rewiring_prob": 0.1},
-            "original_equipment_manufacturer": {"node_degree": 5,
+            "original_equipment_manufacturer": {"node_degree": 4,
                                                 "rewiring_prob": 0.1},
             "landfills": {"node_degree": 5, "rewiring_prob": 0.1},
             "regulators": {"node_degree": 5, "rewiring_prob": 0.1}},
@@ -47,7 +55,7 @@ if __name__ == '__main__':
         "blade_size_to_mass_model": {'coefficient': 0.0026, 'power': 2.1447},
         "cap_to_diameter_model": {'coefficient': 57, 'power': 0.44},
         "temporal_scope": {'pre_simulation': 2000, 'simulation_start': 2020,
-                           'simulation_end': 2050},
+                           'simulation_end': 2061},
         "blades_per_rotor": 3,
         "eol_pathways": {"lifetime_extension": True, "dissolution": False,
                          "pyrolysis": True, "mechanical_recycling": True,
@@ -78,12 +86,14 @@ if __name__ == '__main__':
         "transport_repair": 1.57,
         "eol_pathways_transport_mode": {
             "lifetime_extension": 'transport_repair',
-            "dissolution": 'undefined', "pyrolysis": 'undefined',
-            "mechanical_recycling": 'undefined',
-            "cement_co_processing": 'undefined', "landfill": 'undefined'},
+            "dissolution": 'transport_segment',
+            "pyrolysis": 'transport_segment',
+            "mechanical_recycling": 'transport_segment',
+            "cement_co_processing": 'transport_segment',
+            "landfill": 'transport_segment'},
         "lifetime_extension_revenues": [124, 1.7E6],
         "rec_processes_revenues": {
-            "dissolution": [0, 1E-6], "pyrolysis": [660, 1320],
+            "dissolution": [0, 1E-6], "pyrolysis": [336, 672],
             "mechanical_recycling": [242, 302.5],
             "cement_co_processing": [0, 1E-6]},
         "lifetime_extension_years": [5, 15],
@@ -98,10 +108,18 @@ if __name__ == '__main__':
         "blade_costs": {"thermoset": [50E3, 500E3],
                         "thermoplastic_rate": 0.953},
         "recyclers_states": {
-            "dissolution": ["Texas", "Oklahoma", "North Carolina",
-                            "South Carolina", "Tennessee", "Ohio", "Ohio"],
+            "dissolution": [
+                "Alabama", "Alabama", "Colorado", "Colorado", "Iowa",
+                "Illinois", "Massachusetts", "Maine", "Maine", "Michigan",
+                "Michigan", "Michigan", "Michigan", "Michigan", "Minnesota",
+                "Missouri", "Missouri", "Missouri", "North Carolina",
+                "North Carolina", "North Carolina", "North Carolina",
+                "North Carolina", "New Jersey", "Ohio", "Ohio", "Ohio", "Ohio",
+                "Ohio", "Pennsylvania", "Pennsylvania", "Pennsylvania",
+                "South Carolina", "South Carolina", "South Carolina",
+                "South Carolina", "Texas", "Texas", "Texas", "Texas", "Texas"],
             "pyrolysis": ["South Carolina", "Tennessee"],
-            "mechanical_recycling": ["Iowa", "Texas", "Florida"],
+            "mechanical_recycling": ["Iowa", "Texas"],
             "cement_co_processing": ["Missouri"]},
         "learning_parameter": {
             "dissolution": [-0.21, -0.2], "pyrolysis": [-0.21, -0.2],
@@ -129,11 +147,8 @@ if __name__ == '__main__':
             "steel": [0.12, 0.3], "plastic": [0.12, 0.3],
             "resin": [0.12, 0.3], "glass_fiber": [0.12, 0.3]},
         "oem_states": {
-            "wind_blade": ["Washington", "Oregon", "California", "Colorado",
-                           "North Dakota", "South Dakota", "South Dakota",
-                           "Minnesota", "Texas", "Iowa", "Illinois",
-                           "Arkansas", "Michigan", "Pennsylvania",
-                           "Rhode Island", "Maryland"]},
+            "wind_blade": ["Colorado", "North Dakota", "South Dakota", "Iowa",
+                           "Iowa"]},
         "man_waste_dist_init": {
             "dissolution": 0.0, "mechanical_recycling": 0.02,
             "landfill": 0.98},
@@ -142,8 +157,8 @@ if __name__ == '__main__':
         "attitude_man_waste_parameters": {
             "mean": 0.5, 'standard_deviation': 0.01, 'min': 0, 'max': 1},
         "recycling_init_cap": {"dissolution": 1, "pyrolysis": 33100,
-                               "mechanical_recycling": 20000,
-                               "cement_co_processing": 20000},
+                               "mechanical_recycling": 54200,
+                               "cement_co_processing": 54200},
         "conversion_factors": {'metric_short_ton': 1.10231},
         "landfill_closure_threshold": [0.9, 1],
         "waste_volume_model": {
@@ -154,13 +169,26 @@ if __name__ == '__main__':
         "reg_landfill_threshold": [0.9, 1],
         "atb_land_wind": {'start': {'year': 2018, 't_cap': 2.4, 't_rd': 116},
                           'end': {'year': 2030, 't_cap': 5.5, 't_rd': 175}},
-        "regulation_scenario": True}
+        "regulation_scenario": {
+        'remaining_cap_based': False, 'empirically_based':
+            {'regulation': True, 'lag_time': [18, 32],
+             'regulation_freq': {
+                 'ban_shreds': 0.23, 'ban_whole_only': 0.25,
+                 'no_ban': 0.52}}}}
 
     def batch_parameters(sobol):
         if not sobol:
             nr_processes = 6
             variable_params = {
-                "seed": list(range(1))}
+                "seed": list(range(40)),
+                "calibration": [0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95],
+                "calibration_2": [0.30],
+                "calibration_3": [-0.21],
+                "calibration_4": [-0.13],
+                "calibration_5": [0],
+                "calibration_6": [0],
+                "calibration_7": [0],
+                "calibration_8": [0.33]}
             fixed_params = all_fixed_params.copy()
             for key in variable_params.keys():
                 fixed_params.pop(key)
@@ -183,7 +211,7 @@ if __name__ == '__main__':
             variable_parameters=variable_params,
             fixed_parameters=fixed_params,
             iterations=1,
-            max_steps=30,
+            max_steps=41,
             model_reporters={
                 "Year":
                     lambda a: getattr(a, "clock") +

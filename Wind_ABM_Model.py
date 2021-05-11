@@ -73,12 +73,20 @@ import copy
 class WindABM(Model):
     def __init__(self,
                  seed=None,
+                 calibration=1,
+                 calibration_2=1,
+                 calibration_3=1,
+                 calibration_4=1,
+                 calibration_5=1,
+                 calibration_6=1,
+                 calibration_7=1,
+                 calibration_8=1,
                  manufacturers={
                      "wind_blade": 5, "plastics_n_boards": 100, "cement": 97},
                  developers={'lifetime_extension': 10},
                  recyclers={
-                     "dissolution": 7, "pyrolysis": 2,
-                     "mechanical_recycling": 3, "cement_co_processing": 1},
+                     "dissolution": 41, "pyrolysis": 2,
+                     "mechanical_recycling": 2, "cement_co_processing": 1},
                  small_world_networks={
                      "wind_plant_owners": {
                          "node_degree": 15, "rewiring_prob": 0.1},
@@ -114,10 +122,10 @@ class WindABM(Model):
                      "lifetime_extension": 0.005, "dissolution": 0.0,
                      "pyrolysis": 0.005, "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
-                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.36, 'w_sn': 0.672,
-                                'w_pbc': -0.13, 'w_p': 0.132, 'w_b': -0.252},
+                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.30, 'w_sn': 0.56,
+                                'w_pbc': -0.13, 'w_p': 0.11, 'w_b': -0.21},
                  attitude_eol_parameters={
-                     "mean": 0.85, 'standard_deviation': 0.1, 'min': 0,
+                     "mean": 0.5, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
                  choices_circularity={
                      "lifetime_extension": True, "dissolution": True,
@@ -166,15 +174,16 @@ class WindABM(Model):
                          "Alabama", "Alabama", "Colorado", "Colorado",
                          "Iowa", "Illinois", "Massachusetts", "Maine", "Maine",
                          "Michigan", "Michigan", "Michigan", "Michigan",
-                         "Michigan", "Missouri", "Missouri", "Missouri",
+                         "Michigan", "Minnesota", "Missouri", "Missouri",
+                         "Missouri", "North Carolina", "North Carolina",
                          "North Carolina", "North Carolina", "North Carolina",
-                         "North Carolina", "North Carolina", "New Jersey",
-                         "Ohio", "Ohio", "Ohio", "Ohio", "Ohio",
-                         "Pennsylvania", "Pennsylvania", "South Carolina",
+                         "New Jersey", "Ohio", "Ohio", "Ohio", "Ohio", "Ohio",
+                         "Pennsylvania", "Pennsylvania", "Pennsylvania",
                          "South Carolina", "South Carolina", "South Carolina",
-                         "Texas", "Texas", "Texas", "Texas", "Texas"],
+                         "South Carolina", "Texas", "Texas", "Texas", "Texas",
+                         "Texas"],
                      "pyrolysis": ["South Carolina", "Tennessee"],
-                     "mechanical_recycling": ["Iowa", "Texas", "Florida"],
+                     "mechanical_recycling": ["Iowa", "Texas"],
                      "cement_co_processing": ["Missouri"]},
                  learning_parameter={
                      "dissolution": [-0.21, -0.2],
@@ -358,7 +367,20 @@ class WindABM(Model):
         """
         # Variables from inputs (value defined externally):
         self.seed = copy.deepcopy(seed)
-        np.random.seed(self.seed)
+        attitude_eol_parameters['mean'] = calibration
+        tpb_eol_coeff['w_a'] = calibration_2
+        tpb_eol_coeff['w_b'] = calibration_3
+        tpb_eol_coeff['w_pbc'] = calibration_4
+        rec_processes_revenues['mechanical_recycling'] = [
+            x * (1 - calibration_5) for x in
+            rec_processes_revenues['mechanical_recycling']]
+        rec_processes_revenues['pyrolysis'] = [
+            x * (1 - calibration_6) for x in
+            rec_processes_revenues['pyrolysis']]
+        rec_processes_costs['cement_co_processing'] = [
+            x * (1 - calibration_7) for x in
+            rec_processes_costs['cement_co_processing']]
+        tpb_eol_coeff['w_bi'] = calibration_8
         random.seed(self.seed)
         self.manufacturers = copy.deepcopy(manufacturers)
         self.developers = copy.deepcopy(developers)
