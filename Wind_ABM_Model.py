@@ -86,7 +86,7 @@ class WindABM(Model):
                  developers={'lifetime_extension': 10},
                  recyclers={
                      "dissolution": 41, "pyrolysis": 2,
-                     "mechanical_recycling": 2, "cement_co_processing": 1},
+                     "mechanical_recycling": 3, "cement_co_processing": 1},
                  small_world_networks={
                      "wind_plant_owners": {
                          "node_degree": 15, "rewiring_prob": 0.1},
@@ -183,7 +183,7 @@ class WindABM(Model):
                          "South Carolina", "Texas", "Texas", "Texas", "Texas",
                          "Texas"],
                      "pyrolysis": ["South Carolina", "Tennessee"],
-                     "mechanical_recycling": ["Iowa", "Texas"],
+                     "mechanical_recycling": ["Iowa", "Texas", "Florida"],
                      "cement_co_processing": ["Missouri"]},
                  learning_parameter={
                      "dissolution": [-0.21, -0.2],

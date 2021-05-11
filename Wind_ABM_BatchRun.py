@@ -34,7 +34,7 @@ if __name__ == '__main__':
                           "cement": 97},
         "developers": {'lifetime_extension': 10},
         "recyclers": {"dissolution": 41, "pyrolysis": 2,
-                      "mechanical_recycling": 2, "cement_co_processing": 1},
+                      "mechanical_recycling": 3, "cement_co_processing": 1},
         "small_world_networks": {
             "wind_plant_owners": {"node_degree": 15, "rewiring_prob": 0.1},
             "developers": {"node_degree": 5, "rewiring_prob": 0.1},
@@ -119,7 +119,7 @@ if __name__ == '__main__':
                 "South Carolina", "South Carolina", "South Carolina",
                 "South Carolina", "Texas", "Texas", "Texas", "Texas", "Texas"],
             "pyrolysis": ["South Carolina", "Tennessee"],
-            "mechanical_recycling": ["Iowa", "Texas"],
+            "mechanical_recycling": ["Iowa", "Texas", "Florida"],
             "cement_co_processing": ["Missouri"]},
         "learning_parameter": {
             "dissolution": [-0.21, -0.2], "pyrolysis": [-0.21, -0.2],
@@ -180,8 +180,8 @@ if __name__ == '__main__':
         if not sobol:
             nr_processes = 6
             variable_params = {
-                "seed": list(range(40)),
-                "calibration": [0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95],
+                "seed": list(range(10)),
+                "calibration": [0.8, 0.81, 0.82, 0.83, 0.84, 0.85],
                 "calibration_2": [0.30],
                 "calibration_3": [-0.21],
                 "calibration_4": [-0.13],
