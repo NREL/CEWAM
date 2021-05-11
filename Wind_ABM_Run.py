@@ -40,9 +40,13 @@ class WindABMRun:
         """
         for j in range(self.number_run):
             t0 = time.time()
-            self.model_instance = self.model_in(seed=j, temporal_scope={
-                'pre_simulation': 2000, 'simulation_start': 2020,
-                'simulation_end': (2020 + self.number_steps)})
+            self.model_instance = self.model_in(
+                seed=j, temporal_scope={
+                    'pre_simulation': 2000, 'simulation_start': 2020,
+                    'simulation_end': (2020 + self.number_steps)},
+                calibration=0.84, calibration_2=0.3, calibration_3=-0.21,
+                calibration_4=-0.13, calibration_5=0, calibration_6=0,
+                calibration_7=0, calibration_8=0.33)
             for key, value in self.kwargs.items():
                 setattr(self.model_instance, key, value)
             for i in range(
@@ -65,4 +69,4 @@ class WindABMRun:
 
 
 # Comment line below when running WindWBMRun tests
-WindABMRun(number_steps=31).run_model()
+WindABMRun(number_steps=31, number_run=20).run_model()

@@ -125,7 +125,7 @@ class WindABM(Model):
                  tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.30, 'w_sn': 0.56,
                                 'w_pbc': -0.13, 'w_p': 0.11, 'w_b': -0.21},
                  attitude_eol_parameters={
-                     "mean": 0.5, 'standard_deviation': 0.1, 'min': 0,
+                     "mean": 0.84, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
                  choices_circularity={
                      "lifetime_extension": True, "dissolution": True,
