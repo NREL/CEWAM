@@ -37,8 +37,11 @@ class Manufacturer(Agent):
                 self.model.symetric_triang_distrib_draw(
                     self.model.blade_costs["thermoset"][0],
                     self.model.blade_costs["thermoset"][1])
-            self.bt_costs['thermoplastic'] = self.model.blade_costs[
-                "thermoplastic_rate"] * self.bt_costs['thermoset']
+            self.tp_blade_rate = self.model.symetric_triang_distrib_draw(
+                self.model.blade_costs["thermoplastic_rate"][0],
+                self.model.blade_costs["thermoplastic_rate"][1])
+            self.bt_costs['thermoplastic'] = self.tp_blade_rate * \
+                self.bt_costs['thermoset']
             self.blade_type = self.model.list_bt_man.pop()
             self.bt_second_choice = random.choice(self.model.filter_list(
                 self.model.list_init_bt_second_choice, self.blade_type))

@@ -14,14 +14,14 @@ from mesa.batchrunner import BatchRunnerMP
 import time
 
 # TODO: Continue here:
-#  1) fix pull issue in home computer and launch preliminary calibration
-#  2) rewrite the sobol code
+#  1) rewrite the sobol code
 
 
 if __name__ == '__main__':
     t0 = time.time()
     all_fixed_params = {
         "seed": None,
+        "batch_run": True,
         "calibration": 1,
         "calibration_2": 1,
         "calibration_3": 1,
@@ -33,14 +33,14 @@ if __name__ == '__main__':
         "manufacturers": {"wind_blade": 5, "plastics_n_boards": 100,
                           "cement": 97},
         "developers": {'lifetime_extension': 10},
-        "recyclers": {"dissolution": 41, "pyrolysis": 2,
+        "recyclers": {"dissolution": 6, "pyrolysis": 2,
                       "mechanical_recycling": 3, "cement_co_processing": 1},
         "small_world_networks": {
             "wind_plant_owners": {"node_degree": 15, "rewiring_prob": 0.1},
             "developers": {"node_degree": 5, "rewiring_prob": 0.1},
             "recyclers": {"node_degree": 5, "rewiring_prob": 0.1},
             "manufacturers": {"node_degree": 15, "rewiring_prob": 0.1},
-            "original_equipment_manufacturer": {"node_degree": 4,
+            "original_equipment_manufacturer": {"node_degree": 3,
                                                 "rewiring_prob": 0.1},
             "landfills": {"node_degree": 5, "rewiring_prob": 0.1},
             "regulators": {"node_degree": 5, "rewiring_prob": 0.1}},
@@ -75,7 +75,7 @@ if __name__ == '__main__':
         "decommissioning_cost": [1300, 33000],
         "lifetime_extension_costs": [600, 6000],
         "rec_processes_costs": {
-            "dissolution": [0, 1E-6], "pyrolysis": [280.5, 550],
+            "dissolution": [658.2, 658.3], "pyrolysis": [280.5, 550],
             "mechanical_recycling": [212.3, 286],
             "cement_co_processing": [99, 132]},
         "transport_shreds": {'shredding_costs': [99, 132],
@@ -93,7 +93,7 @@ if __name__ == '__main__':
             "landfill": 'transport_segment'},
         "lifetime_extension_revenues": [124, 1.7E6],
         "rec_processes_revenues": {
-            "dissolution": [0, 1E-6], "pyrolysis": [336, 672],
+            "dissolution": [1338, 1339], "pyrolysis": [336, 672],
             "mechanical_recycling": [242, 302.5],
             "cement_co_processing": [0, 1E-6]},
         "lifetime_extension_years": [5, 15],
@@ -106,18 +106,11 @@ if __name__ == '__main__':
         "attitude_bt_parameters": {'mean': 0.5, 'standard_deviation': 0.1,
                                    'min': 0, 'max': 1},
         "blade_costs": {"thermoset": [50E3, 500E3],
-                        "thermoplastic_rate": 0.953},
+                        "thermoplastic_rate": [0.92, 1.04]},
         "recyclers_states": {
             "dissolution": [
-                "Alabama", "Alabama", "Colorado", "Colorado", "Iowa",
-                "Illinois", "Massachusetts", "Maine", "Maine", "Michigan",
-                "Michigan", "Michigan", "Michigan", "Michigan", "Minnesota",
-                "Missouri", "Missouri", "Missouri", "North Carolina",
-                "North Carolina", "North Carolina", "North Carolina",
-                "North Carolina", "New Jersey", "Ohio", "Ohio", "Ohio", "Ohio",
-                "Ohio", "Pennsylvania", "Pennsylvania", "Pennsylvania",
-                "South Carolina", "South Carolina", "South Carolina",
-                "South Carolina", "Texas", "Texas", "Texas", "Texas", "Texas"],
+                "South Carolina", "Tennessee", "Iowa", "Texas",
+                "Florida", "Missouri"],
             "pyrolysis": ["South Carolina", "Tennessee"],
             "mechanical_recycling": ["Iowa", "Texas", "Florida"],
             "cement_co_processing": ["Missouri"]},
@@ -128,8 +121,8 @@ if __name__ == '__main__':
         "blade_mass_fractions": {"steel": 0.05, "plastic": 0.09, "resin": 0.30,
                                  "glass_fiber": 0.56},
         "rec_recovery_fractions": {
-            "dissolution": {"steel": 1, "plastic": 1, "resin": 1,
-                            "glass_fiber": 1},
+            "dissolution": {"steel": 1, "plastic": 1, "resin": 0.9,
+                            "glass_fiber": 0.5},
             "pyrolysis": {"steel": 1, "plastic": 0, "resin": 0,
                           "glass_fiber": 0.5},
             "mechanical_recycling": {"steel": 1, "plastic": 1, "resin": 1,
@@ -142,7 +135,7 @@ if __name__ == '__main__':
         "tpb_bt_man_coeff": {'w_bi': 1.00, 'w_a': 0.15, 'w_sn': 0.35,
                              'w_pbc': -0.24, 'w_p': 0.00, 'w_b': 0.00},
         "lag_time_tp_blade_dev": 5,
-        "tp_production_share": 0.5,
+        "tp_production_share": 1,
         "manufacturing_waste_ratio": {
             "steel": [0.12, 0.3], "plastic": [0.12, 0.3],
             "resin": [0.12, 0.3], "glass_fiber": [0.12, 0.3]},
@@ -170,7 +163,7 @@ if __name__ == '__main__':
         "atb_land_wind": {'start': {'year': 2018, 't_cap': 2.4, 't_rd': 116},
                           'end': {'year': 2030, 't_cap': 5.5, 't_rd': 175}},
         "regulation_scenario": {
-        'remaining_cap_based': False, 'empirically_based':
+            'remaining_cap_based': False, 'empirically_based':
             {'regulation': True, 'lag_time': [18, 32],
              'regulation_freq': {
                  'ban_shreds': 0.23, 'ban_whole_only': 0.25,
@@ -181,8 +174,8 @@ if __name__ == '__main__':
             nr_processes = 6
             variable_params = {
                 "seed": list(range(10)),
-                "calibration": [0.84],
-                "calibration_2": [0.30],
+                "calibration": [0.5, 1],
+                "calibration_2": [0.5, 1],
                 "calibration_3": [-0.21],
                 "calibration_4": [-0.13],
                 "calibration_5": [0],
@@ -265,7 +258,9 @@ if __name__ == '__main__':
                 "Blade waste in landfill":
                     lambda a: getattr(a, "state_blade_waste"),
                 "Yearly waste ratios":
-                    lambda a: getattr(a, "yearly_waste_ratios")})
+                    lambda a: getattr(a, "yearly_waste_ratios"),
+                "Cumulative blade ratios":
+                    lambda a: getattr(a, "cum_blade_ratios")})
         batch_run.run_all()
         if not sobol:
             run_data = batch_run.get_model_vars_dataframe()

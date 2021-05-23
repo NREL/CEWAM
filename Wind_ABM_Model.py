@@ -11,15 +11,6 @@ outputs.
 """
 
 # TODO: Next steps - continue HERE
-#  0) Calibration:
-#    * Build reporters used for calibrating with the waste tire, plastic and
-#    glass cases (I could have a figure showing all three + baseline case
-#    * Start by roughly reducing the range for each parameters
-#    * Use a machine learning metamodel to calibrate the ABM quicker -->
-#    calibrate with attitude values and if necessary TPB coefficients (within
-#    defined values for uncertainty assessment described in the memo report)
-#   * Calibrate with the waste tire, plastic and glass cases (average of the
-#   three) from 2020 to 2070 with stabilization from 2050 to 2070
 #  1) Re-write all unittests and missing unittest for all agents
 #  2) More unittests:
 #    i) for recycler and other agents similar to recycler write
@@ -73,6 +64,7 @@ import copy
 class WindABM(Model):
     def __init__(self,
                  seed=None,
+                 batch_run=False,
                  calibration=1,
                  calibration_2=1,
                  calibration_3=1,
@@ -85,7 +77,7 @@ class WindABM(Model):
                      "wind_blade": 5, "plastics_n_boards": 100, "cement": 97},
                  developers={'lifetime_extension': 10},
                  recyclers={
-                     "dissolution": 41, "pyrolysis": 2,
+                     "dissolution": 6, "pyrolysis": 2,
                      "mechanical_recycling": 3, "cement_co_processing": 1},
                  small_world_networks={
                      "wind_plant_owners": {
@@ -95,7 +87,7 @@ class WindABM(Model):
                      "manufacturers": {"node_degree": 15,
                                        "rewiring_prob": 0.1},
                      "original_equipment_manufacturer": {
-                         "node_degree": 4, "rewiring_prob": 0.1},
+                         "node_degree": 3, "rewiring_prob": 0.1},
                      "landfills": {"node_degree": 5, "rewiring_prob": 0.1},
                      "regulators": {"node_degree": 5, "rewiring_prob": 0.1}},
                  external_files={
@@ -135,7 +127,7 @@ class WindABM(Model):
                  decommissioning_cost=[1300, 33000],
                  lifetime_extension_costs=[600, 6000],
                  rec_processes_costs={
-                     "dissolution": [0, 1E-6], "pyrolysis": [280.5, 550],
+                     "dissolution": [658.2, 658.3], "pyrolysis": [280.5, 550],
                      "mechanical_recycling": [212.3, 286],
                      "cement_co_processing": [99, 132]},
                  transport_shreds={'shredding_costs': [99, 132],
@@ -153,7 +145,7 @@ class WindABM(Model):
                      "landfill": 'transport_segment'},
                  lifetime_extension_revenues=[124, 1.7E6],
                  rec_processes_revenues={
-                     "dissolution": [0, 1E-6], "pyrolysis": [336, 672],
+                     "dissolution": [1338, 1339], "pyrolysis": [336, 672],
                      "mechanical_recycling": [242, 302.5],
                      "cement_co_processing": [0, 1E-6]},
                  lifetime_extension_years=[5, 15],
@@ -168,20 +160,11 @@ class WindABM(Model):
                      'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
                  blade_costs={"thermoset": [50E3, 500E3],
-                              "thermoplastic_rate": 0.953},
+                              "thermoplastic_rate": [0.92, 1.04]},
                  recyclers_states={
                      "dissolution": [
-                         "Alabama", "Alabama", "Colorado", "Colorado",
-                         "Iowa", "Illinois", "Massachusetts", "Maine", "Maine",
-                         "Michigan", "Michigan", "Michigan", "Michigan",
-                         "Michigan", "Minnesota", "Missouri", "Missouri",
-                         "Missouri", "North Carolina", "North Carolina",
-                         "North Carolina", "North Carolina", "North Carolina",
-                         "New Jersey", "Ohio", "Ohio", "Ohio", "Ohio", "Ohio",
-                         "Pennsylvania", "Pennsylvania", "Pennsylvania",
-                         "South Carolina", "South Carolina", "South Carolina",
-                         "South Carolina", "Texas", "Texas", "Texas", "Texas",
-                         "Texas"],
+                         "South Carolina", "Tennessee", "Iowa", "Texas",
+                         "Florida", "Missouri"],
                      "pyrolysis": ["South Carolina", "Tennessee"],
                      "mechanical_recycling": ["Iowa", "Texas", "Florida"],
                      "cement_co_processing": ["Missouri"]},
@@ -194,8 +177,8 @@ class WindABM(Model):
                      "steel": 0.05, "plastic": 0.09, "resin": 0.30,
                      "glass_fiber": 0.56},
                  rec_recovery_fractions={
-                     "dissolution": {"steel": 1, "plastic": 1, "resin": 1,
-                                     "glass_fiber": 1},
+                     "dissolution": {"steel": 1, "plastic": 1, "resin": 0.9,
+                                     "glass_fiber": 0.5},
                      "pyrolysis": {"steel": 1, "plastic": 0, "resin": 0,
                                    "glass_fiber": 0.5},
                      "mechanical_recycling": {"steel": 1, "plastic": 1,
@@ -209,7 +192,7 @@ class WindABM(Model):
                  tpb_bt_man_coeff={'w_bi': 1.00, 'w_a': 0.15, 'w_sn': 0.35,
                                    'w_pbc': -0.24, 'w_p': 0.00, 'w_b': 0.00},
                  lag_time_tp_blade_dev=5,
-                 tp_production_share=0.5,
+                 tp_production_share=1,
                  manufacturing_waste_ratio={
                      "steel": [0.12, 0.3], "plastic": [0.12, 0.3],
                      "resin": [0.12, 0.3], "glass_fiber": [0.12, 0.3]},
@@ -251,6 +234,8 @@ class WindABM(Model):
         """
         Initiate model.
         :param seed: number used to initialize the random generator
+        :param batch_run: enable varying different type of input parameters 
+        (Mesa batch run inputs is limited to lists)
         :param manufacturers: number of manufacturers (man) for each 
         manufacturer type
         :param developers: number of developers (dev)
@@ -367,20 +352,21 @@ class WindABM(Model):
         """
         # Variables from inputs (value defined externally):
         self.seed = copy.deepcopy(seed)
-        attitude_eol_parameters['mean'] = calibration
-        tpb_eol_coeff['w_a'] = calibration_2
-        tpb_eol_coeff['w_b'] = calibration_3
-        tpb_eol_coeff['w_pbc'] = calibration_4
-        rec_processes_revenues['mechanical_recycling'] = [
-            x * (1 - calibration_5) for x in
-            rec_processes_revenues['mechanical_recycling']]
-        rec_processes_revenues['pyrolysis'] = [
-            x * (1 - calibration_6) for x in
-            rec_processes_revenues['pyrolysis']]
-        rec_processes_costs['cement_co_processing'] = [
-            x * (1 - calibration_7) for x in
-            rec_processes_costs['cement_co_processing']]
-        tpb_eol_coeff['w_bi'] = calibration_8
+        if batch_run:
+            attitude_bt_parameters['mean'] = calibration
+            attitude_man_waste_parameters['mean'] = calibration_2
+            tpb_eol_coeff['w_b'] = calibration_3
+            tpb_eol_coeff['w_pbc'] = calibration_4
+            rec_processes_revenues['mechanical_recycling'] = [
+                x * (1 - calibration_5) for x in
+                rec_processes_revenues['mechanical_recycling']]
+            rec_processes_revenues['pyrolysis'] = [
+                x * (1 - calibration_6) for x in
+                rec_processes_revenues['pyrolysis']]
+            rec_processes_costs['cement_co_processing'] = [
+                x * (1 - calibration_7) for x in
+                rec_processes_costs['cement_co_processing']]
+            tpb_eol_coeff['w_bi'] = calibration_8
         random.seed(self.seed)
         self.manufacturers = copy.deepcopy(manufacturers)
         self.developers = copy.deepcopy(developers)
@@ -592,6 +578,10 @@ class WindABM(Model):
             self.regulators, False, [])
         self.transport_shreds_mandate = self.nested_init_dic(
             False, self.choices_circularity.keys(), self.growth_rates.keys())
+        self.cum_blade_ratios = self.nested_init_dic(
+            0, list(range(self.temporal_scope['simulation_start'],
+                          self.temporal_scope['simulation_end'])),
+            self.blade_types)
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -706,7 +696,9 @@ class WindABM(Model):
             "Blade waste in landfill":
                 lambda a: str(self.state_blade_waste),
             "Yearly waste ratios":
-                lambda a: str(self.yearly_waste_ratios)}
+                lambda a: str(self.yearly_waste_ratios),
+            "Cumulative blade ratios":
+                lambda a: str(self.cum_blade_ratios)}
         self.agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
@@ -1916,23 +1908,27 @@ class WindABM(Model):
         return weighted_average
 
     @staticmethod
-    def compute_yearly_waste_ratios(
-            yearly_waste_ratios, states_waste_eol_path, simulation_start,
-            clock, eol_pathways, past_eol_waste, safe_div):
-        eol_path_waste = dict.fromkeys(eol_pathways.keys(), 0)
-        yearly_waste = {}
-        total_waste = 0
-        for value in states_waste_eol_path.values():
+    def compute_yearly_or_cum_adoption_ratios(
+            yearly_cum_ratios, input_variable, simulation_start,
+            clock, categories, past_values, safe_div, yearly):
+        categories_new_dict = dict.fromkeys(categories.keys(), 0)
+        yearly_cum_value = {}
+        total = 0
+        for value in input_variable.values():
             for key, value2 in value.items():
-                eol_path_waste[key] += value2
-        for key in eol_path_waste.keys():
-            yearly_waste[key] = eol_path_waste[key] - past_eol_waste[key]
-            total_waste += yearly_waste[key]
-        for key in eol_path_waste.keys():
-            yearly_waste_ratios[simulation_start + clock][key] = safe_div(
-                yearly_waste[key], total_waste)
-        past_eol_waste = copy.deepcopy(eol_path_waste)
-        return yearly_waste_ratios, past_eol_waste
+                categories_new_dict[key] += value2
+        for key in categories_new_dict.keys():
+            yearly_cum_value[key] = categories_new_dict[key] - \
+                                    past_values[key]
+            total += yearly_cum_value[key]
+        for key in categories_new_dict.keys():
+            yearly_cum_ratios[simulation_start + clock][key] = safe_div(
+                yearly_cum_value[key], total)
+        if yearly:
+            past_values = copy.deepcopy(categories_new_dict)
+        else:
+            past_values = dict.fromkeys(categories.keys(), 0)
+        return yearly_cum_ratios, past_values
 
     def reinitialize_global_variables_wpo(self):
         """
@@ -1982,10 +1978,16 @@ class WindABM(Model):
         self.landfill_remaining_cap = self.initial_dic_from_key_list(
             self.growth_rates.keys(), 0)
         self.yearly_waste_ratios, self.past_eol_waste = \
-            self.compute_yearly_waste_ratios(
+            self.compute_yearly_or_cum_adoption_ratios(
                 self.yearly_waste_ratios, self.states_waste_eol_path,
                 self.temporal_scope['simulation_start'], self.clock,
-                self.eol_pathways, self.past_eol_waste, self.safe_div)
+                self.eol_pathways, self.past_eol_waste, self.safe_div, True)
+        self.cum_blade_ratios = \
+            self.compute_yearly_or_cum_adoption_ratios(
+                self.cum_blade_ratios, self.blade_type_capacities,
+                self.temporal_scope['simulation_start'], self.clock,
+                self.blade_types, dict.fromkeys(self.blade_types.keys(), 0),
+                self.safe_div, False)[0]
         self.landfill_count = len(self.schedule_land.agents)
         self.average_eol_costs = self.initial_dic_from_key_list(
             self.eol_pathways.keys(), 0)
