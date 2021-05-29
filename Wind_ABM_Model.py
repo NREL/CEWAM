@@ -87,7 +87,7 @@ class WindABM(Model):
                      "manufacturers": {"node_degree": 15,
                                        "rewiring_prob": 0.1},
                      "original_equipment_manufacturer": {
-                         "node_degree": 3, "rewiring_prob": 0.1},
+                         "node_degree": 4, "rewiring_prob": 1},
                      "landfills": {"node_degree": 5, "rewiring_prob": 0.1},
                      "regulators": {"node_degree": 5, "rewiring_prob": 0.1}},
                  external_files={
@@ -127,8 +127,9 @@ class WindABM(Model):
                  decommissioning_cost=[1300, 33000],
                  lifetime_extension_costs=[600, 6000],
                  rec_processes_costs={
-                     "dissolution": [658.2, 658.3], "pyrolysis": [280.5, 550],
-                     "mechanical_recycling": [212.3, 286],
+                     "dissolution": [658.2, 658.3],
+                     "pyrolysis": [288.2, 563.3],
+                     "mechanical_recycling": [221.1, 310.2],
                      "cement_co_processing": [99, 132]},
                  transport_shreds={'shredding_costs': [99, 132],
                                    'transport_cost_shreds': [0.0314, 0.0820]},
@@ -138,11 +139,11 @@ class WindABM(Model):
                  transport_repair=1.57,
                  eol_pathways_transport_mode={
                      "lifetime_extension": 'transport_repair',
-                     "dissolution": 'transport_segment',
-                     "pyrolysis": 'transport_segment',
-                     "mechanical_recycling": 'transport_segment',
-                     "cement_co_processing": 'transport_segment',
-                     "landfill": 'transport_segment'},
+                     "dissolution": 'transport_segments',
+                     "pyrolysis": 'transport_segments',
+                     "mechanical_recycling": 'transport_segments',
+                     "cement_co_processing": 'transport_segments',
+                     "landfill": 'transport_segments'},
                  lifetime_extension_revenues=[124, 1.7E6],
                  rec_processes_revenues={
                      "dissolution": [1338, 1339], "pyrolysis": [336, 672],
@@ -152,12 +153,12 @@ class WindABM(Model):
                  le_feasibility=0.55,
                  early_failure_share=0.03,
                  blade_types={"thermoset": True, "thermoplastic": True},
-                 blade_types_dist_init={"thermoset": 1.0,
-                                        "thermoplastic": 0.0},
+                 blade_types_dist_init={"thermoset": 0.996,
+                                        "thermoplastic": 0.004},
                  tpb_bt_coeff={'w_bi': 1.00, 'w_a': 0.30, 'w_sn': 0.21,
                                'w_pbc': -0.32, 'w_p': 0.00, 'w_b': 0.00},
                  attitude_bt_parameters={
-                     'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
+                     'mean': 0.8, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
                  blade_costs={"thermoset": [50E3, 500E3],
                               "thermoplastic_rate": [0.92, 1.04]},
@@ -185,11 +186,11 @@ class WindABM(Model):
                                               "resin": 1, "glass_fiber": 1},
                      "cement_co_processing": {"steel": 1, "plastic": 0,
                                               "resin": 0, "glass_fiber": 1}},
-                 bt_man_dist_init={"thermoset": 1, "thermoplastic": 0.0},
+                 bt_man_dist_init={"thermoset": 0.996, "thermoplastic": 0.004},
                  attitude_bt_man_parameters={
-                     'mean': 0.5, 'standard_deviation': 0.1, 'min': 0,
+                     'mean': 0.9, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
-                 tpb_bt_man_coeff={'w_bi': 1.00, 'w_a': 0.15, 'w_sn': 0.35,
+                 tpb_bt_man_coeff={'w_bi': 1.00, 'w_a': 0.15, 'w_sn': 0.125,
                                    'w_pbc': -0.24, 'w_p': 0.00, 'w_b': 0.00},
                  lag_time_tp_blade_dev=5,
                  tp_production_share=1,
@@ -353,20 +354,44 @@ class WindABM(Model):
         # Variables from inputs (value defined externally):
         self.seed = copy.deepcopy(seed)
         if batch_run:
-            attitude_bt_parameters['mean'] = calibration
-            attitude_man_waste_parameters['mean'] = calibration_2
+            # TODO: below we use calibration variable for the SA on
+            #  shredding costs
+            if calibration == 1:
+                eol_pathways_transport_mode['pyrolysis'] = 'transport_shreds'
+                eol_pathways_transport_mode['mechanical_recycling'] = \
+                    'transport_shreds'
+                eol_pathways_transport_mode['cement_co_processing'] = \
+                    'transport_shreds'
+                eol_pathways_transport_mode['landfill'] = \
+                    'transport_shreds'
+                copy_shredding_costs = \
+                    copy.deepcopy(transport_shreds['shredding_costs'])
+                transport_shreds['shredding_costs'] = [
+                    x * calibration_2 for x in
+                    transport_shreds['shredding_costs']]
+                # transport_shreds['transport_cost_shreds'] = [
+                #    x * calibration_2 for x in
+                #    transport_shreds['transport_cost_shreds']]
+                rec_processes_costs['pyrolysis'] = [
+                    x - (y * (1 - calibration_2)) for x, y in
+                    zip(rec_processes_costs['pyrolysis'],
+                        copy_shredding_costs)]
+                rec_processes_costs['mechanical_recycling'] = [
+                    x - (y * (1 - calibration_2)) for x, y in
+                    zip(rec_processes_costs['mechanical_recycling'],
+                        copy_shredding_costs)]
+                rec_processes_costs['cement_co_processing'] = [
+                    x - (y * (1 - calibration_2)) for x, y in
+                    zip(rec_processes_costs['cement_co_processing'],
+                        copy_shredding_costs)]
+
             tpb_eol_coeff['w_b'] = calibration_3
             tpb_eol_coeff['w_pbc'] = calibration_4
-            rec_processes_revenues['mechanical_recycling'] = [
-                x * (1 - calibration_5) for x in
-                rec_processes_revenues['mechanical_recycling']]
-            rec_processes_revenues['pyrolysis'] = [
-                x * (1 - calibration_6) for x in
-                rec_processes_revenues['pyrolysis']]
-            rec_processes_costs['cement_co_processing'] = [
-                x * (1 - calibration_7) for x in
-                rec_processes_costs['cement_co_processing']]
+            tpb_eol_coeff['w_sn'] = calibration_5
+            tpb_eol_coeff['w_a'] = calibration_6
+            tpb_eol_coeff['w_p'] = calibration_7
             tpb_eol_coeff['w_bi'] = calibration_8
+
         random.seed(self.seed)
         self.manufacturers = copy.deepcopy(manufacturers)
         self.developers = copy.deepcopy(developers)
@@ -582,6 +607,10 @@ class WindABM(Model):
             0, list(range(self.temporal_scope['simulation_start'],
                           self.temporal_scope['simulation_end'])),
             self.blade_types)
+        self.cum_waste_ratios = self.nested_init_dic(
+            0, list(range(self.temporal_scope['simulation_start'],
+                          self.temporal_scope['simulation_end'])),
+            self.eol_pathways)
         # Computing transportation distances:
         self.state_distances = \
             pd.read_csv(self.external_files["state_distances"])
@@ -698,7 +727,9 @@ class WindABM(Model):
             "Yearly waste ratios":
                 lambda a: str(self.yearly_waste_ratios),
             "Cumulative blade ratios":
-                lambda a: str(self.cum_blade_ratios)}
+                lambda a: str(self.cum_blade_ratios),
+            "Cumulative waste ratios":
+                lambda a: str(self.cum_waste_ratios)}
         self.agent_reporters = {
             "State": lambda a: getattr(a, "t_state", None),
             "Capacity (MW)": lambda a: getattr(a, "p_cap", None),
@@ -1987,6 +2018,11 @@ class WindABM(Model):
                 self.cum_blade_ratios, self.blade_type_capacities,
                 self.temporal_scope['simulation_start'], self.clock,
                 self.blade_types, dict.fromkeys(self.blade_types.keys(), 0),
+                self.safe_div, False)[0]
+        self.cum_waste_ratios = self.compute_yearly_or_cum_adoption_ratios(
+                self.cum_waste_ratios, self.states_waste_eol_path,
+                self.temporal_scope['simulation_start'], self.clock,
+                self.eol_pathways, dict.fromkeys(self.eol_pathways.keys(), 0),
                 self.safe_div, False)[0]
         self.landfill_count = len(self.schedule_land.agents)
         self.average_eol_costs = self.initial_dic_from_key_list(

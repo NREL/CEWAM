@@ -40,8 +40,8 @@ if __name__ == '__main__':
             "developers": {"node_degree": 5, "rewiring_prob": 0.1},
             "recyclers": {"node_degree": 5, "rewiring_prob": 0.1},
             "manufacturers": {"node_degree": 15, "rewiring_prob": 0.1},
-            "original_equipment_manufacturer": {"node_degree": 3,
-                                                "rewiring_prob": 0.1},
+            "original_equipment_manufacturer": {"node_degree": 4,
+                                                "rewiring_prob": 1},
             "landfills": {"node_degree": 5, "rewiring_prob": 0.1},
             "regulators": {"node_degree": 5, "rewiring_prob": 0.1}},
         "external_files": {
@@ -55,7 +55,7 @@ if __name__ == '__main__':
         "blade_size_to_mass_model": {'coefficient': 0.0026, 'power': 2.1447},
         "cap_to_diameter_model": {'coefficient': 57, 'power': 0.44},
         "temporal_scope": {'pre_simulation': 2000, 'simulation_start': 2020,
-                           'simulation_end': 2061},
+                           'simulation_end': 2051},
         "blades_per_rotor": 3,
         "eol_pathways": {"lifetime_extension": True, "dissolution": False,
                          "pyrolysis": True, "mechanical_recycling": True,
@@ -75,8 +75,8 @@ if __name__ == '__main__':
         "decommissioning_cost": [1300, 33000],
         "lifetime_extension_costs": [600, 6000],
         "rec_processes_costs": {
-            "dissolution": [658.2, 658.3], "pyrolysis": [280.5, 550],
-            "mechanical_recycling": [212.3, 286],
+            "dissolution": [658.2, 658.3], "pyrolysis": [288.2, 563.3],
+            "mechanical_recycling": [221.1, 310.2],
             "cement_co_processing": [99, 132]},
         "transport_shreds": {'shredding_costs': [99, 132],
                              'transport_cost_shreds': [0.0314, 0.0820]},
@@ -86,11 +86,11 @@ if __name__ == '__main__':
         "transport_repair": 1.57,
         "eol_pathways_transport_mode": {
             "lifetime_extension": 'transport_repair',
-            "dissolution": 'transport_segment',
-            "pyrolysis": 'transport_segment',
-            "mechanical_recycling": 'transport_segment',
-            "cement_co_processing": 'transport_segment',
-            "landfill": 'transport_segment'},
+            "dissolution": 'transport_segments',
+            "pyrolysis": 'transport_segments',
+            "mechanical_recycling": 'transport_segments',
+            "cement_co_processing": 'transport_segments',
+            "landfill": 'transport_segments'},
         "lifetime_extension_revenues": [124, 1.7E6],
         "rec_processes_revenues": {
             "dissolution": [1338, 1339], "pyrolysis": [336, 672],
@@ -103,7 +103,7 @@ if __name__ == '__main__':
         "blade_types_dist_init": {"thermoset": 1.0, "thermoplastic": 0.0},
         "tpb_bt_coeff": {'w_bi': 1.00, 'w_a': 0.30, 'w_sn': 0.21,
                          'w_pbc': -0.32, 'w_p': 0.00, 'w_b': 0.00},
-        "attitude_bt_parameters": {'mean': 0.5, 'standard_deviation': 0.1,
+        "attitude_bt_parameters": {'mean': 0.8, 'standard_deviation': 0.1,
                                    'min': 0, 'max': 1},
         "blade_costs": {"thermoset": [50E3, 500E3],
                         "thermoplastic_rate": [0.92, 1.04]},
@@ -132,7 +132,7 @@ if __name__ == '__main__':
         "bt_man_dist_init": {"thermoset": 1, "thermoplastic": 0.0},
         "attitude_bt_man_parameters": {
             'mean': 0.5, 'standard_deviation': 0.1, 'min': 0, 'max': 1},
-        "tpb_bt_man_coeff": {'w_bi': 1.00, 'w_a': 0.15, 'w_sn': 0.35,
+        "tpb_bt_man_coeff": {'w_bi': 1.00, 'w_a': 0.15, 'w_sn': 0.125,
                              'w_pbc': -0.24, 'w_p': 0.00, 'w_b': 0.00},
         "lag_time_tp_blade_dev": 5,
         "tp_production_share": 1,
@@ -174,13 +174,13 @@ if __name__ == '__main__':
             nr_processes = 6
             variable_params = {
                 "seed": list(range(10)),
-                "calibration": [0.5, 1],
-                "calibration_2": [0.5, 1],
-                "calibration_3": [-0.21],
-                "calibration_4": [-0.13],
-                "calibration_5": [0],
-                "calibration_6": [0],
-                "calibration_7": [0],
+                "calibration": [1],
+                "calibration_2": [1E-6, 1],
+                "calibration_3": [0, -0.21],  # -0.21
+                "calibration_4": [0, -0.13],  # -0.13
+                "calibration_5": [0, 0.56],
+                "calibration_6": [0, 0.30],
+                "calibration_7": [0, 0.11],
                 "calibration_8": [0.33]}
             fixed_params = all_fixed_params.copy()
             for key in variable_params.keys():
@@ -204,7 +204,7 @@ if __name__ == '__main__':
             variable_parameters=variable_params,
             fixed_parameters=fixed_params,
             iterations=1,
-            max_steps=41,
+            max_steps=31,
             model_reporters={
                 "Year":
                     lambda a: getattr(a, "clock") +
