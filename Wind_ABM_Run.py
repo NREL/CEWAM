@@ -43,7 +43,14 @@ class WindABMRun:
             self.model_instance = self.model_in(
                 seed=j, temporal_scope={
                     'pre_simulation': 2000, 'simulation_start': 2020,
-                    'simulation_end': (2020 + self.number_steps)})
+                    'simulation_end': (2020 + self.number_steps)},
+                eol_pathways_transport_mode={
+                    "lifetime_extension": 'transport_repair',
+                    "dissolution": 'transport_shreds',
+                    "pyrolysis": 'transport_shreds',
+                    "mechanical_recycling": 'transport_shreds',
+                    "cement_co_processing": 'transport_shreds',
+                    "landfill": 'transport_shreds'})
             for key, value in self.kwargs.items():
                 setattr(self.model_instance, key, value)
             for i in range(
@@ -66,4 +73,4 @@ class WindABMRun:
 
 
 # Comment line below when running WindWBMRun tests
-WindABMRun(number_steps=31, number_run=1).run_model()
+WindABMRun(number_steps=31, number_run=20).run_model()

@@ -29,6 +29,17 @@ class Landfill(Agent):
             self.unique_id - self.model.first_land_id]['State']
         self.landfill_cost = self.model.wbj_database.loc[
             self.unique_id - self.model.first_land_id]['$/ Ton']
+        # TODO: below we use calibration variable for the SA on
+        #  shredding costs
+        if self.model.calibration == 1 and self.model.batch_run:
+            corr_factor = [x * (1 - self.model.calibration_2) for x in
+                           self.model.copy_shredding_costs]
+            corr_factor[1] += 1E-6
+            corr_factor = self.model.symetric_triang_distrib_draw(
+                corr_factor[0], corr_factor[1])
+            self.landfill_cost += corr_factor
+        # TODO: above we use calibration variable for the SA on
+        #  shredding costs
         self.remaining_capacity = self.model.wbj_database.loc[
             self.unique_id - self.model.first_land_id][
             'Remaining Capacity (tons)']
@@ -38,9 +49,12 @@ class Landfill(Agent):
         self.yearly_waste = self.model.wbj_database.loc[
             self.unique_id - self.model.first_land_id]['yearly_waste']
         self.landfill_revenue = 0
+        # only potential costs are seen by wind plant owners, potential
+        # revenues are kept by landfills
         self.model.variables_landfills[self.landfill_type].append(
-            (self.unique_id, self.landfill_state, self.landfill_cost -
-             self.landfill_revenue, self.landfill_cost, self.landfill_revenue))
+            (self.unique_id, self.landfill_state, max(self.landfill_cost -
+             self.landfill_revenue, 0), self.landfill_cost,
+             self.landfill_revenue))
         self.closure = False
         self.closure_threshold = self.model.symetric_triang_distrib_draw(
             self.model.landfill_closure_threshold[0],

@@ -127,9 +127,9 @@ class WindABM(Model):
                  decommissioning_cost=[1300, 33000],
                  lifetime_extension_costs=[600, 6000],
                  rec_processes_costs={
-                     "dissolution": [658.2, 658.3],
-                     "pyrolysis": [288.2, 563.3],
-                     "mechanical_recycling": [221.1, 310.2],
+                     "dissolution": [658, 658.1],
+                     "pyrolysis": [285, 629],
+                     "mechanical_recycling": [110, 310],
                      "cement_co_processing": [99, 132]},
                  transport_shreds={'shredding_costs': [99, 132],
                                    'transport_cost_shreds': [0.0314, 0.0820]},
@@ -146,13 +146,13 @@ class WindABM(Model):
                      "landfill": 'transport_segments'},
                  lifetime_extension_revenues=[124, 1.7E6],
                  rec_processes_revenues={
-                     "dissolution": [1338, 1339], "pyrolysis": [336, 672],
-                     "mechanical_recycling": [242, 302.5],
+                     "dissolution": [1338, 1339], "pyrolysis": [332, 500],
+                     "mechanical_recycling": [145, 292],
                      "cement_co_processing": [0, 1E-6]},
                  lifetime_extension_years=[5, 15],
                  le_feasibility=0.55,
                  early_failure_share=0.03,
-                 blade_types={"thermoset": True, "thermoplastic": True},
+                 blade_types={"thermoset": True, "thermoplastic": False},
                  blade_types_dist_init={"thermoset": 0.996,
                                         "thermoplastic": 0.004},
                  tpb_bt_coeff={'w_bi': 1.00, 'w_a': 0.30, 'w_sn': 0.21,
@@ -353,45 +353,32 @@ class WindABM(Model):
         """
         # Variables from inputs (value defined externally):
         self.seed = copy.deepcopy(seed)
+        self.batch_run = batch_run
+        self.calibration = calibration
+        self.calibration_2 = calibration_2
         if batch_run:
             # TODO: below we use calibration variable for the SA on
             #  shredding costs
-            if calibration == 1:
+            if self.calibration == 1:
                 eol_pathways_transport_mode['pyrolysis'] = 'transport_shreds'
                 eol_pathways_transport_mode['mechanical_recycling'] = \
                     'transport_shreds'
                 eol_pathways_transport_mode['cement_co_processing'] = \
                     'transport_shreds'
-                eol_pathways_transport_mode['landfill'] = \
-                    'transport_shreds'
-                copy_shredding_costs = \
+                eol_pathways_transport_mode['landfill'] = 'transport_shreds'
+                self.copy_shredding_costs = \
                     copy.deepcopy(transport_shreds['shredding_costs'])
                 transport_shreds['shredding_costs'] = [
-                    x * calibration_2 for x in
+                    x * self.calibration_2 for x in
                     transport_shreds['shredding_costs']]
-                # transport_shreds['transport_cost_shreds'] = [
-                #    x * calibration_2 for x in
-                #    transport_shreds['transport_cost_shreds']]
-                rec_processes_costs['pyrolysis'] = [
-                    x - (y * (1 - calibration_2)) for x, y in
-                    zip(rec_processes_costs['pyrolysis'],
-                        copy_shredding_costs)]
-                rec_processes_costs['mechanical_recycling'] = [
-                    x - (y * (1 - calibration_2)) for x, y in
-                    zip(rec_processes_costs['mechanical_recycling'],
-                        copy_shredding_costs)]
-                rec_processes_costs['cement_co_processing'] = [
-                    x - (y * (1 - calibration_2)) for x, y in
-                    zip(rec_processes_costs['cement_co_processing'],
-                        copy_shredding_costs)]
-
             tpb_eol_coeff['w_b'] = calibration_3
             tpb_eol_coeff['w_pbc'] = calibration_4
             tpb_eol_coeff['w_sn'] = calibration_5
             tpb_eol_coeff['w_a'] = calibration_6
             tpb_eol_coeff['w_p'] = calibration_7
             tpb_eol_coeff['w_bi'] = calibration_8
-
+        # TODO: above we use calibration variable for the SA on
+        #  shredding costs
         random.seed(self.seed)
         self.manufacturers = copy.deepcopy(manufacturers)
         self.developers = copy.deepcopy(developers)

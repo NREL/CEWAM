@@ -75,8 +75,8 @@ if __name__ == '__main__':
         "decommissioning_cost": [1300, 33000],
         "lifetime_extension_costs": [600, 6000],
         "rec_processes_costs": {
-            "dissolution": [658.2, 658.3], "pyrolysis": [288.2, 563.3],
-            "mechanical_recycling": [221.1, 310.2],
+            "dissolution": [658.2, 658.3], "pyrolysis": [285, 629],
+            "mechanical_recycling": [110, 310],
             "cement_co_processing": [99, 132]},
         "transport_shreds": {'shredding_costs': [99, 132],
                              'transport_cost_shreds': [0.0314, 0.0820]},
@@ -93,13 +93,13 @@ if __name__ == '__main__':
             "landfill": 'transport_segments'},
         "lifetime_extension_revenues": [124, 1.7E6],
         "rec_processes_revenues": {
-            "dissolution": [1338, 1339], "pyrolysis": [336, 672],
-            "mechanical_recycling": [242, 302.5],
+            "dissolution": [1338, 1339], "pyrolysis": [332, 500],
+            "mechanical_recycling": [145, 292],
             "cement_co_processing": [0, 1E-6]},
         "lifetime_extension_years": [5, 15],
         "le_feasibility": 0.55,
         "early_failure_share": 0.03,
-        "blade_types": {"thermoset": True, "thermoplastic": True},
+        "blade_types": {"thermoset": True, "thermoplastic": False},
         "blade_types_dist_init": {"thermoset": 1.0, "thermoplastic": 0.0},
         "tpb_bt_coeff": {'w_bi': 1.00, 'w_a': 0.30, 'w_sn': 0.21,
                          'w_pbc': -0.32, 'w_p': 0.00, 'w_b': 0.00},
@@ -173,14 +173,14 @@ if __name__ == '__main__':
         if not sobol:
             nr_processes = 6
             variable_params = {
-                "seed": list(range(10)),
+                "seed": list(range(20)),
                 "calibration": [1],
                 "calibration_2": [1E-6, 1],
                 "calibration_3": [0, -0.21],  # -0.21
                 "calibration_4": [0, -0.13],  # -0.13
-                "calibration_5": [0, 0.56],
-                "calibration_6": [0, 0.30],
-                "calibration_7": [0, 0.11],
+                "calibration_5": [0, 0.56],  # 0.56
+                "calibration_6": [0, 0.30],  # 0.30
+                "calibration_7": [0, 0.11],  # 0.11
                 "calibration_8": [0.33]}
             fixed_params = all_fixed_params.copy()
             for key in variable_params.keys():

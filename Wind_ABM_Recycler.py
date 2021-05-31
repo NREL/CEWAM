@@ -31,9 +31,11 @@ class Recycler(Agent):
         self.recycler_revenue = self.model.symetric_triang_distrib_draw(
             self.model.rec_processes_revenues[self.recycler_type][0],
             self.model.rec_processes_revenues[self.recycler_type][1])
+        # only potential costs are seen by wind plant owners, potential
+        # revenues are kept by recycler
         self.model.variables_recyclers[self.recycler_type].append(
-            (self.unique_id, self.recycler_state, self.init_recycler_cost -
-             self.recycler_revenue, self.init_recycler_cost,
+            (self.unique_id, self.recycler_state, max(self.init_recycler_cost -
+             self.recycler_revenue, 0), self.init_recycler_cost,
              self.recycler_revenue))
         self.recycler_cost = self.init_recycler_cost
         self.init_recycled_quantity = self.model.recycling_init_cap[

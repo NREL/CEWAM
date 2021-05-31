@@ -32,6 +32,7 @@ class Developer(Agent):
             self.model.symetric_triang_distrib_draw(
                 self.model.lifetime_extension_revenues[0],
                 self.model.lifetime_extension_revenues[1])
+        # costs and revenues are seen by wind plant owners
         self.model.variables_developers[self.developer_type].append(
             (self.unique_id, self.model.transport_repair,
              self.lifetime_extension_cost - self.lifetime_extension_revenue,
