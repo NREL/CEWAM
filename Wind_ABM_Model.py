@@ -365,12 +365,21 @@ class WindABM(Model):
                     'transport_shreds'
                 eol_pathways_transport_mode['cement_co_processing'] = \
                     'transport_shreds'
-                eol_pathways_transport_mode['landfill'] = 'transport_shreds'
-                self.copy_shredding_costs = \
-                    copy.deepcopy(transport_shreds['shredding_costs'])
+                eol_pathways_transport_mode['landfill'] = 'transport_segments'
+                transport_shreds['shredding_costs'] = [
+                    transport_segments['cutting_costs'],
+                    1E-6 + transport_segments['cutting_costs']]
+                transport_shreds['transport_cost_shreds'] = [
+                    transport_segments['transport_cost_segments'],
+                    1E-6 + transport_segments['transport_cost_segments']]
+                # self.copy_shredding_costs = \
+                #    copy.deepcopy(transport_shreds['shredding_costs'])
                 transport_shreds['shredding_costs'] = [
                     x * self.calibration_2 for x in
                     transport_shreds['shredding_costs']]
+                transport_shreds['transport_cost_shreds'] = [
+                    x * self.calibration_2 for x in
+                    transport_shreds['transport_cost_shreds']]
             tpb_eol_coeff['w_b'] = calibration_3
             tpb_eol_coeff['w_pbc'] = calibration_4
             tpb_eol_coeff['w_sn'] = calibration_5

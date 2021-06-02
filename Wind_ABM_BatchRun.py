@@ -175,12 +175,12 @@ if __name__ == '__main__':
             variable_params = {
                 "seed": list(range(20)),
                 "calibration": [1],
-                "calibration_2": [1E-6, 1],
-                "calibration_3": [0, -0.21],  # -0.21
-                "calibration_4": [0, -0.13],  # -0.13
-                "calibration_5": [0, 0.56],  # 0.56
-                "calibration_6": [0, 0.30],  # 0.30
-                "calibration_7": [0, 0.11],  # 0.11
+                "calibration_2": [1E-6, 0.5, 1],
+                "calibration_3": [0, -0.15, -0.21],  # -0.21
+                "calibration_4": [-0.26],  # -0.13
+                "calibration_5": [0, 0.19, 0.56],  # 0.56
+                "calibration_6": [0.30],  # 0.30
+                "calibration_7": [0.11],  # 0.11
                 "calibration_8": [0.33]}
             fixed_params = all_fixed_params.copy()
             for key in variable_params.keys():

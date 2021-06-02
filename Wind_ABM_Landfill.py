@@ -31,13 +31,13 @@ class Landfill(Agent):
             self.unique_id - self.model.first_land_id]['$/ Ton']
         # TODO: below we use calibration variable for the SA on
         #  shredding costs
-        if self.model.calibration == 1 and self.model.batch_run:
-            corr_factor = [x * (1 - self.model.calibration_2) for x in
-                           self.model.copy_shredding_costs]
-            corr_factor[1] += 1E-6
-            corr_factor = self.model.symetric_triang_distrib_draw(
-                corr_factor[0], corr_factor[1])
-            self.landfill_cost += corr_factor
+        # if self.model.calibration == 1 and self.model.batch_run:
+        #    corr_factor = [x * (1 - self.model.calibration_2) for x in
+        #                   self.model.copy_shredding_costs]
+        #    corr_factor[1] += 1E-6
+        #    corr_factor = self.model.symetric_triang_distrib_draw(
+        #        corr_factor[0], corr_factor[1])
+        #    self.landfill_cost += corr_factor
         # TODO: above we use calibration variable for the SA on
         #  shredding costs
         self.remaining_capacity = self.model.wbj_database.loc[
