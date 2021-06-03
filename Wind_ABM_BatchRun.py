@@ -55,7 +55,7 @@ if __name__ == '__main__':
         "blade_size_to_mass_model": {'coefficient': 0.0026, 'power': 2.1447},
         "cap_to_diameter_model": {'coefficient': 57, 'power': 0.44},
         "temporal_scope": {'pre_simulation': 2000, 'simulation_start': 2020,
-                           'simulation_end': 2051},
+                           'simulation_end': 2061},
         "blades_per_rotor": 3,
         "eol_pathways": {"lifetime_extension": True, "dissolution": False,
                          "pyrolysis": True, "mechanical_recycling": True,
@@ -64,8 +64,8 @@ if __name__ == '__main__':
             "lifetime_extension": 0.005, "dissolution": 0.0,
             "pyrolysis": 0.005, "mechanical_recycling": 0.005,
             "cement_co_processing": 0.005, "landfill": 0.98},
-        "tpb_eol_coeff": {'w_bi': 0.33, 'w_a': 0.30, 'w_sn': 0.56,
-                          'w_pbc': -0.13, 'w_p': 0.11, 'w_b': -0.21},
+        "tpb_eol_coeff": {'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.19,
+                          'w_pbc': -0.26, 'w_p': 0.11, 'w_b': -0.21},
         "attitude_eol_parameters": {"mean": 0.84, 'standard_deviation': 0.1,
                                     'min': 0, 'max': 1},
         "choices_circularity": {
@@ -167,18 +167,22 @@ if __name__ == '__main__':
             {'regulation': True, 'lag_time': [18, 32],
              'regulation_freq': {
                  'ban_shreds': 0.23, 'ban_whole_only': 0.25,
-                 'no_ban': 0.52}}}}
+                 'no_ban': 0.52}}},
+        "recycler_margin": {
+            "dissolution": [0.05, 0.25], "pyrolysis": [0.05, 0.25],
+            "mechanical_recycling": [0.05, 0.25],
+            "cement_co_processing": [0.05, 0.25]}}
 
     def batch_parameters(sobol):
         if not sobol:
             nr_processes = 6
             variable_params = {
-                "seed": list(range(20)),
-                "calibration": [1],
-                "calibration_2": [1E-6, 0.5, 1],
-                "calibration_3": [0, -0.15, -0.21],  # -0.21
+                "seed": list(range(5)),
+                "calibration": [2],
+                "calibration_2": [0.8, 0.85, 0.9, 0.95],
+                "calibration_3": [-0.21],  # -0.21
                 "calibration_4": [-0.26],  # -0.13
-                "calibration_5": [0, 0.19, 0.56],  # 0.56
+                "calibration_5": [0.19],  # 0.56
                 "calibration_6": [0.30],  # 0.30
                 "calibration_7": [0.11],  # 0.11
                 "calibration_8": [0.33]}
@@ -204,7 +208,7 @@ if __name__ == '__main__':
             variable_parameters=variable_params,
             fixed_parameters=fixed_params,
             iterations=1,
-            max_steps=31,
+            max_steps=41,
             model_reporters={
                 "Year":
                     lambda a: getattr(a, "clock") +

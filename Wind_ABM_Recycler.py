@@ -25,9 +25,14 @@ class Recycler(Agent):
         self.recycler_type = self.model.list_recycler_types.pop()
         self.recycler_state = self.model.assign_elements_from_list(
             self.model.recyclers_states[self.recycler_type], True)
+        self.rec_margin = self.model.symetric_triang_distrib_draw(
+            self.model.recycler_margin[self.recycler_type][0],
+            self.model.recycler_margin[self.recycler_type][1])
+        # Minimum sustainable price: costs including necessary margins
         self.init_recycler_cost = self.model.symetric_triang_distrib_draw(
             self.model.rec_processes_costs[self.recycler_type][0],
-            self.model.rec_processes_costs[self.recycler_type][1])
+            self.model.rec_processes_costs[self.recycler_type][1]) / \
+            (1 - self.rec_margin)
         self.recycler_revenue = self.model.symetric_triang_distrib_draw(
             self.model.rec_processes_revenues[self.recycler_type][0],
             self.model.rec_processes_revenues[self.recycler_type][1])

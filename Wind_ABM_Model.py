@@ -114,8 +114,8 @@ class WindABM(Model):
                      "lifetime_extension": 0.005, "dissolution": 0.0,
                      "pyrolysis": 0.005, "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
-                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.30, 'w_sn': 0.56,
-                                'w_pbc': -0.13, 'w_p': 0.11, 'w_b': -0.21},
+                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.19,
+                                'w_pbc': -0.26, 'w_p': 0.11, 'w_b': -0.21},
                  attitude_eol_parameters={
                      "mean": 0.84, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
@@ -230,7 +230,11 @@ class WindABM(Model):
                          {'regulation': True, 'lag_time': [18, 32],
                           'regulation_freq': {
                               'ban_shreds': 0.23, 'ban_whole_only': 0.25,
-                              'no_ban': 0.52}}}
+                              'no_ban': 0.52}}},
+                 recycler_margin={
+                     "dissolution": [0.05, 0.25], "pyrolysis": [0.05, 0.25],
+                     "mechanical_recycling": [0.05, 0.25],
+                     "cement_co_processing": [0.05, 0.25]}
                  ):
         """
         Initiate model.
@@ -350,6 +354,7 @@ class WindABM(Model):
         :param atb_land_wind: annual technology baseline scenario for
         land wind reporting current and projected capacity and rotor diameter
         :param regulation_scenario: include regulator agents actions
+        :param recycler_margin: margin of the minimum sustainable price
         """
         # Variables from inputs (value defined externally):
         self.seed = copy.deepcopy(seed)
@@ -380,6 +385,8 @@ class WindABM(Model):
                 transport_shreds['transport_cost_shreds'] = [
                     x * self.calibration_2 for x in
                     transport_shreds['transport_cost_shreds']]
+            elif self.calibration == 2:
+                attitude_eol_parameters["mean"] = self.calibration_2
             tpb_eol_coeff['w_b'] = calibration_3
             tpb_eol_coeff['w_pbc'] = calibration_4
             tpb_eol_coeff['w_sn'] = calibration_5
@@ -449,6 +456,7 @@ class WindABM(Model):
         self.reg_landfill_threshold = copy.deepcopy(reg_landfill_threshold)
         self.atb_land_wind = copy.deepcopy(atb_land_wind)
         self.regulation_scenario = copy.deepcopy(regulation_scenario)
+        self.recycler_margin = copy.deepcopy(recycler_margin)
         # Internal variables:
         self.running = True  # required for batch runs
         self.clock = 0  # keep track of simulation time step
