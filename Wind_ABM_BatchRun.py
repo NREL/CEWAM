@@ -64,8 +64,9 @@ if __name__ == '__main__':
             "lifetime_extension": 0.005, "dissolution": 0.0,
             "pyrolysis": 0.005, "mechanical_recycling": 0.005,
             "cement_co_processing": 0.005, "landfill": 0.98},
-        "tpb_eol_coeff": {'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.19,
-                          'w_pbc': -0.26, 'w_p': 0.11, 'w_b': -0.21},
+        "tpb_eol_coeff": {'w_bi': 0.12, 'w_a': 0.29, 'w_sn': 0.19,
+                          'w_pbc': -0.26, 'w_dpbc': -0.29, 'w_p': 0.11,
+                          'w_b': -0.21},
         "attitude_eol_parameters": {"mean": 0.84, 'standard_deviation': 0.1,
                                     'min': 0, 'max': 1},
         "choices_circularity": {
@@ -101,8 +102,9 @@ if __name__ == '__main__':
         "early_failure_share": 0.03,
         "blade_types": {"thermoset": True, "thermoplastic": False},
         "blade_types_dist_init": {"thermoset": 1.0, "thermoplastic": 0.0},
-        "tpb_bt_coeff": {'w_bi': 1.00, 'w_a': 0.30, 'w_sn': 0.21,
-                         'w_pbc': -0.32, 'w_p': 0.00, 'w_b': 0.00},
+        "tpb_bt_coeff": {'w_bi': 0.38, 'w_a': 0.30, 'w_sn': 0.21,
+                         'w_pbc': -0.32, 'w_dpbc': -0.32, 'w_p': 0.00,
+                         'w_b': 0.00},
         "attitude_bt_parameters": {'mean': 0.8, 'standard_deviation': 0.1,
                                    'min': 0, 'max': 1},
         "blade_costs": {"thermoset": [50E3, 500E3],
@@ -133,7 +135,8 @@ if __name__ == '__main__':
         "attitude_bt_man_parameters": {
             'mean': 0.5, 'standard_deviation': 0.1, 'min': 0, 'max': 1},
         "tpb_bt_man_coeff": {'w_bi': 1.00, 'w_a': 0.15, 'w_sn': 0.125,
-                             'w_pbc': -0.24, 'w_p': 0.00, 'w_b': 0.00},
+                             'w_pbc': -0.24, 'w_dpbc': 0.00,
+                             'w_p': 0.00, 'w_b': 0.00},
         "lag_time_tp_blade_dev": 5,
         "tp_production_share": 1,
         "manufacturing_waste_ratio": {
@@ -145,8 +148,9 @@ if __name__ == '__main__':
         "man_waste_dist_init": {
             "dissolution": 0.0, "mechanical_recycling": 0.02,
             "landfill": 0.98},
-        "tpb_man_waste_coeff": {'w_bi': 1.00, 'w_a': 0.30, 'w_sn': 0.56,
-                                'w_pbc': -0.13, 'w_p': 0.00, 'w_b': 0.00},
+        "tpb_man_waste_coeff": {
+            'w_bi': 0.12, 'w_a': 0.29, 'w_sn': 0.19, 'w_pbc': -0.26,
+            'w_dpbc': -0.29, 'w_p': 0.00, 'w_b': 0.00},
         "attitude_man_waste_parameters": {
             "mean": 0.5, 'standard_deviation': 0.01, 'min': 0, 'max': 1},
         "recycling_init_cap": {"dissolution": 1, "pyrolysis": 33100,

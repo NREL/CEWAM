@@ -114,8 +114,9 @@ class WindABM(Model):
                      "lifetime_extension": 0.005, "dissolution": 0.0,
                      "pyrolysis": 0.005, "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
-                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.19,
-                                'w_pbc': -0.26, 'w_p': 0.11, 'w_b': -0.21},
+                 tpb_eol_coeff={'w_bi': 0.12, 'w_a': 0.29, 'w_sn': 0.19,
+                                'w_pbc': -0.26, 'w_dpbc': -0.29, 'w_p': 0.11,
+                                'w_b': -0.21},
                  attitude_eol_parameters={
                      "mean": 0.84, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
@@ -155,8 +156,9 @@ class WindABM(Model):
                  blade_types={"thermoset": True, "thermoplastic": False},
                  blade_types_dist_init={"thermoset": 0.996,
                                         "thermoplastic": 0.004},
-                 tpb_bt_coeff={'w_bi': 1.00, 'w_a': 0.30, 'w_sn': 0.21,
-                               'w_pbc': -0.32, 'w_p': 0.00, 'w_b': 0.00},
+                 tpb_bt_coeff={'w_bi': 0.38, 'w_a': 0.30, 'w_sn': 0.21,
+                               'w_pbc': -0.32, 'w_dpbc': -0.32, 'w_p': 0.00,
+                               'w_b': 0.00},
                  attitude_bt_parameters={
                      'mean': 0.8, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
@@ -191,7 +193,8 @@ class WindABM(Model):
                      'mean': 0.9, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
                  tpb_bt_man_coeff={'w_bi': 1.00, 'w_a': 0.15, 'w_sn': 0.125,
-                                   'w_pbc': -0.24, 'w_p': 0.00, 'w_b': 0.00},
+                                   'w_pbc': -0.24, 'w_dpbc': 0.00,
+                                   'w_p': 0.00, 'w_b': 0.00},
                  lag_time_tp_blade_dev=5,
                  tp_production_share=1,
                  manufacturing_waste_ratio={
@@ -205,8 +208,8 @@ class WindABM(Model):
                      "dissolution": 0.0, "mechanical_recycling": 0.02,
                      "landfill": 0.98},
                  tpb_man_waste_coeff={
-                     'w_bi': 1.00, 'w_a': 0.30, 'w_sn': 0.56, 'w_pbc': -0.13,
-                     'w_p': 0.00, 'w_b': 0.00},
+                     'w_bi': 0.12, 'w_a': 0.29, 'w_sn': 0.19, 'w_pbc': -0.26,
+                     'w_dpbc': -0.29, 'w_p': 0.00, 'w_b': 0.00},
                  attitude_man_waste_parameters={
                      "mean": 0.5, 'standard_deviation': 0.01, 'min': 0,
                      'max': 1},
@@ -1364,6 +1367,7 @@ class WindABM(Model):
                     tpb_weights['w_sn'] * scores_sn[key] +
                     tpb_weights['w_a'] * scores_a[key] +
                     tpb_weights['w_pbc'] * scores_pbc[key]) + \
+                    tpb_weights['w_dpbc'] * scores_pbc[key] + \
                     tpb_weights['w_b'] * scores_b[key] + \
                     tpb_weights['w_p'] * scores_p[key]
             if not value:
