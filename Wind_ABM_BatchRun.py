@@ -11,6 +11,8 @@ This module run batch runs of the model according to user inputs.
 
 from Wind_ABM_Model import *
 from mesa.batchrunner import BatchRunnerMP
+from SALib.sample import saltelli
+from copy import deepcopy
 import time
 
 # TODO: Continue here:
@@ -55,7 +57,7 @@ if __name__ == '__main__':
         "blade_size_to_mass_model": {'coefficient': 0.0026, 'power': 2.1447},
         "cap_to_diameter_model": {'coefficient': 57, 'power': 0.44},
         "temporal_scope": {'pre_simulation': 2000, 'simulation_start': 2020,
-                           'simulation_end': 2061},
+                           'simulation_end': 2051},
         "blades_per_rotor": 3,
         "eol_pathways": {"lifetime_extension": True, "dissolution": False,
                          "pyrolysis": True, "mechanical_recycling": True,
@@ -64,10 +66,10 @@ if __name__ == '__main__':
             "lifetime_extension": 0.005, "dissolution": 0.0,
             "pyrolysis": 0.005, "mechanical_recycling": 0.005,
             "cement_co_processing": 0.005, "landfill": 0.98},
-        "tpb_eol_coeff": {'w_bi': 0.12, 'w_a': 0.29, 'w_sn': 0.19,
+        "tpb_eol_coeff": {'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.45,
                           'w_pbc': -0.26, 'w_dpbc': -0.29, 'w_p': 0.11,
                           'w_b': -0.21},
-        "attitude_eol_parameters": {"mean": 0.84, 'standard_deviation': 0.1,
+        "attitude_eol_parameters": {"mean": 0.78, 'standard_deviation': 0.17,
                                     'min': 0, 'max': 1},
         "choices_circularity": {
             "lifetime_extension": True, "dissolution": True, "pyrolysis": True,
@@ -149,7 +151,7 @@ if __name__ == '__main__':
             "dissolution": 0.0, "mechanical_recycling": 0.02,
             "landfill": 0.98},
         "tpb_man_waste_coeff": {
-            'w_bi': 0.12, 'w_a': 0.29, 'w_sn': 0.19, 'w_pbc': -0.26,
+            'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.19, 'w_pbc': -0.26,
             'w_dpbc': -0.29, 'w_p': 0.00, 'w_b': 0.00},
         "attitude_man_waste_parameters": {
             "mean": 0.5, 'standard_deviation': 0.01, 'min': 0, 'max': 1},
@@ -177,42 +179,15 @@ if __name__ == '__main__':
             "mechanical_recycling": [0.05, 0.25],
             "cement_co_processing": [0.05, 0.25]}}
 
-    def batch_parameters(sobol):
-        if not sobol:
-            nr_processes = 6
-            variable_params = {
-                "seed": list(range(5)),
-                "calibration": [2],
-                "calibration_2": [0.8, 0.85, 0.9, 0.95],
-                "calibration_3": [-0.21],  # -0.21
-                "calibration_4": [-0.26],  # -0.13
-                "calibration_5": [0.19],  # 0.56
-                "calibration_6": [0.30],  # 0.30
-                "calibration_7": [0.11],  # 0.11
-                "calibration_8": [0.33]}
-            fixed_params = all_fixed_params.copy()
-            for key in variable_params.keys():
-                fixed_params.pop(key)
-            tot_run = 1
-            for var_p in variable_params.values():
-                tot_run *= len(var_p)
-            print("Total number of run:", tot_run)
-            return nr_processes, variable_params, fixed_params
-        else:
-            pass
-
-    # noinspection PyShadowingNames
-    # The variables parameters will be invoke along with the fixed parameters
-    # allowing for either or both to be honored.
-    def run_batch(sobol):
-        nr_processes, variable_params, fixed_params = batch_parameters(sobol)
+    def set_up_batch_run(
+            nr_processes, variable_params, fixed_params, number_steps):
         batch_run = BatchRunnerMP(
             WindABM,
             nr_processes=nr_processes,
             variable_parameters=variable_params,
             fixed_parameters=fixed_params,
             iterations=1,
-            max_steps=41,
+            max_steps=number_steps,
             model_reporters={
                 "Year":
                     lambda a: getattr(a, "clock") +
@@ -268,15 +243,95 @@ if __name__ == '__main__':
                 "Yearly waste ratios":
                     lambda a: getattr(a, "yearly_waste_ratios"),
                 "Cumulative blade ratios":
-                    lambda a: getattr(a, "cum_blade_ratios")})
-        batch_run.run_all()
+                    lambda a: getattr(a, "cum_blade_ratios"),
+                "Cumulative waste ratios":
+                    lambda a: getattr(a, "cum_waste_ratios")})
+        return batch_run
+
+    # noinspection PyShadowingNames
+    # The variables parameters will be invoke along with the fixed parameters
+    # allowing for either or both to be honored.
+    def run_batch(sobol, number_steps, number_run):
+        nr_processes = 6
         if not sobol:
+            variable_params = {
+                "seed": list(range(number_run)),
+                "calibration": [1],
+                "calibration_2": [0, 0.25, 0.5, 0.75, 1],
+                "calibration_3": [0, 0.1, -0.21],  # -0.21
+                "calibration_4": [0, -0.26],  # -0.26
+                "calibration_5": [0, 0.2, 0.45],  # 0.45
+                "calibration_6": [0.29],  # 0.29
+                "calibration_7": [0.11],  # 0.11
+                "calibration_8": [0, -0.29]}  # -0.29
+            fixed_params = all_fixed_params.copy()
+            for key in variable_params.keys():
+                fixed_params.pop(key)
+            tot_run = 1
+            for var_p in variable_params.values():
+                tot_run *= len(var_p)
+            print("Total number of run:", tot_run)
+            fixed_params["temporal_scope"] = {
+                'pre_simulation': 2000, 'simulation_start': 2020,
+                'simulation_end': (2020 + number_steps)}
+            batch_run = set_up_batch_run(
+                nr_processes, variable_params, fixed_params, number_steps)
+            batch_run.run_all()
             run_data = batch_run.get_model_vars_dataframe()
             run_data.to_csv("results\\BatchRun.csv")
         else:
-            pass
+            list_variables = ["tpb_eol_coeff", "transport_segments",
+                              "transport_segments"]
+            problem = {'num_vars': 3,
+                       'names': ["w_b", "cutting_costs",
+                                 "transport_cost_segments"],
+                       'bounds': [[-1, -1E-06], [1E-6, 132], [1E-6, 8.7]]}
+            x = saltelli.sample(problem, 50)
+            baseline_row = np.array([-0.21, 27.56, 8.7])
+            x = np.vstack((x, baseline_row))
+            for x_i in range(x.shape[1]):
+                lower_bound = deepcopy(baseline_row)
+                bounds = problem['bounds'][x_i]
+                if lower_bound[x_i] != bounds[0]:
+                    lower_bound[x_i] = bounds[0]
+                    x = np.vstack((x, lower_bound))
+                upper_bound = deepcopy(baseline_row)
+                if upper_bound[x_i] != bounds[1]:
+                    upper_bound[x_i] = bounds[1]
+                    x = np.vstack((x, upper_bound))
+            appended_data = []
+            for i in range(x.shape[0]):
+                print("Sobol matrix line: ", i, " out of ", x.shape[0])
+                fixed_params = deepcopy(all_fixed_params)
+                for j in range(x.shape[1]):
+                    value_to_change = x[i][j]
+                    variable_to_change = list_variables[j]
+                    if j < 1:
+                        fixed_params[variable_to_change][
+                            'w_b'] = value_to_change
+                    elif j < 2:
+                        fixed_params[variable_to_change][
+                            "cutting_costs"] = value_to_change
+                    else:
+                        fixed_params[variable_to_change][
+                            "transport_cost_segments"] = value_to_change
+                variable_params = {"seed": list(range(number_run))}
+                fixed_params["temporal_scope"] = {
+                    'pre_simulation': 2000, 'simulation_start': 2020,
+                    'simulation_end': (2020 + number_steps)}
+                fixed_params["batch_run"] = False
+                fixed_params.pop("seed")
+                batch_run = set_up_batch_run(
+                    nr_processes, variable_params, fixed_params, number_steps)
+                batch_run.run_all()
+                run_data = batch_run.get_model_vars_dataframe()
+                for k in range(x.shape[1]):
+                    run_data["x_%s" % k] = x[i][k]
+                appended_data.append(run_data)
+            appended_data = pd.concat(appended_data)
+            appended_data.to_csv("results\\SobolBatchRun.csv")
 
-    run_batch(sobol=False)
+    run_batch(sobol=True, number_steps=31, number_run=6)
 
     t1 = time.time()
     print(t1 - t0)
