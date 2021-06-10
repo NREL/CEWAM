@@ -257,7 +257,7 @@ if __name__ == '__main__':
             variable_params = {
                 "seed": list(range(number_run)),
                 "calibration": [1],
-                "calibration_2": [0.6, 0.7, 0.8, 0.9],
+                "calibration_2": [0.65, 0.75, 0.85],
                 "calibration_3": [-0.27, -0.21, -0.15],  # -0.21
                 "calibration_4": [-0.26],  # -0.26
                 "calibration_5": [0.119, 0.189],  # 0.45
