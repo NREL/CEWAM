@@ -390,12 +390,15 @@ class WindABM(Model):
                     transport_shreds['transport_cost_shreds']]
             elif self.calibration == 2:
                 attitude_eol_parameters["mean"] = self.calibration_2
+                attitude_eol_parameters["standard_deviation"] = \
+                    calibration_8
             tpb_eol_coeff['w_b'] = calibration_3
             tpb_eol_coeff['w_pbc'] = calibration_4
             tpb_eol_coeff['w_sn'] = calibration_5
             tpb_eol_coeff['w_a'] = calibration_6
-            tpb_eol_coeff['w_p'] = calibration_7
-            tpb_eol_coeff['w_dpbc'] = calibration_8
+            tpb_eol_coeff['w_bi'] = calibration_7
+            # tpb_eol_coeff['w_p'] = calibration_7
+            # tpb_eol_coeff['w_dpbc'] = calibration_8
         # TODO: above we use calibration variable for the SA on
         #  shredding costs
         random.seed(self.seed)
