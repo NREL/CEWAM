@@ -66,10 +66,10 @@ if __name__ == '__main__':
             "lifetime_extension": 0.005, "dissolution": 0.0,
             "pyrolysis": 0.005, "mechanical_recycling": 0.005,
             "cement_co_processing": 0.005, "landfill": 0.98},
-        "tpb_eol_coeff": {'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.45,
-                          'w_pbc': -0.26, 'w_dpbc': -0.29, 'w_p': 0.11,
-                          'w_b': -0.21},
-        "attitude_eol_parameters": {"mean": 0.78, 'standard_deviation': 0.17,
+        "tpb_eol_coeff": {'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.19,
+                          'w_pbc': -0.33, 'w_dpbc': -0.37, 'w_p': 0.17,
+                          'w_b': -0.15},
+        "attitude_eol_parameters": {"mean": 0.7, 'standard_deviation': 0.7,
                                     'min': 0, 'max': 1},
         "choices_circularity": {
             "lifetime_extension": True, "dissolution": True, "pyrolysis": True,
@@ -249,7 +249,7 @@ if __name__ == '__main__':
         return batch_run
 
     # noinspection PyShadowingNames
-    # The variables parameters will be invoke along with the fixed parameters
+    # The variable parameters will be invoke along with the fixed parameters
     # allowing for either or both to be honored.
     def run_batch(sobol, number_steps, number_run):
         nr_processes = 6
@@ -286,7 +286,7 @@ if __name__ == '__main__':
                        'names': ["w_b", "cutting_costs",
                                  "transport_cost_segments"],
                        'bounds': [[-1, -1E-06], [1E-6, 132], [1E-6, 8.7]]}
-            x = saltelli.sample(problem, 50)
+            x = saltelli.sample(problem, 15)
             baseline_row = np.array([-0.21, 27.56, 8.7])
             x = np.vstack((x, baseline_row))
             for x_i in range(x.shape[1]):
@@ -331,7 +331,7 @@ if __name__ == '__main__':
             appended_data = pd.concat(appended_data)
             appended_data.to_csv("results\\SobolBatchRun.csv")
 
-    run_batch(sobol=False, number_steps=31, number_run=2)
+    run_batch(sobol=True, number_steps=10, number_run=2)
 
     t1 = time.time()
     print(t1 - t0)

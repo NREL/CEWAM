@@ -114,11 +114,11 @@ class WindABM(Model):
                      "lifetime_extension": 0.005, "dissolution": 0.0,
                      "pyrolysis": 0.005, "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
-                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.45,
-                                'w_pbc': -0.26, 'w_dpbc': -0.29, 'w_p': 0.11,
-                                'w_b': -0.21},
+                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.19,
+                                'w_pbc': -0.33, 'w_dpbc': -0.37, 'w_p': 0.17,
+                                'w_b': -0.15},
                  attitude_eol_parameters={
-                     "mean": 0.78, 'standard_deviation': 0.17, 'min': 0,
+                     "mean": 0.7, 'standard_deviation': 0.7, 'min': 0,
                      'max': 1},
                  choices_circularity={
                      "lifetime_extension": True, "dissolution": True,
@@ -366,7 +366,7 @@ class WindABM(Model):
         self.calibration_2 = calibration_2
         if batch_run:
             # TODO: below we use calibration variable for the SA on
-            #  shredding costs
+            #  shredding costs - this should be removed eventually
             if self.calibration == 1:
                 eol_pathways_transport_mode['pyrolysis'] = 'transport_shreds'
                 eol_pathways_transport_mode['mechanical_recycling'] = \
@@ -400,7 +400,7 @@ class WindABM(Model):
             # tpb_eol_coeff['w_p'] = calibration_7
             # tpb_eol_coeff['w_dpbc'] = calibration_8
         # TODO: above we use calibration variable for the SA on
-        #  shredding costs
+        #  shredding costs - this should be removed eventually
         random.seed(self.seed)
         self.manufacturers = copy.deepcopy(manufacturers)
         self.developers = copy.deepcopy(developers)
@@ -831,9 +831,8 @@ class WindABM(Model):
         :param seed: random seed for the small-world network
         :return social_network: a graph representing agents' social network
         """
-        social_network = nx.watts_strogatz_graph(nodes, node_degree,
-                                                 rewiring_prob,
-                                                 seed=random.seed(seed))
+        social_network = nx.watts_strogatz_graph(
+            nodes, node_degree, rewiring_prob, seed=random.seed(seed))
         return social_network
 
     @staticmethod
@@ -894,16 +893,27 @@ class WindABM(Model):
             self.schedule.add(a)
             self.additional_id += 1
 
-    def adding_state_w_cap(self, scenario, temporal_scope, clock):
+    def adding_state_w_cap(self, scenario, temporal_scope, clock, grid,
+                           schedule, agent_type):
+        """
+        Add agents (wind plant projects) from states which were not in the
+        uswtdb according to projection scenarios
+        :param scenario: projection scenario (e.g., standard scenarios)
+        :param temporal_scope: temporal scope of the simulation
+        :param clock: model clock
+        :param grid: the network relating the agents
+        :param schedule: the schedule of the agent type
+        :param agent_type: the agent type
+        """
         for key, value in scenario.items():
             if (value['start_year'] - 1) == \
                     (temporal_scope['simulation_start'] + clock) and \
                     value['start_year'] != temporal_scope['simulation_start']:
-                a = WindPlantOwner(
+                a = agent_type(
                     self.additional_id, self, new_p_state=key,
                     new_p_cap=value['start_cap'])
-                self.schedule_wpo.add(a)
-                self.grid_wpo.place_agent(
+                schedule.add(a)
+                grid.place_agent(
                     a, (self.additional_id - self.first_wpo_id))
                 self.schedule.add(a)
                 self.additional_id += 1
@@ -972,7 +982,7 @@ class WindABM(Model):
             lambda x: x.head(1) if x.dtype == 'object' else
             x.mean()).reset_index()
         uswtdb = uswtdb[['p_name', 'p_year', 'p_tnum', 't_state', 't_rd',
-                         't_cap']]
+                         't_cap', 'xlong', 'ylat']]
         uswtdb['t_cap'] /= 1000  # convert t_cap from kW to MW
         uswtdb['p_cap'] = uswtdb['t_cap'] * uswtdb['p_tnum']
         uswtdb = uswtdb[(uswtdb.t_state != 'AK') & (uswtdb.t_state != 'HI') &
@@ -2073,7 +2083,8 @@ class WindABM(Model):
         self.schedule.step()
         self.update_model_variables_end_of_step()
         self.adding_state_w_cap(self.add_state_projections,
-                                self.temporal_scope, self.clock)
+                                self.temporal_scope, self.clock, self.grid_wpo,
+                                self.schedule_wpo, WindPlantOwner)
         self.adding_agents(self.p_install_growth, self.grid_wpo,
                            self.schedule_wpo, WindPlantOwner)
         self.clock += 1

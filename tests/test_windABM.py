@@ -167,6 +167,47 @@ class TestWindABM(TestCase):
         result = num_agents * (test_param["unit"] + test_param["unit2"])
         self.assertEqual(sum_test, result)
 
+    def test_adding_state_w_cap(self):
+        """Test that agents from new states are added to the model"""
+        test_param = {"new_p_cap": 1}
+        max_num_agents = 20
+        num_agents = 5
+        test_model = self.t_model_inst
+        scenario = {'Louisiana': {'start_year': 2025, 'start_cap': 10},
+                    'Alabama': {'start_year': 2035, 'start_cap': 20}}
+        test_model.additional_id = max_num_agents - \
+            (num_agents + len(scenario)) + test_model.first_wpo_id
+        theo_avg_node_degree = 2
+        rewiring_prob = 0
+        graph = test_model.creating_social_network(
+            max_num_agents, theo_avg_node_degree, rewiring_prob, None)
+        schedule = RandomActivation(self)
+        grid = NetworkGrid(graph)
+        temporal_scope = {'simulation_start': 2020}
+
+        class TestAgent(Agent):
+            def __init__(self, unique_id, model, **kwargs):
+                super().__init__(unique_id, model)
+                """
+                Creation of new agent
+                """
+                self.test_var = kwargs
+
+        test_model.adding_agents(num_agents, grid, schedule, TestAgent,
+                                 **test_param)
+        test_model.adding_state_w_cap(scenario, temporal_scope, 4, grid,
+                                      schedule, TestAgent)
+        test_model.adding_state_w_cap(scenario, temporal_scope, 14, grid,
+                                      schedule,  TestAgent)
+        sum_test = 0
+        for a in schedule.agents:
+            sum_test += a.test_var["new_p_cap"]
+        scenario_sum = 0
+        for value in scenario.values():
+            scenario_sum += value['start_cap']
+        result = num_agents * test_param["new_p_cap"] + scenario_sum
+        self.assertEqual(sum_test, result)
+
     def test_wind_plant_owner_data(self):
         """Test that the sum of projects' cumulative capacity corresponds to
         projects > 1999, with a cumulative capacity different from 0 and
