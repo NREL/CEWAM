@@ -285,7 +285,7 @@ if __name__ == '__main__':
             problem = {'num_vars': 3,
                        'names': ["w_b", "cutting_costs",
                                  "transport_cost_segments"],
-                       'bounds': [[-1, -1E-06], [1E-6, 1], [1E-6, 1]]}
+                       'bounds': [[-1, -1E-06], [1E-6, 27.56], [1E-6, 8.7]]}
             x = saltelli.sample(problem, 50)
             baseline_row = np.array([-0.21, 27.56, 8.7])
             x = np.vstack((x, baseline_row))

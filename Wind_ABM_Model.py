@@ -376,19 +376,9 @@ class WindABM(Model):
                     'transport_shreds'
                 eol_pathways_transport_mode['landfill'] = 'transport_segments'
                 transport_shreds['shredding_costs'] = [
-                    transport_segments['cutting_costs'],
-                    1E-6 + transport_segments['cutting_costs']]
+                    self.calibration_2, 1E-6 + self.calibration_2]
                 transport_shreds['transport_cost_shreds'] = [
-                    transport_segments['transport_cost_segments'],
-                    1E-6 + transport_segments['transport_cost_segments']]
-                # self.copy_shredding_costs = \
-                #    copy.deepcopy(transport_shreds['shredding_costs'])
-                transport_shreds['shredding_costs'] = [
-                    x * self.calibration_2 for x in
-                    transport_shreds['shredding_costs']]
-                transport_shreds['transport_cost_shreds'] = [
-                    x * self.calibration_3 for x in
-                    transport_shreds['transport_cost_shreds']]
+                    self.calibration_3, 1E-6 + self.calibration_3]
             elif self.calibration == 2:
                 eol_pathways_transport_mode['pyrolysis'] = 'transport_shreds'
                 eol_pathways_transport_mode['mechanical_recycling'] = \
