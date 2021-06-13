@@ -69,7 +69,7 @@ if __name__ == '__main__':
         "tpb_eol_coeff": {'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.19,
                           'w_pbc': -0.33, 'w_dpbc': -0.37, 'w_p': 0.17,
                           'w_b': -0.15},
-        "attitude_eol_parameters": {"mean": 0.7, 'standard_deviation': 0.7,
+        "attitude_eol_parameters": {"mean": 0.57, 'standard_deviation': 0.42,
                                     'min': 0, 'max': 1},
         "choices_circularity": {
             "lifetime_extension": True, "dissolution": True, "pyrolysis": True,
@@ -251,19 +251,19 @@ if __name__ == '__main__':
     # noinspection PyShadowingNames
     # The variable parameters will be invoke along with the fixed parameters
     # allowing for either or both to be honored.
-    def run_batch(sobol, number_steps, number_run):
-        nr_processes = 6
+    def run_batch(sobol, number_steps, number_run, num_core):
+        nr_processes = num_core
         if not sobol:
             variable_params = {
                 "seed": list(range(number_run)),
-                "calibration": [1],
-                "calibration_2": [0.65, 0.75, 0.85],
-                "calibration_3": [-0.27, -0.21, -0.15],  # -0.21
-                "calibration_4": [-0.26],  # -0.26
-                "calibration_5": [0.119, 0.189],  # 0.45
-                "calibration_6": [0.29],  # 0.29
-                "calibration_7": [0.049, 0.12, 0.19],  # 0.11
-                "calibration_8": [0.1, 0.3, 0.5]}  # -0.29
+                "calibration": [2],
+                "calibration_2": [1E-6, 1],
+                "calibration_3": [0, -0.15],  # -0.21
+                "calibration_4": [-0.33],  # -0.26
+                "calibration_5": [0, 0.19],  # 0.45
+                "calibration_6": [0, 0.29],  # 0.29
+                "calibration_7": [-0.37],  # 0.11
+                "calibration_8": [0, 0.17]}  # -0.29
             fixed_params = all_fixed_params.copy()
             for key in variable_params.keys():
                 fixed_params.pop(key)
@@ -285,8 +285,8 @@ if __name__ == '__main__':
             problem = {'num_vars': 3,
                        'names': ["w_b", "cutting_costs",
                                  "transport_cost_segments"],
-                       'bounds': [[-1, -1E-06], [1E-6, 132], [1E-6, 8.7]]}
-            x = saltelli.sample(problem, 15)
+                       'bounds': [[-1, -1E-06], [1E-6, 1], [1E-6, 1]]}
+            x = saltelli.sample(problem, 50)
             baseline_row = np.array([-0.21, 27.56, 8.7])
             x = np.vstack((x, baseline_row))
             for x_i in range(x.shape[1]):
@@ -311,15 +311,16 @@ if __name__ == '__main__':
                             'w_b'] = value_to_change
                     elif j < 2:
                         fixed_params[variable_to_change][
-                            "cutting_costs"] = value_to_change
+                            "calibration_2"] = value_to_change
                     else:
                         fixed_params[variable_to_change][
-                            "transport_cost_segments"] = value_to_change
+                            "calibration_3"] = value_to_change
                 variable_params = {"seed": list(range(number_run))}
                 fixed_params["temporal_scope"] = {
                     'pre_simulation': 2000, 'simulation_start': 2020,
                     'simulation_end': (2020 + number_steps)}
-                fixed_params["batch_run"] = False
+                # fixed_params["batch_run"] = False
+                fixed_params["calibration"] = 1
                 fixed_params.pop("seed")
                 batch_run = set_up_batch_run(
                     nr_processes, variable_params, fixed_params, number_steps)
@@ -331,7 +332,7 @@ if __name__ == '__main__':
             appended_data = pd.concat(appended_data)
             appended_data.to_csv("results\\SobolBatchRun.csv")
 
-    run_batch(sobol=True, number_steps=10, number_run=2)
+    run_batch(sobol=False, number_steps=31, number_run=20, num_core=6)
 
     t1 = time.time()
     print(t1 - t0)

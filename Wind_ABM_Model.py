@@ -118,7 +118,7 @@ class WindABM(Model):
                                 'w_pbc': -0.33, 'w_dpbc': -0.37, 'w_p': 0.17,
                                 'w_b': -0.15},
                  attitude_eol_parameters={
-                     "mean": 0.7, 'standard_deviation': 0.7, 'min': 0,
+                     "mean": 0.57, 'standard_deviation': 0.42, 'min': 0,
                      'max': 1},
                  choices_circularity={
                      "lifetime_extension": True, "dissolution": True,
@@ -364,6 +364,7 @@ class WindABM(Model):
         self.batch_run = batch_run
         self.calibration = calibration
         self.calibration_2 = calibration_2
+        self.calibration_3 = calibration_3
         if batch_run:
             # TODO: below we use calibration variable for the SA on
             #  shredding costs - this should be removed eventually
@@ -386,19 +387,45 @@ class WindABM(Model):
                     x * self.calibration_2 for x in
                     transport_shreds['shredding_costs']]
                 transport_shreds['transport_cost_shreds'] = [
-                    x * self.calibration_2 for x in
+                    x * self.calibration_3 for x in
                     transport_shreds['transport_cost_shreds']]
             elif self.calibration == 2:
+                eol_pathways_transport_mode['pyrolysis'] = 'transport_shreds'
+                eol_pathways_transport_mode['mechanical_recycling'] = \
+                    'transport_shreds'
+                eol_pathways_transport_mode['cement_co_processing'] = \
+                    'transport_shreds'
+                eol_pathways_transport_mode['landfill'] = 'transport_segments'
+                transport_shreds['shredding_costs'] = [
+                    transport_segments['cutting_costs'],
+                    1E-6 + transport_segments['cutting_costs']]
+                transport_shreds['transport_cost_shreds'] = [
+                    transport_segments['transport_cost_segments'],
+                    1E-6 + transport_segments['transport_cost_segments']]
+                # self.copy_shredding_costs = \
+                #    copy.deepcopy(transport_shreds['shredding_costs'])
+                transport_shreds['shredding_costs'] = [
+                    x * self.calibration_2 for x in
+                    transport_shreds['shredding_costs']]
+                transport_shreds['transport_cost_shreds'] = [
+                    x * self.calibration_3 for x in
+                    transport_shreds['transport_cost_shreds']]
+                tpb_eol_coeff['w_b'] = calibration_3
+                tpb_eol_coeff['w_pbc'] = calibration_4
+                tpb_eol_coeff['w_sn'] = calibration_5
+                tpb_eol_coeff['w_a'] = calibration_6
+                tpb_eol_coeff['w_dpbc'] = calibration_7
+                tpb_eol_coeff['w_p'] = calibration_8
+            elif self.calibration == 3:
                 attitude_eol_parameters["mean"] = self.calibration_2
                 attitude_eol_parameters["standard_deviation"] = \
                     calibration_8
-            tpb_eol_coeff['w_b'] = calibration_3
-            tpb_eol_coeff['w_pbc'] = calibration_4
-            tpb_eol_coeff['w_sn'] = calibration_5
-            tpb_eol_coeff['w_a'] = calibration_6
-            tpb_eol_coeff['w_bi'] = calibration_7
-            # tpb_eol_coeff['w_p'] = calibration_7
-            # tpb_eol_coeff['w_dpbc'] = calibration_8
+                tpb_eol_coeff['w_b'] = calibration_3
+                tpb_eol_coeff['w_pbc'] = calibration_4
+                tpb_eol_coeff['w_sn'] = calibration_5
+                tpb_eol_coeff['w_a'] = calibration_6
+                tpb_eol_coeff['w_dpbc'] = calibration_7
+                tpb_eol_coeff['w_p'] = calibration_8
         # TODO: above we use calibration variable for the SA on
         #  shredding costs - this should be removed eventually
         random.seed(self.seed)
@@ -921,6 +948,14 @@ class WindABM(Model):
     @staticmethod
     def compute_growth_rates(uswtdb, projections, temporal_scope,
                              growth_rate_formula):
+        """
+        Compute growth rates used in the compounded annual growth function
+        :param uswtdb: us wind turbine database
+        :param projections: projected quantities at years x, y for each state
+        :param temporal_scope: temporal scope of the simulation
+        :param growth_rate_formula: compound annual growth rate function
+        :return: growth rates (by states)
+        """
         growth_rates = {}
         projections_dict = projections.set_index('state').to_dict('index')
         for key, value in projections_dict.items():
@@ -941,6 +976,14 @@ class WindABM(Model):
     @staticmethod
     def compound_annual_growth_rate(end_value, start_value, end_year,
                                     start_year):
+        """
+        Compound_annual_growth_rate formula
+        :param end_value: value after growth
+        :param start_value: value before growth
+        :param end_year: year after growth
+        :param start_year: year before growth
+        :return: growth rate
+        """
         number_year = end_year - start_year
         growth_rate = (end_value / start_value)**(1 / number_year) - 1
         return growth_rate

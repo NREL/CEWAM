@@ -208,6 +208,73 @@ class TestWindABM(TestCase):
         result = num_agents * test_param["new_p_cap"] + scenario_sum
         self.assertEqual(sum_test, result)
 
+    def test_compute_growth_rates(self):
+        """Test that growth rates are computed correctly"""
+        projections = pd.DataFrame.from_dict({
+            'state': ['Washington', 'Colorado'],
+            'start_year': [2020, 2025],
+            'start_cap': [3, 8],
+            'end_year': [2030, 2040],
+            '2050_cap': [10, 10]})
+        uswtdb = pd.DataFrame.from_dict(
+            {'t_state': ['Washington', 'Washington', 'Colorado'],
+             'p_cap': [7, 6, 5]})
+        temporal_scope = {'simulation_start': 2020}
+        growth_rate_formula = self.t_model_inst.compound_annual_growth_rate
+        test_result = self.t_model_inst.compute_growth_rates(
+            uswtdb, projections, temporal_scope, growth_rate_formula)
+        result = {'Washington': 0.13, 'Colorado': 0.05}
+        for key, value in result.items():
+            self.assertAlmostEqual(test_result[key], value, delta=2)
+
+    def test_compound_annual_growth_rate(self):
+        """Test that growth rate function works well"""
+        end_value = 10
+        start_value = 2
+        end_year = 15
+        start_year = 5
+        result = 0.17
+        test = self.t_model_inst.compound_annual_growth_rate(
+            end_value, start_value, end_year, start_year)
+        self.assertAlmostEqual(test, result, delta=2)
+
+    def test_create_subset_grid(self):
+        """Test that the subset grid is built as should"""
+        schedule = RandomActivation(self)
+        nodes = 7
+        node_degree = 3
+        rewiring_prob = 0
+        seed = 0
+        attribute = 'attribute'
+        condition = 1
+        num_agents1 = 10
+        num_agents2 = 7
+        test_model = self.t_model_inst
+        test_param1 = {'attribute': 5}
+        test_param2 = {'attribute': 1}
+
+        class TestAgent(Agent):
+            def __init__(self, unique_id, model, **kwargs):
+                super().__init__(unique_id, model)
+                """
+                Creation of new agent
+                """
+                for key, value in kwargs.items():
+                    setattr(self, key, value)
+
+        for agent in range(num_agents1):
+            a = TestAgent(agent, test_model, **test_param1)
+            schedule.add(a)
+        for agent in range(num_agents2):
+            a = TestAgent(agent + num_agents1, test_model, **test_param2)
+            schedule.add(a)
+        new_grid = test_model.create_subset_grid(
+            schedule, nodes, node_degree, rewiring_prob, seed, attribute,
+            condition)
+        grid_content = new_grid.
+        for a in range(num_agents2):
+            print(new_grid.is_cell_empty(a))
+
     def test_wind_plant_owner_data(self):
         """Test that the sum of projects' cumulative capacity corresponds to
         projects > 1999, with a cumulative capacity different from 0 and
