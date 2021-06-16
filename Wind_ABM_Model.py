@@ -114,11 +114,11 @@ class WindABM(Model):
                      "lifetime_extension": 0.005, "dissolution": 0.0,
                      "pyrolysis": 0.005, "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
-                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.19,
+                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.36, 'w_sn': 0.19,
                                 'w_pbc': -0.33, 'w_dpbc': -0.37, 'w_p': 0.17,
-                                'w_b': -0.15},
+                                'w_b': -0.21},
                  attitude_eol_parameters={
-                     "mean": 0.57, 'standard_deviation': 0.42, 'min': 0,
+                     "mean": 0.58, 'standard_deviation': 0.13, 'min': 0,
                      'max': 1},
                  choices_circularity={
                      "lifetime_extension": True, "dissolution": True,
@@ -392,13 +392,11 @@ class WindABM(Model):
                 transport_shreds['transport_cost_shreds'] = [
                     transport_segments['transport_cost_segments'],
                     1E-6 + transport_segments['transport_cost_segments']]
-                # self.copy_shredding_costs = \
-                #    copy.deepcopy(transport_shreds['shredding_costs'])
                 transport_shreds['shredding_costs'] = [
-                    x * self.calibration_2 for x in
+                    x * self.calibration_2 * 8.3 for x in
                     transport_shreds['shredding_costs']]
                 transport_shreds['transport_cost_shreds'] = [
-                    x * self.calibration_3 for x in
+                    x * self.calibration_2 for x in
                     transport_shreds['transport_cost_shreds']]
                 tpb_eol_coeff['w_b'] = calibration_3
                 tpb_eol_coeff['w_pbc'] = calibration_4
@@ -414,8 +412,8 @@ class WindABM(Model):
                 tpb_eol_coeff['w_pbc'] = calibration_4
                 tpb_eol_coeff['w_sn'] = calibration_5
                 tpb_eol_coeff['w_a'] = calibration_6
-                tpb_eol_coeff['w_dpbc'] = calibration_7
-                tpb_eol_coeff['w_p'] = calibration_8
+                tpb_eol_coeff['w_bi'] = calibration_7
+                # tpb_eol_coeff['w_p'] = calibration_8
         # TODO: above we use calibration variable for the SA on
         #  shredding costs - this should be removed eventually
         random.seed(self.seed)
@@ -980,6 +978,18 @@ class WindABM(Model):
 
     def create_subset_grid(self, schedule, nodes, node_degree, rewiring_prob,
                            seed, attribute, condition):
+        """
+        Create a subset grid from a given schedule of agents
+        :param schedule: Mesa scheduler of the agent type
+        :param nodes: number of nodes in the graph
+        :param node_degree: node degree of the equivalent regular lattice
+        :param rewiring_prob: probability of rewiring a given edge
+        :param seed: random seed for the small-world network
+        :param attribute: attribute to select agents to build a subset grid for
+        :param condition: condition of the attribute agents must have to be
+        part of the subset grid
+        :return: the subset grid
+        """
         new_graph = self.creating_social_network(
             nodes, node_degree, rewiring_prob, seed)
         new_grid = NetworkGrid(new_graph)

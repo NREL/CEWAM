@@ -271,9 +271,13 @@ class TestWindABM(TestCase):
         new_grid = test_model.create_subset_grid(
             schedule, nodes, node_degree, rewiring_prob, seed, attribute,
             condition)
-        grid_content = new_grid.
-        for a in range(num_agents2):
-            print(new_grid.is_cell_empty(a))
+        grid_content = new_grid.get_all_cell_contents()
+        test = 0
+        result = test_param2['attribute'] * num_agents2
+        for i in range(len(grid_content)):
+            agent = grid_content[i]
+            test += getattr(agent, 'attribute')
+        self.assertEqual(test, result)
 
     def test_wind_plant_owner_data(self):
         """Test that the sum of projects' cumulative capacity corresponds to
