@@ -66,10 +66,10 @@ if __name__ == '__main__':
             "lifetime_extension": 0.005, "dissolution": 0.0,
             "pyrolysis": 0.005, "mechanical_recycling": 0.005,
             "cement_co_processing": 0.005, "landfill": 0.98},
-        "tpb_eol_coeff": {'w_bi': 0.33, 'w_a': 0.36, 'w_sn': 0.19,
+        "tpb_eol_coeff": {'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.19,
                           'w_pbc': -0.33, 'w_dpbc': -0.37, 'w_p': 0.17,
-                          'w_b': -0.21},
-        "attitude_eol_parameters": {"mean": 0.58, 'standard_deviation': 0.13,
+                          'w_b': -0.15},
+        "attitude_eol_parameters": {"mean": 0.57, 'standard_deviation': 0.42,
                                     'min': 0, 'max': 1},
         "choices_circularity": {
             "lifetime_extension": True, "dissolution": True, "pyrolysis": True,
@@ -256,14 +256,14 @@ if __name__ == '__main__':
         if not sobol:
             variable_params = {
                 "seed": list(range(number_run)),
-                "calibration": [2],
-                "calibration_2": [1E-6, 0.12],
-                "calibration_3": [0, -0.21],  # -0.21
+                "calibration": [3],
+                "calibration_2": [0.55, 0.57, 0.6],
+                "calibration_3": [-0.15],  # -0.21
                 "calibration_4": [-0.33],  # -0.26
-                "calibration_5": [0, 0.19],  # 0.45
-                "calibration_6": [0, 0.36],  # 0.29
+                "calibration_5": [0.19],  # 0.45
+                "calibration_6": [0.29],  # 0.29
                 "calibration_7": [0.33],  # 0.11
-                "calibration_8": [0.13]}  # -0.29
+                "calibration_8": [0.2, 0.4]}  # -0.29
                 # }
             fixed_params = all_fixed_params.copy()
             for key in variable_params.keys():

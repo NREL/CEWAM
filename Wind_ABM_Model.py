@@ -114,11 +114,11 @@ class WindABM(Model):
                      "lifetime_extension": 0.005, "dissolution": 0.0,
                      "pyrolysis": 0.005, "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
-                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.36, 'w_sn': 0.19,
+                 tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.19,
                                 'w_pbc': -0.33, 'w_dpbc': -0.37, 'w_p': 0.17,
-                                'w_b': -0.21},
+                                'w_b': -0.15},
                  attitude_eol_parameters={
-                     "mean": 0.58, 'standard_deviation': 0.13, 'min': 0,
+                     "mean": 0.57, 'standard_deviation': 0.42, 'min': 0,
                      'max': 1},
                  choices_circularity={
                      "lifetime_extension": True, "dissolution": True,
