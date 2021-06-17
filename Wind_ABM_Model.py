@@ -115,10 +115,10 @@ class WindABM(Model):
                      "pyrolysis": 0.005, "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
                  tpb_eol_coeff={'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.19,
-                                'w_pbc': -0.33, 'w_dpbc': -0.37, 'w_p': 0.17,
+                                'w_pbc': -0.26, 'w_dpbc': -0.29, 'w_p': 0.17,
                                 'w_b': -0.15},
                  attitude_eol_parameters={
-                     "mean": 0.57, 'standard_deviation': 0.42, 'min': 0,
+                     "mean": 0.55, 'standard_deviation': 0.15, 'min': 0,
                      'max': 1},
                  choices_circularity={
                      "lifetime_extension": True, "dissolution": True,
@@ -393,7 +393,7 @@ class WindABM(Model):
                     transport_segments['transport_cost_segments'],
                     1E-6 + transport_segments['transport_cost_segments']]
                 transport_shreds['shredding_costs'] = [
-                    x * self.calibration_2 * 8.3 for x in
+                    x * self.calibration_2 * 16.4 for x in
                     transport_shreds['shredding_costs']]
                 transport_shreds['transport_cost_shreds'] = [
                     x * self.calibration_2 for x in

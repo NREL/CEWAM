@@ -67,9 +67,9 @@ if __name__ == '__main__':
             "pyrolysis": 0.005, "mechanical_recycling": 0.005,
             "cement_co_processing": 0.005, "landfill": 0.98},
         "tpb_eol_coeff": {'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.19,
-                          'w_pbc': -0.33, 'w_dpbc': -0.37, 'w_p': 0.17,
+                          'w_pbc': -0.26, 'w_dpbc': -0.29, 'w_p': 0.17,
                           'w_b': -0.15},
-        "attitude_eol_parameters": {"mean": 0.57, 'standard_deviation': 0.42,
+        "attitude_eol_parameters": {"mean": 0.55, 'standard_deviation': 0.15,
                                     'min': 0, 'max': 1},
         "choices_circularity": {
             "lifetime_extension": True, "dissolution": True, "pyrolysis": True,
@@ -256,14 +256,14 @@ if __name__ == '__main__':
         if not sobol:
             variable_params = {
                 "seed": list(range(number_run)),
-                "calibration": [3],
-                "calibration_2": [0.55, 0.57, 0.6],
-                "calibration_3": [-0.15],  # -0.21
-                "calibration_4": [-0.33],  # -0.26
-                "calibration_5": [0.19],  # 0.45
-                "calibration_6": [0.29],  # 0.29
-                "calibration_7": [0.33],  # 0.11
-                "calibration_8": [0.2, 0.4]}  # -0.29
+                "calibration": [2],
+                "calibration_2": [1E-6, 0.061],
+                "calibration_3": [0, -0.15],  # -0.21
+                "calibration_4": [0, -0.26],  # -0.26
+                "calibration_5": [0, 0.19],  # 0.45
+                "calibration_6": [0, 0.29],  # 0.29
+                "calibration_7": [0, -0.29],  # 0.11
+                "calibration_8": [0, 0.17]}  # -0.29
                 # }
             fixed_params = all_fixed_params.copy()
             for key in variable_params.keys():
@@ -281,14 +281,16 @@ if __name__ == '__main__':
             run_data = batch_run.get_model_vars_dataframe()
             run_data.to_csv("results\\BatchRun.csv")
         else:
-            list_variables = ["tpb_eol_coeff", "transport_segments",
-                              "transport_segments"]
-            problem = {'num_vars': 3,
-                       'names': ["w_b", "cutting_costs",
+            list_variables = ["tpb_eol_coeff", "tpb_eol_coeff",
+                              "tpb_eol_coeff", "calibration_2",
+                              "calibration_3"]
+            problem = {'num_vars': 5,
+                       'names': ["w_b", "w_sn", "w_a", "cutting_costs",
                                  "transport_cost_segments"],
-                       'bounds': [[-1, -1E-06], [1E-6, 27.56], [1E-6, 1.1]]}
-            x = saltelli.sample(problem, 50)
-            baseline_row = np.array([-0.21, 27.56, 1.1])
+                       'bounds': [[-0.15, -1E-06], [1E-6, 0.19], [1E-6, 0.29],
+                                  [1E-6, 27.56], [1E-6, 0.53]]}
+            x = saltelli.sample(problem, 8)
+            baseline_row = np.array([-0.21, 0.19, 0.29, 27.56, 0.53])
             x = np.vstack((x, baseline_row))
             for x_i in range(x.shape[1]):
                 lower_bound = deepcopy(baseline_row)
@@ -310,12 +312,16 @@ if __name__ == '__main__':
                     if j < 1:
                         fixed_params[variable_to_change][
                             'w_b'] = value_to_change
-                    elif j < 2:
+                    if j < 2:
                         fixed_params[variable_to_change][
-                            "calibration_2"] = value_to_change
+                            'w_sn'] = value_to_change
+                    if j < 3:
+                        fixed_params[variable_to_change][
+                            'w_a'] = value_to_change
+                    elif j < 4:
+                        fixed_params[variable_to_change] = value_to_change
                     else:
-                        fixed_params[variable_to_change][
-                            "calibration_3"] = value_to_change
+                        fixed_params[variable_to_change] = value_to_change
                 variable_params = {"seed": list(range(number_run))}
                 fixed_params["temporal_scope"] = {
                     'pre_simulation': 2000, 'simulation_start': 2020,
