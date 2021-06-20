@@ -256,15 +256,14 @@ if __name__ == '__main__':
         if not sobol:
             variable_params = {
                 "seed": list(range(number_run)),
-                "calibration": [2],
-                "calibration_2": [1E-6, 0.061],
-                "calibration_3": [0, -0.15],  # -0.21
-                "calibration_4": [0, -0.26],  # -0.26
-                "calibration_5": [0, 0.19],  # 0.45
-                "calibration_6": [0, 0.29],  # 0.29
-                "calibration_7": [0, -0.29],  # 0.11
-                "calibration_8": [0, 0.17]}  # -0.29
-                # }
+                "calibration": [5],
+                "calibration_2": [1E-6, 132],
+                "calibration_3": [-0.15],  # -0.15
+                "calibration_4": [1],  # -0.26
+                "calibration_5": [0.19],  # 0.19
+                "calibration_6": [0.29],  # 0.29
+                "calibration_7": [-0.29],  # -0.29
+                "calibration_8": [0.19]}  # 0.17
             fixed_params = all_fixed_params.copy()
             for key in variable_params.keys():
                 fixed_params.pop(key)
@@ -281,16 +280,16 @@ if __name__ == '__main__':
             run_data = batch_run.get_model_vars_dataframe()
             run_data.to_csv("results\\BatchRun.csv")
         else:
-            list_variables = ["tpb_eol_coeff", "tpb_eol_coeff",
-                              "tpb_eol_coeff", "calibration_2",
-                              "calibration_3"]
-            problem = {'num_vars': 5,
-                       'names': ["w_b", "w_sn", "w_a", "cutting_costs",
-                                 "transport_cost_segments"],
-                       'bounds': [[-0.15, -1E-06], [1E-6, 0.19], [1E-6, 0.29],
-                                  [1E-6, 27.56], [1E-6, 0.53]]}
-            x = saltelli.sample(problem, 8)
-            baseline_row = np.array([-0.21, 0.19, 0.29, 27.56, 0.53])
+            list_variables = [
+                "calibration_2", "calibration_3", "calibration_4",
+                "calibration_5"]
+            problem = {'num_vars': 4,
+                       'names': [
+                           "cutting_costs", "transport_cost_segments",
+                           "cost_red", "tpb_factors"],
+                       'bounds': [[1E-6, 132], [1E-6, 0.53], [0, 1], [0, 1]]}
+            x = saltelli.sample(problem, 60)
+            baseline_row = np.array([132, 0.53, 0, 1])
             x = np.vstack((x, baseline_row))
             for x_i in range(x.shape[1]):
                 lower_bound = deepcopy(baseline_row)
@@ -310,14 +309,12 @@ if __name__ == '__main__':
                     value_to_change = x[i][j]
                     variable_to_change = list_variables[j]
                     if j < 1:
-                        fixed_params[variable_to_change][
-                            'w_b'] = value_to_change
-                    if j < 2:
-                        fixed_params[variable_to_change][
-                            'w_sn'] = value_to_change
-                    if j < 3:
-                        fixed_params[variable_to_change][
-                            'w_a'] = value_to_change
+                        fixed_params[variable_to_change] = value_to_change
+                    elif j < 2:
+                        fixed_params[variable_to_change] = value_to_change
+                    elif j < 3:
+                        fixed_params[variable_to_change] = round(
+                            value_to_change)
                     elif j < 4:
                         fixed_params[variable_to_change] = value_to_change
                     else:
@@ -327,7 +324,7 @@ if __name__ == '__main__':
                     'pre_simulation': 2000, 'simulation_start': 2020,
                     'simulation_end': (2020 + number_steps)}
                 # fixed_params["batch_run"] = False
-                fixed_params["calibration"] = 1
+                fixed_params["calibration"] = 5
                 fixed_params.pop("seed")
                 batch_run = set_up_batch_run(
                     nr_processes, variable_params, fixed_params, number_steps)
@@ -337,9 +334,10 @@ if __name__ == '__main__':
                     run_data["x_%s" % k] = x[i][k]
                 appended_data.append(run_data)
             appended_data = pd.concat(appended_data)
+            appended_data['x_2'] = appended_data['x_2'].round()
             appended_data.to_csv("results\\SobolBatchRun.csv")
 
-    run_batch(sobol=False, number_steps=31, number_run=3, num_core=6)
+    run_batch(sobol=True, number_steps=31, number_run=6, num_core=6)
 
     t1 = time.time()
     print(t1 - t0)

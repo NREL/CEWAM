@@ -386,6 +386,54 @@ class WindABM(Model):
                 eol_pathways_transport_mode['cement_co_processing'] = \
                     'transport_shreds'
                 eol_pathways_transport_mode['landfill'] = 'transport_segments'
+                # shred_cost_copy = copy.deepcopy(
+                #    transport_shreds['shredding_costs'])
+                transport_shreds['shredding_costs'] = [
+                    transport_segments['cutting_costs'],
+                    1E-6 + transport_segments['cutting_costs']]
+                transport_shreds['transport_cost_shreds'] = [
+                    transport_segments['transport_cost_segments'],
+                    1E-6 + transport_segments['transport_cost_segments']]
+                transport_shreds['shredding_costs'] = [
+                    x * self.calibration_2 * 16.4 for x in
+                    transport_shreds['shredding_costs']]
+                transport_shreds['transport_cost_shreds'] = [
+                    x * self.calibration_2 for x in
+                    transport_shreds['transport_cost_shreds']]
+                rec_processes_costs['pyrolysis'] = [
+                    x * (1 - calibration_8) for x in
+                    rec_processes_costs['pyrolysis']]
+                # red_cost = [x * (1 - self.calibration_2) for x in
+                #            shred_cost_copy]
+                # red_cost.sort(reverse=True)
+                # for key, value in rec_processes_costs.items():
+                #    reduced_costs = [
+                #        x - y for x, y in zip(value, red_cost)]
+                #    reduced_costs.sort()
+                #    rec_processes_costs[key] = reduced_costs
+                tpb_eol_coeff['w_b'] = calibration_3
+                tpb_eol_coeff['w_pbc'] = calibration_4
+                tpb_eol_coeff['w_sn'] = calibration_5
+                tpb_eol_coeff['w_a'] = calibration_6
+                tpb_eol_coeff['w_dpbc'] = calibration_7
+                # tpb_eol_coeff['w_p'] = calibration_8
+            elif self.calibration == 3:
+                attitude_eol_parameters["mean"] = self.calibration_2
+                attitude_eol_parameters["standard_deviation"] = \
+                    calibration_8
+                tpb_eol_coeff['w_b'] = calibration_3
+                tpb_eol_coeff['w_pbc'] = calibration_4
+                tpb_eol_coeff['w_sn'] = calibration_5
+                tpb_eol_coeff['w_a'] = calibration_6
+                tpb_eol_coeff['w_bi'] = calibration_7
+                # tpb_eol_coeff['w_p'] = calibration_8
+            elif self.calibration == 4:
+                eol_pathways_transport_mode['pyrolysis'] = 'transport_shreds'
+                eol_pathways_transport_mode['mechanical_recycling'] = \
+                    'transport_shreds'
+                eol_pathways_transport_mode['cement_co_processing'] = \
+                    'transport_shreds'
+                eol_pathways_transport_mode['landfill'] = 'transport_segments'
                 transport_shreds['shredding_costs'] = [
                     transport_segments['cutting_costs'],
                     1E-6 + transport_segments['cutting_costs']]
@@ -399,21 +447,37 @@ class WindABM(Model):
                     x * self.calibration_2 for x in
                     transport_shreds['transport_cost_shreds']]
                 tpb_eol_coeff['w_b'] = calibration_3
-                tpb_eol_coeff['w_pbc'] = calibration_4
+                rec_processes_revenues['pyrolysis'] = [
+                    x * (1 + calibration_4) for x in
+                    rec_processes_revenues['pyrolysis']]
                 tpb_eol_coeff['w_sn'] = calibration_5
                 tpb_eol_coeff['w_a'] = calibration_6
                 tpb_eol_coeff['w_dpbc'] = calibration_7
                 tpb_eol_coeff['w_p'] = calibration_8
-            elif self.calibration == 3:
-                attitude_eol_parameters["mean"] = self.calibration_2
-                attitude_eol_parameters["standard_deviation"] = \
-                    calibration_8
-                tpb_eol_coeff['w_b'] = calibration_3
-                tpb_eol_coeff['w_pbc'] = calibration_4
-                tpb_eol_coeff['w_sn'] = calibration_5
-                tpb_eol_coeff['w_a'] = calibration_6
-                tpb_eol_coeff['w_bi'] = calibration_7
-                # tpb_eol_coeff['w_p'] = calibration_8
+            elif self.calibration == 5:
+                eol_pathways_transport_mode['pyrolysis'] = 'transport_shreds'
+                eol_pathways_transport_mode['mechanical_recycling'] = \
+                    'transport_shreds'
+                eol_pathways_transport_mode['cement_co_processing'] = \
+                    'transport_shreds'
+                eol_pathways_transport_mode['landfill'] = 'transport_segments'
+                shred_cost_copy = transport_shreds['shredding_costs'][1]
+                transport_shreds['shredding_costs'] = [
+                    self.calibration_2, 1E-6 + self.calibration_2]
+                transport_shreds['transport_cost_shreds'] = [
+                    self.calibration_3, 1E-6 + self.calibration_3]
+                if calibration_4 == 1:
+                    red_cost = shred_cost_copy - \
+                               transport_shreds['shredding_costs'][0]
+                    for key, value in rec_processes_costs.items():
+                        reduced_costs = [
+                            x - red_cost for x in value]
+                        reduced_costs.sort()
+                        rec_processes_costs[key] = reduced_costs
+                tpb_eol_coeff['w_a'] *= calibration_5
+                tpb_eol_coeff['w_sn'] *= calibration_5
+                tpb_eol_coeff['w_b'] *= calibration_5
+                tpb_eol_coeff['w_p'] *= calibration_5
         # TODO: above we use calibration variable for the SA on
         #  shredding costs - this should be removed eventually
         random.seed(self.seed)
