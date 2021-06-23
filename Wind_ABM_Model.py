@@ -395,14 +395,14 @@ class WindABM(Model):
                     transport_segments['transport_cost_segments'],
                     1E-6 + transport_segments['transport_cost_segments']]
                 transport_shreds['shredding_costs'] = [
-                    x * self.calibration_2 * 16.4 for x in
+                    x * self.calibration_2 for x in
                     transport_shreds['shredding_costs']]
                 transport_shreds['transport_cost_shreds'] = [
-                    x * self.calibration_2 for x in
+                    x * self.calibration_2 * 0.061 for x in
                     transport_shreds['transport_cost_shreds']]
-                rec_processes_costs['pyrolysis'] = [
-                    x * (1 - calibration_8) for x in
-                    rec_processes_costs['pyrolysis']]
+                rec_processes_revenues['pyrolysis'] = [
+                    x * (1 + calibration_8) for x in
+                    rec_processes_revenues['pyrolysis']]
                 # red_cost = [x * (1 - self.calibration_2) for x in
                 #            shred_cost_copy]
                 # red_cost.sort(reverse=True)
@@ -469,11 +469,11 @@ class WindABM(Model):
                 if calibration_4 == 1:
                     red_cost = shred_cost_copy - \
                                transport_shreds['shredding_costs'][0]
-                    for key, value in rec_processes_costs.items():
+                    for process, cost in rec_processes_costs.items():
                         reduced_costs = [
-                            x - red_cost for x in value]
+                            x - red_cost for x in cost]
                         reduced_costs.sort()
-                        rec_processes_costs[key] = reduced_costs
+                        rec_processes_costs[process] = reduced_costs
                 tpb_eol_coeff['w_a'] *= calibration_5
                 tpb_eol_coeff['w_sn'] *= calibration_5
                 tpb_eol_coeff['w_b'] *= calibration_5

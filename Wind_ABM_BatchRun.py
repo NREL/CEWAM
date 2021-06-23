@@ -257,13 +257,14 @@ if __name__ == '__main__':
             variable_params = {
                 "seed": list(range(number_run)),
                 "calibration": [5],
-                "calibration_2": [1E-6, 132],
-                "calibration_3": [-0.15],  # -0.15
+                "calibration_2": [1E-6, 44, 88, 132],
+                "calibration_3": [0.057],  # -0.15
                 "calibration_4": [1],  # -0.26
-                "calibration_5": [0.19],  # 0.19
-                "calibration_6": [0.29],  # 0.29
-                "calibration_7": [-0.29],  # -0.29
-                "calibration_8": [0.19]}  # 0.17
+                "calibration_5": [0, 0.333, 0.666, 1],  # 0.19
+                # "calibration_6": [0.29],  # 0.29
+                # "calibration_7": [-0.29],  # -0.29
+                # "calibration_8": [0, 0.19]
+            }  # 0.17
             fixed_params = all_fixed_params.copy()
             for key in variable_params.keys():
                 fixed_params.pop(key)
@@ -287,9 +288,9 @@ if __name__ == '__main__':
                        'names': [
                            "cutting_costs", "transport_cost_segments",
                            "cost_red", "tpb_factors"],
-                       'bounds': [[1E-6, 132], [1E-6, 0.53], [0, 1], [0, 1]]}
-            x = saltelli.sample(problem, 60)
-            baseline_row = np.array([132, 0.53, 0, 1])
+                       'bounds': [[1E-6, 132], [1E-6, 0.53], [0, 1], [0, 1E-3]]}
+            x = saltelli.sample(problem, 4)
+            baseline_row = np.array([132, 0.53, 0, 1E-3])
             x = np.vstack((x, baseline_row))
             for x_i in range(x.shape[1]):
                 lower_bound = deepcopy(baseline_row)
@@ -337,7 +338,7 @@ if __name__ == '__main__':
             appended_data['x_2'] = appended_data['x_2'].round()
             appended_data.to_csv("results\\SobolBatchRun.csv")
 
-    run_batch(sobol=True, number_steps=31, number_run=6, num_core=6)
+    run_batch(sobol=True, number_steps=31, number_run=1, num_core=6)
 
     t1 = time.time()
     print(t1 - t0)
