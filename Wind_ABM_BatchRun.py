@@ -78,7 +78,7 @@ if __name__ == '__main__':
         "decommissioning_cost": [1300, 33000],
         "lifetime_extension_costs": [600, 6000],
         "rec_processes_costs": {
-            "dissolution": [658.2, 658.3], "pyrolysis": [285, 629],
+            "dissolution": [658, 659], "pyrolysis": [285, 629],
             "mechanical_recycling": [110, 310],
             "cement_co_processing": [99, 132]},
         "transport_shreds": {'shredding_costs': [99, 132],
@@ -96,7 +96,7 @@ if __name__ == '__main__':
             "landfill": 'transport_segments'},
         "lifetime_extension_revenues": [124, 1.7E6],
         "rec_processes_revenues": {
-            "dissolution": [1338, 1339], "pyrolysis": [332, 500],
+            "dissolution": [658, 659], "pyrolysis": [332, 500],
             "mechanical_recycling": [145, 292],
             "cement_co_processing": [0, 1E-6]},
         "lifetime_extension_years": [5, 15],
@@ -257,10 +257,10 @@ if __name__ == '__main__':
             variable_params = {
                 "seed": list(range(number_run)),
                 "calibration": [5],
-                "calibration_2": [1E-6, 44, 88, 132],
+                "calibration_2": [116, 58],
                 "calibration_3": [0.057],  # -0.15
-                "calibration_4": [1],  # -0.26
-                "calibration_5": [0, 0.333, 0.666, 1],  # 0.19
+                "calibration_4": [0, 1],  # -0.26
+                "calibration_5": [0],  # 0.19
                 # "calibration_6": [0.29],  # 0.29
                 # "calibration_7": [-0.29],  # -0.29
                 # "calibration_8": [0, 0.19]
@@ -282,15 +282,14 @@ if __name__ == '__main__':
             run_data.to_csv("results\\BatchRun.csv")
         else:
             list_variables = [
-                "calibration_2", "calibration_3", "calibration_4",
-                "calibration_5"]
-            problem = {'num_vars': 4,
+                "calibration_2", "calibration_3", "calibration_4"]
+            problem = {'num_vars': 3,
                        'names': [
-                           "cutting_costs", "transport_cost_segments",
-                           "cost_red", "tpb_factors"],
-                       'bounds': [[1E-6, 132], [1E-6, 0.53], [0, 1], [0, 1E-3]]}
-            x = saltelli.sample(problem, 4)
-            baseline_row = np.array([132, 0.53, 0, 1E-3])
+                           "att_bt_mean", "att_bt_man_mean",
+                           "dissolution_rev"],
+                       'bounds': [[0, 1], [0, 1], [0, 2080]]}
+            x = saltelli.sample(problem, 35)
+            baseline_row = np.array([0.8, 0.9, 658])
             x = np.vstack((x, baseline_row))
             for x_i in range(x.shape[1]):
                 lower_bound = deepcopy(baseline_row)
@@ -314,8 +313,7 @@ if __name__ == '__main__':
                     elif j < 2:
                         fixed_params[variable_to_change] = value_to_change
                     elif j < 3:
-                        fixed_params[variable_to_change] = round(
-                            value_to_change)
+                        fixed_params[variable_to_change] = value_to_change
                     elif j < 4:
                         fixed_params[variable_to_change] = value_to_change
                     else:
@@ -325,7 +323,7 @@ if __name__ == '__main__':
                     'pre_simulation': 2000, 'simulation_start': 2020,
                     'simulation_end': (2020 + number_steps)}
                 # fixed_params["batch_run"] = False
-                fixed_params["calibration"] = 5
+                fixed_params["calibration"] = 6
                 fixed_params.pop("seed")
                 batch_run = set_up_batch_run(
                     nr_processes, variable_params, fixed_params, number_steps)
@@ -338,7 +336,7 @@ if __name__ == '__main__':
             appended_data['x_2'] = appended_data['x_2'].round()
             appended_data.to_csv("results\\SobolBatchRun.csv")
 
-    run_batch(sobol=True, number_steps=31, number_run=1, num_core=6)
+    run_batch(sobol=False, number_steps=31, number_run=20, num_core=6)
 
     t1 = time.time()
     print(t1 - t0)

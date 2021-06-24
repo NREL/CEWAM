@@ -128,7 +128,7 @@ class WindABM(Model):
                  decommissioning_cost=[1300, 33000],
                  lifetime_extension_costs=[600, 6000],
                  rec_processes_costs={
-                     "dissolution": [658, 658.1],
+                     "dissolution": [658, 659],
                      "pyrolysis": [285, 629],
                      "mechanical_recycling": [110, 310],
                      "cement_co_processing": [99, 132]},
@@ -147,7 +147,7 @@ class WindABM(Model):
                      "landfill": 'transport_segments'},
                  lifetime_extension_revenues=[124, 1.7E6],
                  rec_processes_revenues={
-                     "dissolution": [1338, 1339], "pyrolysis": [332, 500],
+                     "dissolution": [658, 659], "pyrolysis": [332, 500],
                      "mechanical_recycling": [145, 292],
                      "cement_co_processing": [0, 1E-6]},
                  lifetime_extension_years=[5, 15],
@@ -478,6 +478,13 @@ class WindABM(Model):
                 tpb_eol_coeff['w_sn'] *= calibration_5
                 tpb_eol_coeff['w_b'] *= calibration_5
                 tpb_eol_coeff['w_p'] *= calibration_5
+            elif self.calibration == 6:
+                attitude_bt_parameters['mean'] = self.calibration_2
+                attitude_bt_man_parameters['mean'] = self.calibration_3
+                rec_processes_revenues['dissolution'] = [
+                    calibration_4, 1E-6 + calibration_4]
+            else:
+                pass
         # TODO: above we use calibration variable for the SA on
         #  shredding costs - this should be removed eventually
         random.seed(self.seed)
