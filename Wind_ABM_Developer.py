@@ -32,10 +32,12 @@ class Developer(Agent):
             self.model.symetric_triang_distrib_draw(
                 self.model.lifetime_extension_revenues[0],
                 self.model.lifetime_extension_revenues[1])
-        # costs and revenues are seen by wind plant owners
+        # only potential costs are seen by wind plant owners, potential
+        # revenues are not considered in (immediate) decision
         self.model.variables_developers[self.developer_type].append(
             (self.unique_id, self.model.transport_repair,
-             self.lifetime_extension_cost - self.lifetime_extension_revenue,
+             max(self.lifetime_extension_cost -
+                 self.lifetime_extension_revenue, 0),
              self.lifetime_extension_cost, self.lifetime_extension_revenue))
         self.le_feasibility = self.model.le_feasibility
         self.lifetime_extension_years = \

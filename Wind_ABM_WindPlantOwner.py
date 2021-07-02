@@ -312,15 +312,16 @@ class WindPlantOwner(Agent):
             self.model.lifetime_extension(
                 self.eol_pathway, self.init_average_lifetime,
                 self.le_characteristics)
-        self.waste = self.model.waste_generation(
-            self.model.temporal_scope['simulation_start'], self.model.clock,
-            self.p_year, self.p_cap_waste, self.average_lifetime,
-            self.model.weibull_shape_factor) + self.eol_second_choice_share * \
+        self.waste = \
+            (1 - self.eol_second_choice_share) * \
             self.model.waste_generation(
-            self.model.temporal_scope['simulation_start'],
-            self.model.clock, self.p_year, self.p_cap_waste,
-            self.init_average_lifetime,
-            self.model.weibull_shape_factor)
+                self.model.temporal_scope['simulation_start'],
+                self.model.clock, self.p_year, self.p_cap_waste,
+                self.average_lifetime, self.model.weibull_shape_factor) + \
+            self.eol_second_choice_share * self.model.waste_generation(
+                self.model.temporal_scope['simulation_start'],
+                self.model.clock, self.p_year, self.p_cap_waste,
+                self.init_average_lifetime, self.model.weibull_shape_factor)
         self.p_cap_waste -= self.waste
         self.cum_waste += self.waste
         self.eol_pathways_costs, self.eol_pathways_revenues, \
@@ -374,7 +375,9 @@ class WindPlantOwner(Agent):
             self.eol_pathways_revenues, self.model.total_eol_revenues,
             self.decommissioning_cost, self.model.rec_land_volume,
             self.model.waste_volume_model, self.eol_path_transport)
-        self.model.average_lifetimes_wpo.append(self.average_lifetime)
+        self.model.average_lifetimes_wpo.append(
+            (1 - self.eol_second_choice_share) * self.average_lifetime +
+            self.eol_second_choice_share * self.init_average_lifetime)
 
     def remove_agent(self):
         """

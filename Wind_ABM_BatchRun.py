@@ -256,14 +256,14 @@ if __name__ == '__main__':
         if not sobol:
             variable_params = {
                 "seed": list(range(number_run)),
-                "calibration": [5],
-                "calibration_2": [116, 58],
-                "calibration_3": [0.057],  # -0.15
-                "calibration_4": [0, 1],  # -0.26
+                "calibration": [2],
+                "calibration_2": [1E-6, 1],
+                "calibration_3": [0],  # -0.15
+                "calibration_4": [-0.26],  # -0.26
                 "calibration_5": [0],  # 0.19
-                # "calibration_6": [0.29],  # 0.29
-                # "calibration_7": [-0.29],  # -0.29
-                # "calibration_8": [0, 0.19]
+                "calibration_6": [0],  # 0.29
+                "calibration_7": [-0.29],  # -0.29
+                "calibration_8": [0]
             }  # 0.17
             fixed_params = all_fixed_params.copy()
             for key in variable_params.keys():
@@ -291,6 +291,10 @@ if __name__ == '__main__':
             x = saltelli.sample(problem, 35)
             baseline_row = np.array([0.8, 0.9, 658])
             x = np.vstack((x, baseline_row))
+            lower_bound_row = np.array([0, 0, 0])
+            x = np.vstack((x, lower_bound_row))
+            upper_bound_row = np.array([1, 1, 2080])
+            x = np.vstack((x, upper_bound_row))
             for x_i in range(x.shape[1]):
                 lower_bound = deepcopy(baseline_row)
                 bounds = problem['bounds'][x_i]
@@ -336,7 +340,7 @@ if __name__ == '__main__':
             appended_data['x_2'] = appended_data['x_2'].round()
             appended_data.to_csv("results\\SobolBatchRun.csv")
 
-    run_batch(sobol=False, number_steps=31, number_run=20, num_core=6)
+    run_batch(sobol=False, number_steps=31, number_run=5, num_core=6)
 
     t1 = time.time()
     print(t1 - t0)
