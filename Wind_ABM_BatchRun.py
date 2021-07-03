@@ -258,12 +258,12 @@ if __name__ == '__main__':
                 "seed": list(range(number_run)),
                 "calibration": [2],
                 "calibration_2": [1E-6, 1],
-                "calibration_3": [0],  # -0.15
+                "calibration_3": [0, -0.7, -0.15],  # -0.15
                 "calibration_4": [-0.26],  # -0.26
-                "calibration_5": [0],  # 0.19
-                "calibration_6": [0],  # 0.29
+                "calibration_5": [0, 0.1, 0.19],  # 0.19
+                "calibration_6": [0.29],  # 0.29
                 "calibration_7": [-0.29],  # -0.29
-                "calibration_8": [0]
+                "calibration_8": [0.17]
             }  # 0.17
             fixed_params = all_fixed_params.copy()
             for key in variable_params.keys():
