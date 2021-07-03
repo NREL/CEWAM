@@ -73,6 +73,7 @@ class WindABM(Model):
                  calibration_6=1,
                  calibration_7=1,
                  calibration_8=1,
+                 calibration_9=1,
                  manufacturers={
                      "wind_blade": 5, "plastics_n_boards": 100, "cement": 97},
                  developers={'lifetime_extension': 10},
@@ -459,25 +460,27 @@ class WindABM(Model):
                     'transport_shreds'
                 eol_pathways_transport_mode['landfill'] = 'transport_segments'
                 # shred_cost_copy = transport_shreds['shredding_costs'][1]
-                # transport_shreds['shredding_costs'] = [
-                #    self.calibration_2, 1E-6 + self.calibration_2]
-                # transport_shreds['transport_cost_shreds'] = [
-                #    self.calibration_3, 1E-6 + self.calibration_3]
-                if calibration_4 == 1:
-                    # red_cost = shred_cost_copy - \
-                    #           transport_shreds['shredding_costs'][0]
-                    # for process, cost in rec_processes_costs.items():
-                    #    reduced_costs = [
-                    #        x - red_cost for x in cost]
-                    #    reduced_costs.sort()
-                    #    rec_processes_costs[process] = reduced_costs
-                    recyclers['mechanical_recycling'] = 7
-                    recyclers_states['mechanical_recycling'].extend(
-                        ['Oregon', 'Utah', 'Pennsylvania', 'Nebraska'])
-                tpb_eol_coeff['w_a'] *= calibration_5
-                tpb_eol_coeff['w_sn'] *= calibration_5
-                tpb_eol_coeff['w_b'] *= calibration_5
-                tpb_eol_coeff['w_p'] *= calibration_5
+                transport_shreds['shredding_costs'] = [
+                    calibration_2, 1E-6 + calibration_2]
+                transport_shreds['transport_cost_shreds'] = [
+                    calibration_3, 1E-6 + calibration_3]
+                # if calibration_4 == 1:
+                # red_cost = shred_cost_copy - \
+                #           transport_shreds['shredding_costs'][0]
+                # for process, cost in rec_processes_costs.items():
+                #    reduced_costs = [
+                #        x - red_cost for x in cost]
+                #    reduced_costs.sort()
+                #    rec_processes_costs[process] = reduced_costs
+                # recyclers['mechanical_recycling'] = 7
+                # recyclers_states['mechanical_recycling'].extend(
+                #    ['Oregon', 'Utah', 'Pennsylvania', 'Nebraska'])
+                tpb_eol_coeff['w_a'] *= calibration_4
+                tpb_eol_coeff['w_pbc'] *= calibration_5
+                tpb_eol_coeff['w_dpbc'] = calibration_6
+                tpb_eol_coeff['w_sn'] *= calibration_7
+                tpb_eol_coeff['w_b'] *= calibration_8
+                tpb_eol_coeff['w_p'] *= calibration_9
             elif calibration == 6:
                 attitude_bt_parameters['mean'] = calibration_2
                 attitude_bt_man_parameters['mean'] = calibration_3
@@ -1497,15 +1500,44 @@ class WindABM(Model):
         enacted regulation(s) for the given choice and False otherwise
         :return: the two behaviors with the highest scores
         """
-        scores_sn = self.subjective_norms(grid, adopted_choice, position,
-                                          dic_choices)
-        scores_a = self.attitude(ce_att_level, conv_att_level, dic_choices,
-                                 choices_circularity)
-        scores_pbc = self.perceived_behavioral_control_and_barrier(
-            cost_choices)
-        scores_b = self.perceived_behavioral_control_and_barrier(
-            barrier_choices)
-        scores_p = self.pressure(state, regulations, choices_circularity)
+        scores_sn = self.divide_value_by_tot_dic(
+            self.subjective_norms(grid, adopted_choice, position, dic_choices))
+        scores_a = self.divide_value_by_tot_dic(
+            self.attitude(ce_att_level, conv_att_level, dic_choices,
+                          choices_circularity))
+        scores_pbc = self.divide_value_by_tot_dic(
+            self.perceived_behavioral_control_and_barrier(cost_choices))
+        scores_b = self.divide_value_by_tot_dic(
+            self.perceived_behavioral_control_and_barrier(barrier_choices))
+        scores_p = self.divide_value_by_tot_dic(
+            self.pressure(state, regulations, choices_circularity))
+        scores_behaviors = self.total_tpb_scores(
+            dic_choices, tpb_weights, scores_sn, scores_a, scores_pbc,
+            scores_b, scores_p)
+        first_choice = self.select_highest_scores_in_dic(
+            scores_behaviors, np.nan, True)
+        dic_second_choices = dic_choices.copy()
+        dic_second_choices.pop(first_choice)
+        scores_sn.pop(first_choice)
+        scores_sn = self.divide_value_by_tot_dic(scores_sn)
+        scores_a.pop(first_choice)
+        scores_a = self.divide_value_by_tot_dic(scores_a)
+        scores_pbc.pop(first_choice)
+        scores_pbc = self.divide_value_by_tot_dic(scores_pbc)
+        scores_b.pop(first_choice)
+        scores_b = self.divide_value_by_tot_dic(scores_b)
+        scores_p.pop(first_choice)
+        scores_p = self.divide_value_by_tot_dic(scores_p)
+        scores_behaviors = self.total_tpb_scores(
+            dic_second_choices, tpb_weights, scores_sn, scores_a, scores_pbc,
+            scores_b, scores_p)
+        second_choice = self.select_highest_scores_in_dic(
+            scores_behaviors, first_choice, False)
+        return first_choice, second_choice
+
+    @staticmethod
+    def total_tpb_scores(dic_choices, tpb_weights, scores_sn, scores_a,
+                         scores_pbc, scores_b, scores_p):
         scores_behaviors = {}
         for key, value in dic_choices.items():
             scores_behaviors[key] = tpb_weights['w_bi'] * (
@@ -1517,20 +1549,19 @@ class WindABM(Model):
                     tpb_weights['w_p'] * scores_p[key]
             if not value:
                 scores_behaviors.pop(key)
-        first_choices = [keys for keys, values in scores_behaviors.items() if
-                         values == max(scores_behaviors.values())]
+        return scores_behaviors
+
+    @staticmethod
+    def select_highest_scores_in_dic(dic, first_choice, first):
+        choices = [keys for keys, values in dic.items() if
+                   values == max(dic.values())]
         # if two behavior equally score the highest, choose randomly
-        random.shuffle(first_choices)
-        first_choice = first_choices[0]
-        scores_behaviors.pop(first_choice)
-        second_choices = [keys for keys, values in scores_behaviors.items() if
-                          values == max(scores_behaviors.values())]
-        random.shuffle(second_choices)
-        if second_choices:
-            second_choice = second_choices[0]
+        random.shuffle(choices)
+        if choices or first:
+            selected_choice = choices[0]
         else:
-            second_choice = first_choice
-        return first_choice, second_choice
+            selected_choice = first_choice
+        return selected_choice
 
     @staticmethod
     def lifetime_extension(eol_pathway, initial_lifetime, le_feas_years):
@@ -2090,6 +2121,13 @@ class WindABM(Model):
         weighted_variables = [x * y for x, y in zip(weights, list_variables)]
         weighted_average = sum(weighted_variables)
         return weighted_average
+
+    @staticmethod
+    def divide_value_by_tot_dic(dic):
+        tot = np.nansum(list(dic.values()))
+        if tot != 0:
+            dic = {k: v / tot for k, v in dic.items()}
+        return dic
 
     @staticmethod
     def compute_yearly_or_cum_adoption_ratios(
