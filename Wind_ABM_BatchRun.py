@@ -259,10 +259,10 @@ if __name__ == '__main__':
                 "seed": list(range(number_run)),
                 "calibration": [2],
                 "calibration_2": [1E-6, 1],
-                "calibration_3": [0, -0.7, -0.15],  # -0.15
+                "calibration_3": [0, -0.07, -0.15],  # -0.15
                 "calibration_4": [-0.26],  # -0.26
                 "calibration_5": [0, 0.1, 0.19],  # 0.19
-                "calibration_6": [0.29],  # 0.29
+                "calibration_6": [0, 0.29],  # 0.29
                 "calibration_7": [-0.29],  # -0.29
                 "calibration_8": [0.17]
             }  # 0.17
@@ -345,7 +345,7 @@ if __name__ == '__main__':
             appended_data['x_2'] = appended_data['x_2'].round()
             appended_data.to_csv("results\\SobolBatchRun.csv")
 
-    run_batch(sobol=True, number_steps=31, number_run=5, num_core=6)
+    run_batch(sobol=False, number_steps=31, number_run=10, num_core=6)
 
     t1 = time.time()
     print(t1 - t0)

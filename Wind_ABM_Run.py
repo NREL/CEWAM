@@ -70,4 +70,4 @@ class WindABMRun:
 # Add new values for the ABM parameters by writing parameter_name=value after
 # "number run"
 WindABMRun(
-    number_steps=41, number_run=20).run_model()
+    number_steps=31, number_run=1).run_model()

@@ -2124,7 +2124,9 @@ class WindABM(Model):
 
     @staticmethod
     def divide_value_by_tot_dic(dic):
-        tot = np.nansum(list(dic.values()))
+        # absolute value of total to keep direction of factor (e.g., in the
+        # case of the pressure factor)
+        tot = abs(np.nansum(list(dic.values())))
         if tot != 0:
             dic = {k: v / tot for k, v in dic.items()}
         return dic
