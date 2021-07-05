@@ -67,9 +67,9 @@ if __name__ == '__main__':
             "lifetime_extension": 0.005, "dissolution": 0.0,
             "pyrolysis": 0.005, "mechanical_recycling": 0.005,
             "cement_co_processing": 0.005, "landfill": 0.98},
-        "tpb_eol_coeff": {'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.19,
-                          'w_pbc': -0.26, 'w_dpbc': -0.29, 'w_p': 0.17,
-                          'w_b': -0.15},
+        "tpb_eol_coeff": {'w_bi': 0.12, 'w_a': 0.29, 'w_sn': 0.19,
+                          'w_pbc': -0.26, 'w_dpbc': -0.29, 'w_p': 0.11,
+                          'w_b': -0.21},
         "attitude_eol_parameters": {"mean": 0.55, 'standard_deviation': 0.15,
                                     'min': 0, 'max': 1},
         "choices_circularity": {
@@ -258,13 +258,13 @@ if __name__ == '__main__':
             variable_params = {
                 "seed": list(range(number_run)),
                 "calibration": [2],
-                "calibration_2": [1E-6, 1],
-                "calibration_3": [0, -0.07, -0.15],  # -0.15
+                "calibration_2": [1E-6, 0.5, 1],
+                "calibration_3": [0, -0.1, -0.21],  # -0.15
                 "calibration_4": [-0.26],  # -0.26
                 "calibration_5": [0, 0.1, 0.19],  # 0.19
                 "calibration_6": [0, 0.29],  # 0.29
-                "calibration_7": [-0.29],  # -0.29
-                "calibration_8": [0.17]
+                "calibration_7": [0.12],  # -0.29
+                "calibration_8": [0.11]
             }  # 0.17
             fixed_params = all_fixed_params.copy()
             for key in variable_params.keys():
