@@ -63,7 +63,10 @@ class WindABMRun:
 
     def run_model(self):
         """Run the set up model"""
+        print("test")
         self.set_up_run_model()
+
+        
 
 
 # Comment line below when running WindWBMRun tests
