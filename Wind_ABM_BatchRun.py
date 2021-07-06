@@ -292,7 +292,7 @@ if __name__ == '__main__':
                            "w_a", "w_pbc", "w_dpbc", "w_sn", "w_b", "w_p"],
                        'bounds': [[0, 132], [0, 0.53], [0, 1], [0, 1], [0, 1],
                                   [0, 1], [0, 1], [0, 1]]}
-            x = saltelli.sample(problem, 20)
+            x = saltelli.sample(problem, 5)
             baseline_row = np.array([27.56, 0.53, 1, 1, 1, 1, 1, 1])
             x = np.vstack((x, baseline_row))
             # lower_bound_row = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0])
@@ -342,10 +342,9 @@ if __name__ == '__main__':
                     run_data["x_%s" % k] = x[i][k]
                 appended_data.append(run_data)
             appended_data = pd.concat(appended_data)
-            appended_data['x_2'] = appended_data['x_2'].round()
             appended_data.to_csv("results\\SobolBatchRun.csv")
 
-    run_batch(sobol=False, number_steps=31, number_run=10, num_core=6)
+    run_batch(sobol=True, number_steps=31, number_run=2, num_core=6)
 
     t1 = time.time()
     print(t1 - t0)
