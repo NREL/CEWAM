@@ -22,7 +22,7 @@ class Landfill(Agent):
         for key, value in kwargs.items():
             setattr(self, key, value)
         # Variables internal to the class -
-        self.internal_clock = self.model.clock
+        self.internal_clock = self.model.clock                         #add landfill coordinates in here too
         self.landfill_type = self.model.wbj_database.loc[
             self.unique_id - self.model.first_land_id]['landfill_type']
         self.landfill_state = self.model.wbj_database.loc[
@@ -40,7 +40,7 @@ class Landfill(Agent):
         self.landfill_revenue = 0
         # only potential costs are seen by wind plant owners, potential
         # revenues are kept by landfills
-        self.model.variables_landfills[self.landfill_type].append(
+        self.model.variables_landfills[self.landfill_type].append(                   #links to dictionary of tuples in model, adding coordinates after landfill state
             (self.unique_id, self.landfill_state, max(self.landfill_cost -
              self.landfill_revenue, 0), self.landfill_cost,
              self.landfill_revenue))

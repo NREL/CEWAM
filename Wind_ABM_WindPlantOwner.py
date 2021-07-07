@@ -28,6 +28,9 @@ class WindPlantOwner(Agent):
             self.model.uswtdb.shape[0]
         # Initial agents:
         if self.unique_id < self.initial_agents:
+            #self.coordinates = (self.model.uswtdb.loc[
+                #self.unique_id - self.model.first_wpo_id['x_long'], self.model.first_wpo_id['ylat'])
+
             self.p_cap = self.model.uswtdb.loc[
                 self.unique_id - self.model.first_wpo_id]['p_cap']
             self.p_name = self.model.uswtdb.loc[
@@ -110,10 +113,10 @@ class WindPlantOwner(Agent):
         self.eol_pathways_barriers = self.model.initial_dic_from_key_list(
             self.model.eol_pathways.keys(), 0)
         self.eol_tr_cost_shreds, self.eol_tr_cost_segments, \
-            self.eol_tr_cost_repair = self.model.eol_transportation_costs(
+            self.eol_tr_cost_repair = self.model.eol_transportation_costs(   
               self.model.eol_pathways, self.model.eol_distances(
                 self.model.variables_recyclers, self.model.variables_landfills,
-                self.model.all_shortest_paths_or_trg, self.t_state,
+                self.model.all_shortest_paths_or_trg, self.t_state,             #need to change this. Input the matrix
                 self.eol_pathways_barriers),
               self.model.transport_shred_costs, self.model.transport_shreds,
               self.model.transport_segment_costs,
