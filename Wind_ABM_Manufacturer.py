@@ -110,8 +110,8 @@ class Manufacturer(Agent):
                 self.model.eol_pathways, self.model.eol_distances(
                     self.model.variables_recyclers,
                     self.model.variables_landfills,
-                    self.model.all_shortest_paths_or_trg, self.state_man,
-                    self.man_wst_barriers),
+                    self.model.state_distances, self.state_man,
+                    self.man_wst_barriers, False),
                 self.model.transport_shred_costs, self.model.transport_shreds,
                 self.model.transport_segment_costs,
                 self.model.transport_segments, self.model.variables_developers,
@@ -261,7 +261,7 @@ class Manufacturer(Agent):
                 recycling_costs[key] = [
                     (self.unique_id, self.state_man, self.m_wst_rec_cost[key] -
                      self.init_m_wst_rec_rev[key], self.m_wst_rec_cost[key],
-                     self.init_m_wst_rec_rev[key])]
+                     self.init_m_wst_rec_rev[key], np.nan)]
         man_wst_costs, m_wst_rev, unused_variable = \
             self.model.costs_eol_pathways(
                 self.man_wst_transport_costs[0],

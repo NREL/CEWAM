@@ -11,6 +11,7 @@ decisions, for instance, what type blade to choose for a given wind turbine.
 
 from mesa import Agent
 import random
+import numpy as np
 
 
 class Developer(Agent):
@@ -36,7 +37,8 @@ class Developer(Agent):
         self.model.variables_developers[self.developer_type].append(
             (self.unique_id, self.model.transport_repair,
              self.lifetime_extension_cost - self.lifetime_extension_revenue,
-             self.lifetime_extension_cost, self.lifetime_extension_revenue))
+             self.lifetime_extension_cost, self.lifetime_extension_revenue,
+             np.nan))
         self.le_feasibility = self.model.le_feasibility
         self.lifetime_extension_years = \
             self.model.symetric_triang_distrib_draw(

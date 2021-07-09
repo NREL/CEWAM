@@ -70,7 +70,7 @@ class WindABMRun:
 # Add new values for the ABM parameters by writing parameter_name=value after
 # "number run"
 WindABMRun(
-    number_steps=41, number_run=20,
+    number_steps=31, number_run=1,
     tpb_eol_coeff={'w_bi': 0.12, 'w_a': 0.29, 'w_sn': 0.19,
                    'w_pbc': -0.26, 'w_dpbc': -0.29, 'w_p': 0.11,
                    'w_b': -0.21}).run_model()

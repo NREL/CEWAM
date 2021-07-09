@@ -25,6 +25,8 @@ class Recycler(Agent):
         self.recycler_type = self.model.list_recycler_types.pop()
         self.recycler_state = self.model.assign_elements_from_list(
             self.model.recyclers_states[self.recycler_type], True)
+        self.recycler_coordinates = self.model.recyclers_coordinates[
+            self.recycler_type][self.recycler_state]
         self.rec_margin = self.model.symetric_triang_distrib_draw(
             self.model.recycler_margin[self.recycler_type][0],
             self.model.recycler_margin[self.recycler_type][1])
@@ -41,7 +43,7 @@ class Recycler(Agent):
         self.model.variables_recyclers[self.recycler_type].append(
             (self.unique_id, self.recycler_state, max(self.init_recycler_cost -
              self.recycler_revenue, 0), self.init_recycler_cost,
-             self.recycler_revenue))
+             self.recycler_revenue, self.recycler_coordinates))
         self.recycler_cost = self.init_recycler_cost
         self.init_recycled_quantity = self.model.recycling_init_cap[
             self.recycler_type]
@@ -98,8 +100,9 @@ class Recycler(Agent):
         """
         self.model.variables_recyclers[self.recycler_type].append(
             (self.unique_id, self.recycler_state,
-             self.recycler_cost - self.recycler_revenue, self.recycler_cost,
-             self.recycler_revenue))
+             max(self.recycler_cost - self.recycler_revenue, 0),
+             self.recycler_cost, self.recycler_revenue,
+             self.recycler_coordinates))
         self.model.average_eol_costs[self.recycler_type] += \
             self.recycler_cost / self.model.recyclers[self.recycler_type]
         self.model.recovered_materials = self.material_recovery(

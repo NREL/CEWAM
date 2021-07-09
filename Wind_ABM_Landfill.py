@@ -27,6 +27,13 @@ class Landfill(Agent):
             self.unique_id - self.model.first_land_id]['landfill_type']
         self.landfill_state = self.model.wbj_database.loc[
             self.unique_id - self.model.first_land_id]['State']
+        self.landfill_name = self.model.wbj_database.loc[
+            self.unique_id - self.model.first_land_id]['Facility Name']
+        self.landfill_coordinates = (
+            round(self.model.wbj_database.loc[
+                self.unique_id - self.model.first_land_id]['Longitude'], 7),
+            round(self.model.wbj_database.loc[
+                self.unique_id - self.model.first_land_id]['Latitude'], 7))
         self.landfill_cost = self.model.wbj_database.loc[
             self.unique_id - self.model.first_land_id]['$/ Ton']
         self.remaining_capacity = self.model.wbj_database.loc[
@@ -43,7 +50,7 @@ class Landfill(Agent):
         self.model.variables_landfills[self.landfill_type].append(
             (self.unique_id, self.landfill_state, max(self.landfill_cost -
              self.landfill_revenue, 0), self.landfill_cost,
-             self.landfill_revenue))
+             self.landfill_revenue, self.landfill_name))
         self.closure = False
         self.closure_threshold = self.model.symetric_triang_distrib_draw(
             self.model.landfill_closure_threshold[0],
@@ -105,11 +112,11 @@ class Landfill(Agent):
             self.model.variables_landfills[self.landfill_type].append(
                 (self.unique_id, self.landfill_state, self.landfill_cost -
                  self.landfill_revenue, self.landfill_cost,
-                 self.landfill_revenue))
+                 self.landfill_revenue, self.landfill_name))
         else:
             self.model.variables_landfills[self.landfill_type].append(
                 (self.unique_id, self.landfill_state, np.nan,
-                 np.nan, np.nan))
+                 np.nan, np.nan, self.landfill_name))
         self.model.landfill_remaining_cap[self.landfill_state] += \
             self.remaining_capacity
         self.model.state_blade_waste[self.landfill_state] += self.blade_waste

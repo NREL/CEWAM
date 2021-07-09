@@ -28,6 +28,11 @@ class WindPlantOwner(Agent):
             self.model.uswtdb.shape[0]
         # Initial agents:
         if self.unique_id < self.initial_agents:
+            self.coordinates = (
+                round(self.model.uswtdb.loc[
+                    self.unique_id - self.model.first_wpo_id]['xlong'], 7),
+                round(self.model.uswtdb.loc[
+                    self.unique_id - self.model.first_wpo_id]['ylat'], 7))
             self.p_cap = self.model.uswtdb.loc[
                 self.unique_id - self.model.first_wpo_id]['p_cap']
             self.p_name = self.model.uswtdb.loc[
@@ -56,8 +61,20 @@ class WindPlantOwner(Agent):
                 self.p_cap = \
                     self.model.additional_cap[self.t_state] / \
                     self.model.dict_agent_states[self.t_state]
-            self.p_name = "".join(("Additional_agent_", self.t_state, "_",
-                                  str(self.unique_id)))
+            if self.t_state in self.model.add_state_projections.keys():
+                self.p_name = self.t_state
+                self.coordinates = (-98.5795, 39.8283)  # US Geographic center
+            else:
+                potential_names = self.model.uswtdb.loc[
+                    self.model.uswtdb['t_state'] == self.t_state].sample(
+                    n=1, random_state=self.model.seed)
+                self.p_name = potential_names.iloc[0]['p_name']
+                potential_locations = self.model.uswtdb.loc[
+                    self.model.uswtdb['t_state'] == self.t_state].sample(
+                    n=1, random_state=self.model.seed)
+                self.coordinates = (
+                    potential_locations.iloc[0]['xlong'],
+                    potential_locations.iloc[0]['ylat'])
             self.p_year = self.model.clock + \
                 self.model.temporal_scope['simulation_start']
             self.t_cap, self.t_rd = self.model.atb_model(
@@ -109,12 +126,21 @@ class WindPlantOwner(Agent):
             self.model.variables_developers, self.blade_mass_conv_factor)
         self.eol_pathways_barriers = self.model.initial_dic_from_key_list(
             self.model.eol_pathways.keys(), 0)
+        if self.t_state in self.model.add_state_projections.keys():
+            distances = self.model.state_distances
+            self.model.enhanced_transportation_model = False
+        else:
+            distances = self.model.wpo_land_rec_distances
+            self.model.enhanced_transportation_model = True
+        if not self.model.enhanced_transportation_model:
+            distances = self.model.state_distances
+            self.p_name = self.t_state
         self.eol_tr_cost_shreds, self.eol_tr_cost_segments, \
             self.eol_tr_cost_repair = self.model.eol_transportation_costs(
               self.model.eol_pathways, self.model.eol_distances(
                 self.model.variables_recyclers, self.model.variables_landfills,
-                self.model.all_shortest_paths_or_trg, self.t_state,
-                self.eol_pathways_barriers),
+                distances, self.p_name, self.eol_pathways_barriers,
+                self.model.enhanced_transportation_model),
               self.model.transport_shred_costs, self.model.transport_shreds,
               self.model.transport_segment_costs,
               self.model.transport_segments, self.variables_developers_wpo,
@@ -189,8 +215,9 @@ class WindPlantOwner(Agent):
         for key in developer_costs.keys():
             dev_costs_list = developer_costs[key]
             converted_list = [
-                (x, y, z / conversion_factor, v / conversion_factor,
-                 w / conversion_factor) for x, y, z, v, w in dev_costs_list]
+                (x, y, z / conversion_factor, u / conversion_factor,
+                 v / conversion_factor, w) for x, y, z, u, v, w in
+                dev_costs_list]
             converted_developer_costs[key] = converted_list
         return converted_developer_costs
 
