@@ -111,7 +111,7 @@ class Manufacturer(Agent):
                     self.model.variables_recyclers,
                     self.model.variables_landfills,
                     self.model.state_distances, self.state_man,
-                    self.man_wst_barriers, False),
+                    self.man_wst_barriers, False, self.model.state_distances),
                 self.model.transport_shred_costs, self.model.transport_shreds,
                 self.model.transport_segment_costs,
                 self.model.transport_segments, self.model.variables_developers,

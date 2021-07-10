@@ -51,6 +51,10 @@ class Landfill(Agent):
             (self.unique_id, self.landfill_state, max(self.landfill_cost -
              self.landfill_revenue, 0), self.landfill_cost,
              self.landfill_revenue, self.landfill_name))
+        #self.model.eol_facilities_data(
+        #    self.model.wpo_land_rec_distances, self.unique_id,
+        #    max(self.landfill_cost - self.landfill_revenue, 0),
+        #    self.landfill_cost, self.landfill_revenue, self.landfill_name)
         self.closure = False
         self.closure_threshold = self.model.symetric_triang_distrib_draw(
             self.model.landfill_closure_threshold[0],

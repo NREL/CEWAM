@@ -12,6 +12,7 @@ decisions, for instance, regarding EOL management.
 from mesa import Agent
 import random
 import numpy as np
+import time
 
 
 class WindPlantOwner(Agent):
@@ -129,18 +130,28 @@ class WindPlantOwner(Agent):
         if self.t_state in self.model.add_state_projections.keys():
             distances = self.model.state_distances
             self.model.enhanced_transportation_model = False
+            self.pre_computed_data = np.nan
         else:
             distances = self.model.wpo_land_rec_distances
             self.model.enhanced_transportation_model = True
+            if self.unique_id < self.initial_agents:
+                import ast
+                self.model.wpo_land_rec_distances.loc[self.p_name] = \
+                    self.model.wpo_land_rec_distances.loc[self.p_name].apply(
+                    ast.literal_eval)
+            self.pre_computed_data = \
+                self.model.wpo_land_rec_distances.loc[self.p_name].to_list()
         if not self.model.enhanced_transportation_model:
             distances = self.model.state_distances
             self.p_name = self.t_state
+            self.pre_computed_data = np.nan
         self.eol_tr_cost_shreds, self.eol_tr_cost_segments, \
             self.eol_tr_cost_repair = self.model.eol_transportation_costs(
               self.model.eol_pathways, self.model.eol_distances(
                 self.model.variables_recyclers, self.model.variables_landfills,
                 distances, self.p_name, self.eol_pathways_barriers,
-                self.model.enhanced_transportation_model),
+                self.model.enhanced_transportation_model,
+                self.pre_computed_data),
               self.model.transport_shred_costs, self.model.transport_shreds,
               self.model.transport_segment_costs,
               self.model.transport_segments, self.variables_developers_wpo,

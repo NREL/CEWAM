@@ -44,6 +44,11 @@ class Recycler(Agent):
             (self.unique_id, self.recycler_state, max(self.init_recycler_cost -
              self.recycler_revenue, 0), self.init_recycler_cost,
              self.recycler_revenue, self.recycler_coordinates))
+        #self.model.eol_facilities_data(
+        #    self.model.wpo_land_rec_distances, self.unique_id,
+        #    max(self.init_recycler_cost - self.recycler_revenue, 0),
+        #    self.init_recycler_cost, self.recycler_revenue,
+        #    self.recycler_coordinates)
         self.recycler_cost = self.init_recycler_cost
         self.init_recycled_quantity = self.model.recycling_init_cap[
             self.recycler_type]
@@ -103,6 +108,11 @@ class Recycler(Agent):
              max(self.recycler_cost - self.recycler_revenue, 0),
              self.recycler_cost, self.recycler_revenue,
              self.recycler_coordinates))
+        #self.model.eol_facilities_data(
+        #    self.model.wpo_land_rec_distances, self.unique_id,
+        #    max(self.recycler_cost - self.recycler_revenue, 0),
+        #    self.recycler_cost, self.recycler_revenue,
+        #    self.recycler_coordinates)
         self.model.average_eol_costs[self.recycler_type] += \
             self.recycler_cost / self.model.recyclers[self.recycler_type]
         self.model.recovered_materials = self.material_recovery(
