@@ -25,7 +25,7 @@ class Recycler(Agent):
         self.recycler_type = self.model.list_recycler_types.pop()
         self.recycler_state = self.model.assign_elements_from_list(
             self.model.recyclers_states[self.recycler_type], True)
-        self.recycler_coordinates = self.model.recyclers_coordinates[
+        self.recycler_name = self.model.recyclers_names[
             self.recycler_type][self.recycler_state]
         self.rec_margin = self.model.symetric_triang_distrib_draw(
             self.model.recycler_margin[self.recycler_type][0],
@@ -43,12 +43,14 @@ class Recycler(Agent):
         self.model.variables_recyclers[self.recycler_type].append(
             (self.unique_id, self.recycler_state, max(self.init_recycler_cost -
              self.recycler_revenue, 0), self.init_recycler_cost,
-             self.recycler_revenue, self.recycler_coordinates))
-        #self.model.eol_facilities_data(
-        #    self.model.wpo_land_rec_distances, self.unique_id,
-        #    max(self.init_recycler_cost - self.recycler_revenue, 0),
-        #    self.init_recycler_cost, self.recycler_revenue,
-        #    self.recycler_coordinates)
+             self.recycler_revenue, self.recycler_name))
+        # TODO add same for centroid distances
+        if not self.model.detailed_transport_model['pre_computed']:
+            self.model.eol_facilities_data(
+                self.model.wpo_land_rec_distances, self.unique_id,
+                max(self.init_recycler_cost - self.recycler_revenue, 0),
+                self.init_recycler_cost, self.recycler_revenue,
+                self.recycler_name, self.model.original_wpo_land_rec_distances)
         self.recycler_cost = self.init_recycler_cost
         self.init_recycled_quantity = self.model.recycling_init_cap[
             self.recycler_type]
@@ -107,12 +109,13 @@ class Recycler(Agent):
             (self.unique_id, self.recycler_state,
              max(self.recycler_cost - self.recycler_revenue, 0),
              self.recycler_cost, self.recycler_revenue,
-             self.recycler_coordinates))
-        #self.model.eol_facilities_data(
-        #    self.model.wpo_land_rec_distances, self.unique_id,
-        #    max(self.recycler_cost - self.recycler_revenue, 0),
-        #    self.recycler_cost, self.recycler_revenue,
-        #    self.recycler_coordinates)
+             self.recycler_name))
+        # TODO add same for centroid distances
+        self.model.eol_facilities_data(
+            self.model.wpo_land_rec_distances, self.unique_id,
+            max(self.recycler_cost - self.recycler_revenue, 0),
+            self.recycler_cost, self.recycler_revenue,
+            self.recycler_name, self.model.original_wpo_land_rec_distances)
         self.model.average_eol_costs[self.recycler_type] += \
             self.recycler_cost / self.model.recyclers[self.recycler_type]
         self.model.recovered_materials = self.material_recovery(

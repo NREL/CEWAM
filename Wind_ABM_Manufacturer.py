@@ -111,12 +111,12 @@ class Manufacturer(Agent):
                     self.model.variables_recyclers,
                     self.model.variables_landfills,
                     self.model.state_distances, self.state_man,
-                    self.man_wst_barriers, False, self.model.state_distances),
+                    self.man_wst_barriers, False, np.nan),
                 self.model.transport_shred_costs, self.model.transport_shreds,
                 self.model.transport_segment_costs,
                 self.model.transport_segments, self.model.variables_developers,
-                self.model.symetric_triang_distrib_draw, np.NaN, np.NaN,
-                np.NaN, self.model.blades_per_rotor)
+                self.model.symetric_triang_distrib_draw, np.nan, np.nan,
+                np.nan, self.model.blades_per_rotor)
             self.recycling_shreds_onsite(
                 self.model.transport_shreds, self.man_wst_transport_costs[0],
                 self.model.symetric_triang_distrib_draw)

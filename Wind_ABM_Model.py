@@ -59,7 +59,6 @@ import scipy
 import warnings
 from scipy.stats import truncnorm
 import copy
-import time
 
 
 class WindABM(Model):
@@ -174,22 +173,18 @@ class WindABM(Model):
                      "pyrolysis": ["South Carolina", "Tennessee"],
                      "mechanical_recycling": ["Iowa", "Texas", "Florida"],
                      "cement_co_processing": ["Missouri"]},
-                 recyclers_coordinates={
+                 recyclers_names={
                      "dissolution": {
                          "South Carolina": 'Carbon Conversions - dissolution',
-                         "Tennessee": 'Carbon Rivers - dissolution',
-                         "Iowa": 'GFS IA - dissolution',
-                         "Texas": 'GFS TX - dissolution',
-                         "Florida": 'EcoWolf - dissolution',
-                         "Missouri": 'Veolia - dissolution'},
-                     "pyrolysis": {
-                         "South Carolina": 'Carbon Conversions',
-                         "Tennessee": 'Carbon Rivers'},
-                     "mechanical_recycling": {
-                         "Iowa": 'GFS IA',
-                         "Texas": 'GFS TX',
-                         "Florida": 'EcoWolf'},
-                     "cement_co_processing": {
+                         "Tennessee": 'Carbon Rivers - dissolution', "Iowa":
+                             'GFS IA - dissolution', "Texas":
+                             'GFS TX - dissolution', "Florida":
+                             'EcoWolf - dissolution', "Missouri":
+                             'Veolia - dissolution'}, "pyrolysis": {
+                         "South Carolina": 'Carbon Conversions', "Tennessee":
+                             'Carbon Rivers'}, "mechanical_recycling": {
+                         "Iowa": 'GFS IA', "Texas": 'GFS TX', "Florida":
+                             'EcoWolf'}, "cement_co_processing": {
                          "Missouri": 'Veolia'}},
                  learning_parameter={
                      "dissolution": [-0.21, -0.2],
@@ -258,7 +253,7 @@ class WindABM(Model):
                      "dissolution": [0.05, 0.25], "pyrolysis": [0.05, 0.25],
                      "mechanical_recycling": [0.05, 0.25],
                      "cement_co_processing": [0.05, 0.25]},
-                 enhanced_transportation_model=False
+                 detailed_transport_model={'on': True, 'pre_computed': True}
                  ):
         """
         Initiate model.
@@ -338,7 +333,7 @@ class WindABM(Model):
         thermoplastic blades are 4.7% less expensive than thermoset blades
         :param recyclers_states: state where the recycling facilities are 
         located
-        :param recyclers_coordinates: recycling facilities coordinates 
+        :param recyclers_names: recycling facilities names 
         :param learning_parameter: learning parameters used to model the 
         learning effect for each recycling process
         :param blade_mass_fractions: material mass fractions of blades
@@ -380,12 +375,10 @@ class WindABM(Model):
         land wind reporting current and projected capacity and rotor diameter
         :param regulation_scenario: include regulator agents actions
         :param recycler_margin: margin of the minimum sustainable price
-        :param enhanced_transportation_model: Boolean deciding to use the 
-        centroid or real distance approach
+        :param detailed_transport_model: Booleans deciding to use the 
+        centroid or real distance approach and pre-computed data or not
         """
         # Variables from inputs (value defined externally):
-        # TODO
-        self.total_time = 0
         self.seed = copy.deepcopy(seed)
         self.batch_run = copy.deepcopy(batch_run)
         if self.batch_run:
@@ -570,7 +563,7 @@ class WindABM(Model):
         self.attitude_bt_parameters = copy.deepcopy(attitude_bt_parameters)
         self.blade_costs = copy.deepcopy(blade_costs)
         self.recyclers_states = copy.deepcopy(recyclers_states)
-        self.recyclers_coordinates = copy.deepcopy(recyclers_coordinates)
+        self.recyclers_names = copy.deepcopy(recyclers_names)
         self.learning_parameter = copy.deepcopy(learning_parameter)
         self.blade_mass_fractions = copy.deepcopy(blade_mass_fractions)
         self.rec_recovery_fractions = copy.deepcopy(rec_recovery_fractions)
@@ -596,8 +589,8 @@ class WindABM(Model):
         self.atb_land_wind = copy.deepcopy(atb_land_wind)
         self.regulation_scenario = copy.deepcopy(regulation_scenario)
         self.recycler_margin = copy.deepcopy(recycler_margin)
-        self.enhanced_transportation_model = copy.deepcopy(
-            enhanced_transportation_model)
+        self.detailed_transport_model = copy.deepcopy(
+            detailed_transport_model)
         # Internal variables:
         self.running = True  # required for batch runs
         self.clock = 0  # keep track of simulation time step
@@ -756,13 +749,16 @@ class WindABM(Model):
             0, list(range(self.temporal_scope['simulation_start'],
                           self.temporal_scope['simulation_end'])),
             self.eol_pathways)
-        # TODO
-        # Uploading transportation distances:
-        #self.wpo_land_rec_distances = pd.read_csv(
-        #    self.external_files["wpo_land_rec_distances"], index_col=0,
-        #    header=0)
-        self.wpo_land_rec_distances = pd.read_csv('test1.csv', index_col=0,
-                                                  header=0)
+        if self.detailed_transport_model['pre_computed']:
+            self.wpo_land_rec_distances = pd.read_json(
+                'pre_computed_data/tr_dist_%s.json' % self.seed)
+        else:
+            self.wpo_land_rec_distances = pd.read_csv(
+                self.external_files["wpo_land_rec_distances"], index_col=0,
+                header=0)
+        self.original_wpo_land_rec_distances = pd.read_csv(
+                self.external_files["wpo_land_rec_distances"], index_col=0,
+                header=0)
         self.state_distances = pd.read_csv(
             self.external_files["state_distances"], index_col=0)
         # Creating agents and social networks:
@@ -773,7 +769,6 @@ class WindABM(Model):
                 self.small_world_networks["recyclers"]["node_degree"],
                 self.small_world_networks["recyclers"]["rewiring_prob"],
                 sum(self.recyclers.values()), Recycler)
-        #self.wpo_land_rec_distances.to_csv('test0.csv')
         self.first_land_id = self.unique_id
         self.G_land, self.grid_land, self.schedule_land = \
             self.network_grid_schedule_agents(
@@ -781,8 +776,9 @@ class WindABM(Model):
                 self.small_world_networks["landfills"]["node_degree"],
                 self.small_world_networks["landfills"]["rewiring_prob"],
                 self.wbj_database.shape[0], Landfill)
-        # TODO
-        #self.wpo_land_rec_distances.to_csv('test1.csv')
+        if not self.detailed_transport_model['pre_computed']:
+            self.wpo_land_rec_distances.to_json(
+                'pre_computed_data\\tr_dist_%s.json' % self.seed)
         self.G_man, self.grid_man, self.schedule_man = \
             self.network_grid_schedule_agents(
                 sum(self.manufacturers.values()),
@@ -1074,19 +1070,20 @@ class WindABM(Model):
 
     @staticmethod
     def eol_facilities_data(wpo_land_rec_distances, unique_id, net_cost,
-                            cost, revenue, facility_name):
+                            cost, revenue, facility_name, original_db):
         df = wpo_land_rec_distances.copy()
+        df2 = original_db.copy()
         df = df[[facility_name]]
+        df2 = df2[[facility_name]]
         df['unique_id'] = unique_id
         df['net_cost'] = net_cost
         df['cost'] = cost
         df['revenue'] = revenue
         df['facility_name'] = facility_name
         df['variables_facility'] = list(
-            zip(df['unique_id'], df[facility_name], df['net_cost'], df['cost'],
-                df['revenue'], df['facility_name']))
+            zip(df['unique_id'], df2[facility_name], df['net_cost'],
+                df['cost'], df['revenue'], df['facility_name']))
         wpo_land_rec_distances[facility_name] = df['variables_facility']
-        print('computing')
 
     @staticmethod
     def wind_plant_owner_data(database, state_abrev, cap_to_diameter_model,
@@ -1925,12 +1922,11 @@ class WindABM(Model):
         return cost_segments
 
     # TODO: write unittest
-    # TODO revert to static method
-    # @staticmethod
-    def eol_distances(self, possible_destinations_rec,
-                      possible_destinations_land, all_possible_distances,
-                      coordinates, eol_pathways_barriers, wpo_to_eol,
-                      pre_computed_data):
+    @staticmethod
+    def eol_distances(
+            possible_destinations_rec, possible_destinations_land,
+            all_possible_distances, coordinates, eol_pathways_barriers,
+            wpo_to_eol, pre_computed_data):
         """
         Compute the distances to all eol facilities for each eol pathway
         :param possible_destinations_rec: all possible destinations for the
@@ -1943,6 +1939,8 @@ class WindABM(Model):
         for each eol
         :param wpo_to_eol: Boolean which determines which transportation
         data to use
+        :param pre_computed_data: list of tuples containing all relevant
+        variables from recyclers and landfills
         :return: the distances to all eol facilities for each eol pathway
         """
         distances = {}
@@ -1955,21 +1953,18 @@ class WindABM(Model):
             # in the tuple: x is agent id, y is agent state, z is agent
             # process net cost, u is agent cost, v is agent revenue, and w is
             # agent coordinates
-            t0 = time.time()
             if wpo_to_eol:
                 list_distances = pre_computed_data
             else:
                 list_distances = [
                     (x, all_possible_distances.loc[origin][y], z, u, v, w)
                     for x, y, z, u, v, w in list_destinations]
-            t1 = time.time()
             distances[key] = list_distances
             if list_distances:
                 min_distance = min(list_distances, key=lambda t: t[1])[1]
                 eol_pathways_barriers[key] = min_distance
             else:
                 eol_pathways_barriers[key] = np.nan
-            self.total_time += t1 - t0
         return distances
 
     @staticmethod
@@ -2267,5 +2262,4 @@ class WindABM(Model):
                                 self.schedule_wpo, WindPlantOwner)
         self.adding_agents(self.p_install_growth, self.grid_wpo,
                            self.schedule_wpo, WindPlantOwner)
-        print('Total time spent in eol_distances function', self.total_time)
         self.clock += 1

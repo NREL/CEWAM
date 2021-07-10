@@ -12,7 +12,6 @@ decisions, for instance, regarding EOL management.
 from mesa import Agent
 import random
 import numpy as np
-import time
 
 
 class WindPlantOwner(Agent):
@@ -129,19 +128,19 @@ class WindPlantOwner(Agent):
             self.model.eol_pathways.keys(), 0)
         if self.t_state in self.model.add_state_projections.keys():
             distances = self.model.state_distances
-            self.model.enhanced_transportation_model = False
+            self.model.detailed_transport_model['on'] = False
             self.pre_computed_data = np.nan
         else:
             distances = self.model.wpo_land_rec_distances
-            self.model.enhanced_transportation_model = True
-            if self.unique_id < self.initial_agents:
-                import ast
-                self.model.wpo_land_rec_distances.loc[self.p_name] = \
-                    self.model.wpo_land_rec_distances.loc[self.p_name].apply(
-                    ast.literal_eval)
+            self.model.detailed_transport_model['on'] = True
+            if self.unique_id < self.initial_agents and \
+                    self.model.detailed_transport_model['pre_computed']:
+                self.pre_computed_data = \
+                    self.model.wpo_land_rec_distances.loc[
+                        self.p_name].to_list()
             self.pre_computed_data = \
                 self.model.wpo_land_rec_distances.loc[self.p_name].to_list()
-        if not self.model.enhanced_transportation_model:
+        if not self.model.detailed_transport_model['on']:
             distances = self.model.state_distances
             self.p_name = self.t_state
             self.pre_computed_data = np.nan
@@ -150,7 +149,7 @@ class WindPlantOwner(Agent):
               self.model.eol_pathways, self.model.eol_distances(
                 self.model.variables_recyclers, self.model.variables_landfills,
                 distances, self.p_name, self.eol_pathways_barriers,
-                self.model.enhanced_transportation_model,
+                self.model.detailed_transport_model['on'],
                 self.pre_computed_data),
               self.model.transport_shred_costs, self.model.transport_shreds,
               self.model.transport_segment_costs,

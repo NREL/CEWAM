@@ -51,10 +51,13 @@ class Landfill(Agent):
             (self.unique_id, self.landfill_state, max(self.landfill_cost -
              self.landfill_revenue, 0), self.landfill_cost,
              self.landfill_revenue, self.landfill_name))
-        #self.model.eol_facilities_data(
-        #    self.model.wpo_land_rec_distances, self.unique_id,
-        #    max(self.landfill_cost - self.landfill_revenue, 0),
-        #    self.landfill_cost, self.landfill_revenue, self.landfill_name)
+        # TODO add same for centroid distances
+        if not self.model.detailed_transport_model['pre_computed']:
+            self.model.eol_facilities_data(
+                self.model.wpo_land_rec_distances, self.unique_id,
+                max(self.landfill_cost - self.landfill_revenue, 0),
+                self.landfill_cost, self.landfill_revenue, self.landfill_name,
+                self.model.original_wpo_land_rec_distances)
         self.closure = False
         self.closure_threshold = self.model.symetric_triang_distrib_draw(
             self.model.landfill_closure_threshold[0],
@@ -135,6 +138,8 @@ class Landfill(Agent):
             self.model.grid_land.G.nodes[self.pos]["agent"].remove(self)
             self.model.schedule_land.remove(self)
             self.model.schedule.remove(self)
+            self.model.wpo_land_rec_distances.drop([self.landfill_name],
+                                                   axis=1)
 
     def step(self):
         """
