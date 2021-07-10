@@ -93,9 +93,9 @@ class WindABM(Model):
                      "landfills": {"node_degree": 5, "rewiring_prob": 0.1},
                      "regulators": {"node_degree": 5, "rewiring_prob": 0.1}},
                  external_files={
-                     "state_distances": "StateCentroidDistances.csv",
+                     "state_distances": "state_centroid_distances.csv",
                      "wpo_land_rec_distances":
-                         "matrix_vf_sd_sitenames.csv",
+                         "transport_distances.csv",
                      "uswtdb": "uswtdb_v3_3_20210114.csv", "projections":
                          "nrel_mid_case_projections.csv",
                      "wbj_database": "WBJ Landfills 2020.csv"},

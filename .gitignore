@@ -1,6 +1,7 @@
 .idea/
 __pycache__/
 arch
+pre_computed_data
 results
 tests/results
 venv/
@@ -11,3 +12,4 @@ Wind_ABM_Run.exe
 PreCalculatedLandRecData.csv
 test.csv
 test1.csv
+.gitattributes
