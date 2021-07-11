@@ -193,7 +193,7 @@ if __name__ == '__main__':
                 "Iowa": 'GFS IA', "Texas": 'GFS TX', "Florida":
                     'EcoWolf'}, "cement_co_processing": {
                 "Missouri": 'Veolia'}},
-        "detailed_transport_model": False}
+        "detailed_transport_model": True}
 
     def set_up_batch_run(
             nr_processes, variable_params, fixed_params, number_steps):

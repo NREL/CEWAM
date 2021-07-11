@@ -1918,6 +1918,7 @@ class WindABM(Model):
         distances = {}
         possible_destinations = possible_destinations_rec
         origin = t_state
+        all_dist = all_possible_distances.loc[origin]
         for key in possible_destinations_land.keys():
             possible_destinations[key] = possible_destinations_land[key]
         for key in possible_destinations.keys():
@@ -1925,7 +1926,7 @@ class WindABM(Model):
             # in the tuple: x is agent id, y is agent state, z is agent
             # process net cost, v is agent cost, and w is agent revenue
             list_distances = [
-                (x, all_possible_distances.loc[origin][y], z, v, w)
+                (x, all_dist[y], z, v, w)
                 for x, y, z, v, w in list_destinations]
             distances[key] = list_distances
             if list_distances:
