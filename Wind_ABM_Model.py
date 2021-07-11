@@ -493,7 +493,7 @@ class WindABM(Model):
                 #    ['Oregon', 'Utah', 'Pennsylvania', 'Nebraska'])
                 tpb_eol_coeff['w_a'] *= calibration_4
                 tpb_eol_coeff['w_pbc'] *= calibration_5
-                tpb_eol_coeff['w_dpbc'] = calibration_6
+                tpb_eol_coeff['w_dpbc'] *= calibration_6
                 tpb_eol_coeff['w_sn'] *= calibration_7
                 tpb_eol_coeff['w_b'] *= calibration_8
                 tpb_eol_coeff['w_p'] *= calibration_9
