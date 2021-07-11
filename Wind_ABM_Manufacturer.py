@@ -110,8 +110,8 @@ class Manufacturer(Agent):
                 self.model.eol_pathways, self.model.eol_distances(
                     self.model.variables_recyclers,
                     self.model.variables_landfills,
-                    self.model.all_shortest_paths_or_trg, self.state_man,
-                    self.man_wst_barriers),
+                    self.model.all_shortest_paths_or_trg_default,
+                    self.state_man, self.man_wst_barriers),
                 self.model.transport_shred_costs, self.model.transport_shreds,
                 self.model.transport_segment_costs,
                 self.model.transport_segments, self.model.variables_developers,

@@ -25,6 +25,11 @@ class Recycler(Agent):
         self.recycler_type = self.model.list_recycler_types.pop()
         self.recycler_state = self.model.assign_elements_from_list(
             self.model.recyclers_states[self.recycler_type], True)
+        if self.model.detailed_transport_model:
+            self.recycler_name = self.model.recyclers_names[
+                self.recycler_type][self.recycler_state]
+        else:
+            self.recycler_name = self.recycler_state
         self.rec_margin = self.model.symetric_triang_distrib_draw(
             self.model.recycler_margin[self.recycler_type][0],
             self.model.recycler_margin[self.recycler_type][1])
@@ -40,6 +45,10 @@ class Recycler(Agent):
         # revenues are kept by recycler
         self.model.variables_recyclers[self.recycler_type].append(
             (self.unique_id, self.recycler_state, max(self.init_recycler_cost -
+             self.recycler_revenue, 0), self.init_recycler_cost,
+             self.recycler_revenue))
+        self.model.variables_recyclers_tr[self.recycler_type].append(
+            (self.unique_id, self.recycler_name, max(self.init_recycler_cost -
              self.recycler_revenue, 0), self.init_recycler_cost,
              self.recycler_revenue))
         self.recycler_cost = self.init_recycler_cost
@@ -98,6 +107,10 @@ class Recycler(Agent):
         """
         self.model.variables_recyclers[self.recycler_type].append(
             (self.unique_id, self.recycler_state,
+             self.recycler_cost - self.recycler_revenue, self.recycler_cost,
+             self.recycler_revenue))
+        self.model.variables_recyclers_tr[self.recycler_type].append(
+            (self.unique_id, self.recycler_name,
              self.recycler_cost - self.recycler_revenue, self.recycler_cost,
              self.recycler_revenue))
         self.model.average_eol_costs[self.recycler_type] += \

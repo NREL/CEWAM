@@ -92,8 +92,9 @@ class WindABM(Model):
                      "landfills": {"node_degree": 5, "rewiring_prob": 0.1},
                      "regulators": {"node_degree": 5, "rewiring_prob": 0.1}},
                  external_files={
-                     "state_distances": "StatesAdjacencyMatrix.csv", "uswtdb":
-                     "uswtdb_v3_3_20210114.csv", "projections":
+                     "state_distances": "state_centroid_distances.csv",
+                     "detailed_distances": "transport_distances.csv",
+                     "uswtdb": "uswtdb_v3_3_20210114.csv", "projections":
                          "nrel_mid_case_projections.csv",
                      "wbj_database": "WBJ Landfills 2020.csv"},
                  average_lifetime={'thermoset': [20.0, 20.0001],
@@ -238,7 +239,21 @@ class WindABM(Model):
                  recycler_margin={
                      "dissolution": [0.05, 0.25], "pyrolysis": [0.05, 0.25],
                      "mechanical_recycling": [0.05, 0.25],
-                     "cement_co_processing": [0.05, 0.25]}
+                     "cement_co_processing": [0.05, 0.25]},
+                 recyclers_names={
+                     "dissolution": {
+                         "South Carolina": 'Carbon Conversions - dissolution',
+                         "Tennessee": 'Carbon Rivers - dissolution', "Iowa":
+                             'GFS IA - dissolution', "Texas":
+                             'GFS TX - dissolution', "Florida":
+                             'EcoWolf - dissolution', "Missouri":
+                             'Veolia - dissolution'}, "pyrolysis": {
+                         "South Carolina": 'Carbon Conversions', "Tennessee":
+                             'Carbon Rivers'}, "mechanical_recycling": {
+                         "Iowa": 'GFS IA', "Texas": 'GFS TX', "Florida":
+                             'EcoWolf'}, "cement_co_processing": {
+                         "Missouri": 'Veolia'}},
+                 detailed_transport_model=True
                  ):
         """
         Initiate model.
@@ -359,6 +374,7 @@ class WindABM(Model):
         land wind reporting current and projected capacity and rotor diameter
         :param regulation_scenario: include regulator agents actions
         :param recycler_margin: margin of the minimum sustainable price
+        :param recyclers_names: name of recycling companies
         """
         # Variables from inputs (value defined externally):
         self.seed = copy.deepcopy(seed)
@@ -570,6 +586,8 @@ class WindABM(Model):
         self.atb_land_wind = copy.deepcopy(atb_land_wind)
         self.regulation_scenario = copy.deepcopy(regulation_scenario)
         self.recycler_margin = copy.deepcopy(recycler_margin)
+        self.recyclers_names = copy.deepcopy(recyclers_names)
+        self.detailed_transport_model = copy.deepcopy(detailed_transport_model)
         # Internal variables:
         self.running = True  # required for batch runs
         self.clock = 0  # keep track of simulation time step
@@ -640,7 +658,11 @@ class WindABM(Model):
             0, self.growth_rates.keys(), self.eol_pathways.keys())
         self.variables_recyclers = self.initial_dic_from_key_list(
             self.recyclers.keys(), [])
+        self.variables_recyclers_tr = self.initial_dic_from_key_list(
+            self.recyclers.keys(), [])
         self.variables_landfills = self.initial_dic_from_key_list(
+            self.wbj_database['landfill_type'].unique().tolist(), [])
+        self.variables_landfills_tr = self.initial_dic_from_key_list(
             self.wbj_database['landfill_type'].unique().tolist(), [])
         self.variables_developers = self.initial_dic_from_key_list(
             self.developers.keys(), [])
@@ -729,18 +751,15 @@ class WindABM(Model):
                           self.temporal_scope['simulation_end'])),
             self.eol_pathways)
         # Computing transportation distances:
-        self.state_distances = \
-            pd.read_csv(self.external_files["state_distances"])
-        self.state_dis_matrix = self.state_distances.to_numpy()
-        self.states = self.state_distances.columns.to_list()
-        self.states_graph = nx.from_numpy_matrix(self.state_dis_matrix)
-        self.nodes_states_dic = \
-            dict(zip(list(self.states_graph.nodes),
-                     list(self.state_distances)))
-        self.states_graph = nx.relabel_nodes(self.states_graph,
-                                             self.nodes_states_dic)
-        self.all_shortest_paths_or_trg = self.compute_all_distances(
-            self.states, self.states_graph)
+        if self.detailed_transport_model:
+            self.all_shortest_paths_or_trg = pd.read_csv(
+                self.external_files["detailed_distances"], index_col=0,
+                header=0)
+        else:
+            self.all_shortest_paths_or_trg = pd.read_csv(
+                self.external_files["state_distances"], index_col=0)
+        self.all_shortest_paths_or_trg_default = pd.read_csv(
+            self.external_files["state_distances"], index_col=0)
         # Creating agents and social networks:
         self.schedule = BaseScheduler(self)
         self.G_rec, self.grid_rec, self.schedule_rec = \
@@ -878,55 +897,6 @@ class WindABM(Model):
         self.creating_agents(num_agents, network, grid, schedule, agent_type,
                              **kwargs)
         return network, grid, schedule,
-
-    def compute_all_distances(self, states, graph):
-        """
-        Compute distances for all shortest paths between a set of targets
-        (origins) and all possible origins (targets).
-        :param states: set of targets (origins)
-        :param graph: a graph representing the agents' environment
-        :return: a panda frames with index and columns equal to targets
-        and destinations names and values equal to shortest path distances
-        between any given target/origin combination.
-        """
-        all_shortest_paths_or_trg = np.zeros([len(states), len(graph)])
-        for count, i in enumerate(states):
-            target_states = [i]
-            dist_list = []
-            dist_list = self.shortest_paths(graph, target_states, dist_list)
-            all_shortest_paths_or_trg[count] = dist_list
-        all_shortest_paths_or_trg = pd.DataFrame(
-            all_shortest_paths_or_trg, index=states, columns=graph.nodes)
-        return all_shortest_paths_or_trg
-
-    def shortest_paths(self, graph, target_states, distances_to_target):
-        """
-        Compute shortest paths between chosen origin states and targets with
-        the Dijkstra algorithm.
-        :param graph: graph from which shortest paths need to be computed
-        :param target_states: target (or origin) to compute shortest paths,
-        if the value is smaller than the graph number of nodes, the output
-        is a rectangular matrix
-        :param distances_to_target: an empty list that will be filled with
-        shortest paths
-        :return distances_to_target: a list of shortest path between a target
-        (origin) and all origins (targets) in the graph
-        """
-        for i in self.states_graph.nodes:
-            shortest_paths = []
-            for j in target_states:
-                shortest_paths.append(
-                    nx.shortest_path_length(graph, source=i,
-                                            target=j, weight='weight',
-                                            method='dijkstra'))
-            shortest_paths_closest_target = min(shortest_paths)
-            if shortest_paths_closest_target == 0:
-                adjacency_matrix = nx.adjacency_matrix(graph).toarray()
-                shortest_paths_closest_target = np.nanmean(
-                    np.where(adjacency_matrix != 0, adjacency_matrix,
-                             np.nan)) / 2
-            distances_to_target.append(shortest_paths_closest_target)
-        return distances_to_target
 
     @staticmethod
     def creating_social_network(nodes, node_degree, rewiring_prob, seed):
@@ -1455,7 +1425,7 @@ class WindABM(Model):
         :return: the pressure scores for each choice
         """
         scores = {}
-        all_or_trg_distances = self.all_shortest_paths_or_trg[state]
+        all_or_trg_distances = self.all_shortest_paths_or_trg_default[state]
         max_dist = max(all_or_trg_distances)
         for key, value in regulations.items():
             list_state_w_regulation = [
@@ -1954,8 +1924,9 @@ class WindABM(Model):
             list_destinations = possible_destinations[key]
             # in the tuple: x is agent id, y is agent state, z is agent
             # process net cost, v is agent cost, and w is agent revenue
-            list_distances = [(x, all_possible_distances[origin][y], z, v, w)
-                              for x, y, z, v, w in list_destinations]
+            list_distances = [
+                (x, all_possible_distances.loc[origin][y], z, v, w)
+                for x, y, z, v, w in list_destinations]
             distances[key] = list_distances
             if list_distances:
                 min_distance = min(list_distances, key=lambda t: t[1])[1]
@@ -2173,6 +2144,8 @@ class WindABM(Model):
         """
         self.variables_recyclers = self.initial_dic_from_key_list(
             self.recyclers.keys(), [])
+        self.variables_recyclers_tr = self.initial_dic_from_key_list(
+            self.recyclers.keys(), [])
         self.regulations_enacted = self.nested_init_dic(
             False, self.choices_circularity.keys(), self.growth_rates.keys())
         self.le_characteristics = []
@@ -2187,6 +2160,8 @@ class WindABM(Model):
         self.tp_blade_manufactured = 0
         self.tp_blade_demanded = 0
         self.variables_landfills = self.initial_dic_from_key_list(
+            self.wbj_database['landfill_type'].unique().tolist(), [])
+        self.variables_landfills_tr = self.initial_dic_from_key_list(
             self.wbj_database['landfill_type'].unique().tolist(), [])
 
     def update_model_variables_start_of_step(self):

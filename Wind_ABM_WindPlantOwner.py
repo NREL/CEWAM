@@ -56,8 +56,20 @@ class WindPlantOwner(Agent):
                 self.p_cap = \
                     self.model.additional_cap[self.t_state] / \
                     self.model.dict_agent_states[self.t_state]
-            self.p_name = "".join(("Additional_agent_", self.t_state, "_",
-                                  str(self.unique_id)))
+            if self.t_state in self.model.add_state_projections.keys():
+                self.p_name = self.t_state
+                self.coordinates = (-98.5795, 39.8283)  # US Geographic center
+            else:
+                potential_names = self.model.uswtdb.loc[
+                    self.model.uswtdb['t_state'] == self.t_state].sample(
+                    n=1, random_state=self.model.seed)
+                self.p_name = potential_names.iloc[0]['p_name']
+                potential_locations = self.model.uswtdb.loc[
+                    self.model.uswtdb['t_state'] == self.t_state].sample(
+                    n=1, random_state=self.model.seed)
+                self.coordinates = (
+                    potential_locations.iloc[0]['xlong'],
+                    potential_locations.iloc[0]['ylat'])
             self.p_year = self.model.clock + \
                 self.model.temporal_scope['simulation_start']
             self.t_cap, self.t_rd = self.model.atb_model(
@@ -109,12 +121,26 @@ class WindPlantOwner(Agent):
             self.model.variables_developers, self.blade_mass_conv_factor)
         self.eol_pathways_barriers = self.model.initial_dic_from_key_list(
             self.model.eol_pathways.keys(), 0)
+        if self.model.detailed_transport_model:
+            name = self.p_name
+            if self.t_state in self.model.add_state_projections.keys():
+                transport_model = self.model.all_shortest_paths_or_trg_default
+                variables_recyclers = self.model.variables_recyclers
+                variables_landfills = self.model.variables_landfills
+            else:
+                transport_model = self.model.all_shortest_paths_or_trg
+                variables_recyclers = self.model.variables_recyclers_tr
+                variables_landfills = self.model.variables_landfills_tr
+        else:
+            name = self.t_state
+            transport_model = self.model.all_shortest_paths_or_trg_default
+            variables_recyclers = self.model.variables_recyclers
+            variables_landfills = self.model.variables_landfills
         self.eol_tr_cost_shreds, self.eol_tr_cost_segments, \
             self.eol_tr_cost_repair = self.model.eol_transportation_costs(
               self.model.eol_pathways, self.model.eol_distances(
-                self.model.variables_recyclers, self.model.variables_landfills,
-                self.model.all_shortest_paths_or_trg, self.t_state,
-                self.eol_pathways_barriers),
+                variables_recyclers, variables_landfills, transport_model,
+                name, self.eol_pathways_barriers),
               self.model.transport_shred_costs, self.model.transport_shreds,
               self.model.transport_segment_costs,
               self.model.transport_segments, self.variables_developers_wpo,

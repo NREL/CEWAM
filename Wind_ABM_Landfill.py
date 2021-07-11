@@ -27,6 +27,11 @@ class Landfill(Agent):
             self.unique_id - self.model.first_land_id]['landfill_type']
         self.landfill_state = self.model.wbj_database.loc[
             self.unique_id - self.model.first_land_id]['State']
+        if self.model.detailed_transport_model:
+            self.landfill_name = self.model.wbj_database.loc[
+                self.unique_id - self.model.first_land_id]['Facility Name']
+        else:
+            self.landfill_name = self.landfill_state
         self.landfill_cost = self.model.wbj_database.loc[
             self.unique_id - self.model.first_land_id]['$/ Ton']
         self.remaining_capacity = self.model.wbj_database.loc[
@@ -42,6 +47,10 @@ class Landfill(Agent):
         # revenues are kept by landfills
         self.model.variables_landfills[self.landfill_type].append(
             (self.unique_id, self.landfill_state, max(self.landfill_cost -
+             self.landfill_revenue, 0), self.landfill_cost,
+             self.landfill_revenue))
+        self.model.variables_landfills_tr[self.landfill_type].append(
+            (self.unique_id, self.landfill_name, max(self.landfill_cost -
              self.landfill_revenue, 0), self.landfill_cost,
              self.landfill_revenue))
         self.closure = False
@@ -106,9 +115,16 @@ class Landfill(Agent):
                 (self.unique_id, self.landfill_state, self.landfill_cost -
                  self.landfill_revenue, self.landfill_cost,
                  self.landfill_revenue))
+            self.model.variables_landfills_tr[self.landfill_type].append(
+                (self.unique_id, self.landfill_name, self.landfill_cost -
+                 self.landfill_revenue, self.landfill_cost,
+                 self.landfill_revenue))
         else:
             self.model.variables_landfills[self.landfill_type].append(
                 (self.unique_id, self.landfill_state, np.nan,
+                 np.nan, np.nan))
+            self.model.variables_landfills_tr[self.landfill_type].append(
+                (self.unique_id, self.landfill_name, np.nan,
                  np.nan, np.nan))
         self.model.landfill_remaining_cap[self.landfill_state] += \
             self.remaining_capacity
