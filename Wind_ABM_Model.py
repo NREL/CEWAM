@@ -116,11 +116,11 @@ class WindABM(Model):
                      "lifetime_extension": 0.005, "dissolution": 0.0,
                      "pyrolysis": 0.005, "mechanical_recycling": 0.005,
                      "cement_co_processing": 0.005, "landfill": 0.98},
-                 tpb_eol_coeff={'w_bi': 0.12, 'w_a': 0.29, 'w_sn': 0.19,
-                                'w_pbc': -0.26, 'w_dpbc': -0.29, 'w_p': 0.11,
+                 tpb_eol_coeff={'w_bi': 0.19, 'w_a': 0.29, 'w_sn': 0.19,
+                                'w_pbc': -0.26, 'w_dpbc': -0.29, 'w_p': 0.04,
                                 'w_b': -0.21},
                  attitude_eol_parameters={
-                     "mean": 0.55, 'standard_deviation': 0.15, 'min': 0,
+                     "mean": 0.555, 'standard_deviation': 0.09, 'min': 0,
                      'max': 1},
                  choices_circularity={
                      "lifetime_extension": True, "dissolution": True,
@@ -425,12 +425,12 @@ class WindABM(Model):
                 #        x - y for x, y in zip(value, red_cost)]
                 #    reduced_costs.sort()
                 #    rec_processes_costs[key] = reduced_costs
-                tpb_eol_coeff['w_b'] = calibration_3
-                tpb_eol_coeff['w_pbc'] = calibration_4
-                tpb_eol_coeff['w_sn'] = calibration_5
-                tpb_eol_coeff['w_a'] = calibration_6
-                tpb_eol_coeff['w_bi'] = calibration_7
-                tpb_eol_coeff['w_p'] = calibration_8
+                tpb_eol_coeff['w_b'] *= calibration_3
+                tpb_eol_coeff['w_pbc'] *= calibration_4
+                tpb_eol_coeff['w_sn'] *= calibration_5
+                tpb_eol_coeff['w_a'] *= calibration_6
+                tpb_eol_coeff['w_bi'] *= calibration_7
+                tpb_eol_coeff['w_p'] *= calibration_8
             elif calibration == 3:
                 attitude_eol_parameters["mean"] = calibration_2
                 attitude_eol_parameters["standard_deviation"] = \
