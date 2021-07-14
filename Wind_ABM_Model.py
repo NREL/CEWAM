@@ -491,12 +491,12 @@ class WindABM(Model):
                 # recyclers['mechanical_recycling'] = 7
                 # recyclers_states['mechanical_recycling'].extend(
                 #    ['Oregon', 'Utah', 'Pennsylvania', 'Nebraska'])
-                tpb_eol_coeff['w_a'] *= calibration_4
-                tpb_eol_coeff['w_pbc'] *= calibration_5
-                tpb_eol_coeff['w_dpbc'] *= calibration_6
+                # tpb_eol_coeff['w_a'] *= calibration_4
+                # tpb_eol_coeff['w_pbc'] *= calibration_5
+                # tpb_eol_coeff['w_dpbc'] *= calibration_6
                 tpb_eol_coeff['w_sn'] *= calibration_7
                 tpb_eol_coeff['w_b'] *= calibration_8
-                tpb_eol_coeff['w_p'] *= calibration_9
+                # tpb_eol_coeff['w_p'] *= calibration_9
             elif calibration == 6:
                 attitude_bt_parameters['mean'] = calibration_2
                 attitude_bt_man_parameters['mean'] = calibration_3
@@ -519,7 +519,7 @@ class WindABM(Model):
                 tpb_eol_coeff['w_b'] *= calibration_5
                 tpb_eol_coeff['w_p'] *= calibration_5
             elif calibration == 8:
-                pass
+                tpb_eol_coeff['w_p'] *= calibration_9
             else:
                 pass
         # TODO: above we use calibration variable for the SA on

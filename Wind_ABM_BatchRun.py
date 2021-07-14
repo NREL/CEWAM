@@ -298,22 +298,18 @@ if __name__ == '__main__':
             run_data.to_csv("results\\BatchRun.csv")
         else:
             list_variables = [
-                "calibration_2", "calibration_3", "calibration_4",
-                "calibration_5", "calibration_6", "calibration_7",
-                "calibration_8", "calibration_9"]
-            problem = {'num_vars': 8,
+                "calibration_2", "calibration_3", "calibration_7",
+                "calibration_8"]
+            problem = {'num_vars': 4,
                        'names': [
-                           "shredding_cost", "transport_cost",
-                           "w_a", "w_pbc", "w_dpbc", "w_sn", "w_b", "w_p"],
-                       'bounds': [[0, 132], [0, 0.53], [0, 1], [0, 1], [0, 1],
-                                  [0, 1], [0, 1], [0, 1]]}
-            x = saltelli.sample(problem, 10)
-            baseline_row = np.array([27.56, 0.53, 1, 1, 1, 1, 1, 1])
+                           "shredding_cost", "transport_cost", "w_sn", "w_b"],
+                       'bounds': [[0, 132], [0, 0.53], [0, 1], [0, 1]]}
+            x = saltelli.sample(problem, 15)
+            baseline_row = np.array([27.56, 0.53, 1, 1])
             x = np.vstack((x, baseline_row))
-            # lower_bound_row = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0])
-            # x = np.vstack((x, lower_bound_row))
-            # upper_bound_row = np.array([132, 0.53, 0.53, 0.29, -0.26, -0.29,
-            #                            0.19, -0.15, 0.17])
+            lower_bound_row = np.array([0, 0, 0, 0])
+            x = np.vstack((x, lower_bound_row))
+            # upper_bound_row = np.array([132, 0.53, 1, 1])
             # x = np.vstack((x, upper_bound_row))
             for x_i in range(x.shape[1]):
                 lower_bound = deepcopy(baseline_row)
@@ -359,7 +355,7 @@ if __name__ == '__main__':
             appended_data = pd.concat(appended_data)
             appended_data.to_csv("results\\SobolBatchRun.csv")
 
-    run_batch(sobol=False, number_steps=31, number_run=5, num_core=6)
+    run_batch(sobol=True, number_steps=31, number_run=3, num_core=6)
 
     t1 = time.time()
     print(t1 - t0)
