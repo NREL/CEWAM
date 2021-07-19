@@ -153,7 +153,7 @@ if __name__ == '__main__':
             "dissolution": 0.0, "mechanical_recycling": 0.02,
             "landfill": 0.98},
         "tpb_man_waste_coeff": {
-            'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.19, 'w_pbc': -0.26,
+            'w_bi': 0.19, 'w_a': 0.29, 'w_sn': 0.19, 'w_pbc': -0.26,
             'w_dpbc': -0.29, 'w_p': 0.00, 'w_b': 0.00},
         "attitude_man_waste_parameters": {
             "mean": 0.5, 'standard_deviation': 0.01, 'min': 0, 'max': 1},
@@ -272,14 +272,14 @@ if __name__ == '__main__':
         if not sobol:
             variable_params = {
                 "seed": list(range(number_run)),
-                "calibration": [2],
-                "calibration_2": [1E-6, 0.5, 1],
-                "calibration_3": [0, 0.5, 1],  # -0.15
+                "calibration": [0],
+                "calibration_2": [1],
+                "calibration_3": [1],  # -0.15
                 "calibration_4": [1],  # -0.26
-                "calibration_5": [0, 0.5, 1],  # 0.19
-                "calibration_6": [0, 1],  # 0.29
+                "calibration_5": [1],  # 0.19
+                "calibration_6": [1],  # 0.29
                 "calibration_7": [1],  # -0.29
-                "calibration_8": [0, 1]
+                "calibration_8": [1]
             }  # 0.17
             fixed_params = all_fixed_params.copy()
             for key in variable_params.keys():
@@ -298,19 +298,18 @@ if __name__ == '__main__':
             run_data.to_csv("results\\BatchRun.csv")
         else:
             list_variables = [
-                "calibration_2", "calibration_3", "calibration_7",
-                "calibration_8"]
-            problem = {'num_vars': 4,
+                "calibration_2", "calibration_3"]
+            problem = {'num_vars': 2,
                        'names': [
-                           "shredding_cost", "transport_cost", "w_sn", "w_b"],
-                       'bounds': [[0, 132], [0, 0.53], [0, 1], [0, 1]]}
-            x = saltelli.sample(problem, 15)
-            baseline_row = np.array([27.56, 0.53, 1, 1])
+                           "pre-process costs", "tr costs"],
+                       'bounds': [[0, 132], [0, 0.53]]}
+            x = saltelli.sample(problem, 20)
+            baseline_row = np.array([27.56, 0.53])
             x = np.vstack((x, baseline_row))
-            lower_bound_row = np.array([0, 0, 0, 0])
+            lower_bound_row = np.array([0, 0])
             x = np.vstack((x, lower_bound_row))
-            # upper_bound_row = np.array([132, 0.53, 1, 1])
-            # x = np.vstack((x, upper_bound_row))
+            upper_bound_row = np.array([132, 0.53])
+            x = np.vstack((x, upper_bound_row))
             for x_i in range(x.shape[1]):
                 lower_bound = deepcopy(baseline_row)
                 bounds = problem['bounds'][x_i]
@@ -338,13 +337,19 @@ if __name__ == '__main__':
                         fixed_params[variable_to_change] = value_to_change
                     else:
                         fixed_params[variable_to_change] = value_to_change
-                variable_params = {"seed": list(range(number_run))}
+                variable_params = {"seed": list(range(number_run)),
+                                   "calibration_7": [0, 0.25, 0.5, 0.75]}
+                tot_run = 1
+                for var_p in variable_params.values():
+                    tot_run *= len(var_p)
+                print('With', tot_run, 'iterations per line')
                 fixed_params["temporal_scope"] = {
                     'pre_simulation': 2000, 'simulation_start': 2020,
                     'simulation_end': (2020 + number_steps)}
                 # fixed_params["batch_run"] = False
                 fixed_params["calibration"] = 5
-                fixed_params.pop("seed")
+                for key in variable_params.keys():
+                    fixed_params.pop(key)
                 batch_run = set_up_batch_run(
                     nr_processes, variable_params, fixed_params, number_steps)
                 batch_run.run_all()

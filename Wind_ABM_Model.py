@@ -210,7 +210,7 @@ class WindABM(Model):
                      "dissolution": 0.0, "mechanical_recycling": 0.02,
                      "landfill": 0.98},
                  tpb_man_waste_coeff={
-                     'w_bi': 0.33, 'w_a': 0.29, 'w_sn': 0.19, 'w_pbc': -0.26,
+                     'w_bi': 0.19, 'w_a': 0.29, 'w_sn': 0.19, 'w_pbc': -0.26,
                      'w_dpbc': -0.29, 'w_p': 0.00, 'w_b': 0.00},
                  attitude_man_waste_parameters={
                      "mean": 0.5, 'standard_deviation': 0.01, 'min': 0,
@@ -494,8 +494,8 @@ class WindABM(Model):
                 # tpb_eol_coeff['w_a'] *= calibration_4
                 # tpb_eol_coeff['w_pbc'] *= calibration_5
                 # tpb_eol_coeff['w_dpbc'] *= calibration_6
-                tpb_eol_coeff['w_sn'] *= calibration_7
-                tpb_eol_coeff['w_b'] *= calibration_8
+                # tpb_eol_coeff['w_sn'] *= calibration_7
+                tpb_eol_coeff['w_b'] *= calibration_7
                 # tpb_eol_coeff['w_p'] *= calibration_9
             elif calibration == 6:
                 attitude_bt_parameters['mean'] = calibration_2
@@ -519,7 +519,10 @@ class WindABM(Model):
                 tpb_eol_coeff['w_b'] *= calibration_5
                 tpb_eol_coeff['w_p'] *= calibration_5
             elif calibration == 8:
-                tpb_eol_coeff['w_p'] *= calibration_9
+                attitude_bt_parameters['mean'] = calibration_2
+                attitude_bt_man_parameters['mean'] = calibration_3
+                rec_processes_revenues['dissolution'] = [
+                    calibration_4, 1E6 + calibration_4]
             else:
                 pass
         # TODO: above we use calibration variable for the SA on
