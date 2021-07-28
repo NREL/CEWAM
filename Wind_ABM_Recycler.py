@@ -107,12 +107,12 @@ class Recycler(Agent):
         """
         self.model.variables_recyclers[self.recycler_type].append(
             (self.unique_id, self.recycler_state,
-             self.recycler_cost - self.recycler_revenue, self.recycler_cost,
-             self.recycler_revenue))
+             max(self.recycler_cost - self.recycler_revenue, 0),
+             self.recycler_cost, self.recycler_revenue))
         self.model.variables_recyclers_tr[self.recycler_type].append(
             (self.unique_id, self.recycler_name,
-             self.recycler_cost - self.recycler_revenue, self.recycler_cost,
-             self.recycler_revenue))
+             max(self.recycler_cost - self.recycler_revenue, 0),
+             self.recycler_cost, self.recycler_revenue))
         self.model.average_eol_costs[self.recycler_type] += \
             self.recycler_cost / self.model.recyclers[self.recycler_type]
         self.model.recovered_materials = self.material_recovery(

@@ -213,7 +213,7 @@ class WindABM(Model):
                      'w_bi': 0.19, 'w_a': 0.29, 'w_sn': 0.19, 'w_pbc': -0.26,
                      'w_dpbc': -0.29, 'w_p': 0.00, 'w_b': 0.00},
                  attitude_man_waste_parameters={
-                     "mean": 0.5, 'standard_deviation': 0.01, 'min': 0,
+                     "mean": 0.5, 'standard_deviation': 0.1, 'min': 0,
                      'max': 1},
                  recycling_init_cap={
                      "dissolution": 1, "pyrolysis": 33100,
@@ -379,6 +379,8 @@ class WindABM(Model):
         # Variables from inputs (value defined externally):
         self.seed = copy.deepcopy(seed)
         self.batch_run = copy.deepcopy(batch_run)
+        self.calibration = calibration
+        self.calibration_7 = calibration_7
         if self.batch_run:
             # TODO: below we use calibration variable for the SA on
             #  shredding costs - this should be removed eventually
@@ -494,8 +496,8 @@ class WindABM(Model):
                 # tpb_eol_coeff['w_a'] *= calibration_4
                 # tpb_eol_coeff['w_pbc'] *= calibration_5
                 # tpb_eol_coeff['w_dpbc'] *= calibration_6
-                # tpb_eol_coeff['w_sn'] *= calibration_7
-                tpb_eol_coeff['w_b'] *= calibration_7
+                tpb_eol_coeff['w_sn'] *= calibration_7
+                tpb_eol_coeff['w_b'] *= calibration_8
                 # tpb_eol_coeff['w_p'] *= calibration_9
             elif calibration == 6:
                 attitude_bt_parameters['mean'] = calibration_2
@@ -522,7 +524,42 @@ class WindABM(Model):
                 attitude_bt_parameters['mean'] = calibration_2
                 attitude_bt_man_parameters['mean'] = calibration_3
                 rec_processes_revenues['dissolution'] = [
-                    calibration_4, 1E6 + calibration_4]
+                    calibration_4, 1E-6 + calibration_4]
+                blade_types = {"thermoset": True, "thermoplastic": True}
+            elif calibration == 9:
+                if calibration_3 == 1:
+                    eol_pathways_transport_mode['pyrolysis'] = \
+                        'transport_segments'
+                    eol_pathways_transport_mode['mechanical_recycling'] = \
+                        'transport_segments'
+                    eol_pathways_transport_mode['cement_co_processing'] = \
+                        'transport_shreds'
+                    eol_pathways_transport_mode['landfill'] = \
+                        'transport_segments'
+                    transport_shreds['shredding_costs'] = [
+                        transport_segments['cutting_costs'],
+                        1E-6 + transport_segments['cutting_costs']]
+                    transport_shreds['transport_cost_shreds'] = [
+                        transport_segments['transport_cost_segments'],
+                        1E-6 + transport_segments['transport_cost_segments']]
+                    transport_shreds['shredding_costs'] = [
+                        x * calibration_2 for x in
+                        transport_shreds['shredding_costs']]
+                    transport_shreds['transport_cost_shreds'] = [
+                        x * calibration_2 * 0.061 for x in
+                        transport_shreds['transport_cost_shreds']]
+                rec_processes_costs['cement_co_processing'] = [
+                    99 * calibration_2, 132 * calibration_2]
+                rec_processes_revenues['cement_co_processing'] = [1E-5, 1E-4]
+                eol_pathways_dist_init = {
+                    "lifetime_extension": 0.005, "dissolution": 0,
+                    "pyrolysis": 0.005, "mechanical_recycling": 0.005,
+                    "cement_co_processing": 0.005 + calibration_5,
+                    "landfill": 0.98 - calibration_5}
+                tpb_eol_coeff['w_sn'] = calibration_6
+                # tpb_eol_coeff['w_b'] *= calibration_7
+            elif calibration == 10:
+                attitude_bt_parameters['mean'] = calibration_9
             else:
                 pass
         # TODO: above we use calibration variable for the SA on
@@ -1482,6 +1519,10 @@ class WindABM(Model):
             self.perceived_behavioral_control_and_barrier(cost_choices))
         scores_b = self.divide_value_by_tot_dic(
             self.perceived_behavioral_control_and_barrier(barrier_choices))
+        # TODO code changed for Figure 3
+        if self.calibration == 9 and 'cement_co_processing' in scores_b:
+            scores_b['cement_co_processing'] = self.calibration_7
+        # TODO code changed for Figure 3
         scores_p = self.divide_value_by_tot_dic(
             self.pressure(state, regulations, choices_circularity))
         scores_behaviors = self.total_tpb_scores(
@@ -1531,9 +1572,20 @@ class WindABM(Model):
         # if two behavior equally score the highest, choose randomly
         random.shuffle(choices)
         if choices or first:
-            selected_choice = choices[0]
-        else:
+            if choices:
+                selected_choice = choices[0]
+            # due to landfill ban no first choice can be available to
+            # manufacturer if no recycling option is available. In that case,
+            # force landfill to avoid errors
+            else:
+                selected_choice = 'landfill'
+        # if no other choice than lifetime_extension is available, forces the
+        # blade to landfill as otherwise they would not get in any EOL pathway
+        # and generate errors
+        elif first_choice != 'lifetime_extension':
             selected_choice = first_choice
+        else:
+            selected_choice = 'landfill'
         return selected_choice
 
     @staticmethod

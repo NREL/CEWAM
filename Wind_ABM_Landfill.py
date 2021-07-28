@@ -112,12 +112,12 @@ class Landfill(Agent):
         """
         if not self.closure:
             self.model.variables_landfills[self.landfill_type].append(
-                (self.unique_id, self.landfill_state, self.landfill_cost -
-                 self.landfill_revenue, self.landfill_cost,
+                (self.unique_id, self.landfill_state, max(self.landfill_cost -
+                 self.landfill_revenue, 0), self.landfill_cost,
                  self.landfill_revenue))
             self.model.variables_landfills_tr[self.landfill_type].append(
-                (self.unique_id, self.landfill_name, self.landfill_cost -
-                 self.landfill_revenue, self.landfill_cost,
+                (self.unique_id, self.landfill_name, max(self.landfill_cost -
+                 self.landfill_revenue, 0), self.landfill_cost,
                  self.landfill_revenue))
         else:
             self.model.variables_landfills[self.landfill_type].append(

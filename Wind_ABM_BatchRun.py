@@ -156,7 +156,7 @@ if __name__ == '__main__':
             'w_bi': 0.19, 'w_a': 0.29, 'w_sn': 0.19, 'w_pbc': -0.26,
             'w_dpbc': -0.29, 'w_p': 0.00, 'w_b': 0.00},
         "attitude_man_waste_parameters": {
-            "mean": 0.5, 'standard_deviation': 0.01, 'min': 0, 'max': 1},
+            "mean": 0.5, 'standard_deviation': 0.1, 'min': 0, 'max': 1},
         "recycling_init_cap": {"dissolution": 1, "pyrolysis": 33100,
                                "mechanical_recycling": 54200,
                                "cement_co_processing": 54200},
@@ -272,14 +272,14 @@ if __name__ == '__main__':
         if not sobol:
             variable_params = {
                 "seed": list(range(number_run)),
-                "calibration": [0],
-                "calibration_2": [1],
+                "calibration": [9],
+                "calibration_2": [1E-6],
                 "calibration_3": [1],  # -0.15
                 "calibration_4": [1],  # -0.26
-                "calibration_5": [1],  # 0.19
-                "calibration_6": [1],  # 0.29
-                "calibration_7": [1],  # -0.29
-                "calibration_8": [1]
+                "calibration_5": [0, 0.695],
+                "calibration_6": [0, 1],  # 0.29
+                "calibration_7": [0.2, 1],  # -0.29
+                "calibration_8": [0]
             }  # 0.17
             fixed_params = all_fixed_params.copy()
             for key in variable_params.keys():
@@ -298,17 +298,18 @@ if __name__ == '__main__':
             run_data.to_csv("results\\BatchRun.csv")
         else:
             list_variables = [
-                "calibration_2", "calibration_3"]
-            problem = {'num_vars': 2,
+                "calibration_2", "calibration_3", "calibration_4"]
+            problem = {'num_vars': 3,
                        'names': [
-                           "pre-process costs", "tr costs"],
-                       'bounds': [[0, 132], [0, 0.53]]}
+                           "tp att mean", "tp att mean man",
+                           "dissolution revenues"],
+                       'bounds': [[0.7, 1], [0.7, 1], [0, 2080]]}
             x = saltelli.sample(problem, 20)
-            baseline_row = np.array([27.56, 0.53])
+            baseline_row = np.array([0.8, 0.9, 658])
             x = np.vstack((x, baseline_row))
-            lower_bound_row = np.array([0, 0])
+            lower_bound_row = np.array([0.7, 0.7, 0])
             x = np.vstack((x, lower_bound_row))
-            upper_bound_row = np.array([132, 0.53])
+            upper_bound_row = np.array([1, 1, 2080])
             x = np.vstack((x, upper_bound_row))
             for x_i in range(x.shape[1]):
                 lower_bound = deepcopy(baseline_row)
@@ -337,8 +338,7 @@ if __name__ == '__main__':
                         fixed_params[variable_to_change] = value_to_change
                     else:
                         fixed_params[variable_to_change] = value_to_change
-                variable_params = {"seed": list(range(number_run)),
-                                   "calibration_7": [0, 0.25, 0.5, 0.75]}
+                variable_params = {"seed": list(range(number_run))}
                 tot_run = 1
                 for var_p in variable_params.values():
                     tot_run *= len(var_p)
@@ -347,7 +347,9 @@ if __name__ == '__main__':
                     'pre_simulation': 2000, 'simulation_start': 2020,
                     'simulation_end': (2020 + number_steps)}
                 # fixed_params["batch_run"] = False
-                fixed_params["calibration"] = 5
+                fixed_params["calibration"] = 8
+                fixed_params["blade_types"] = {"thermoset": True,
+                                               "thermoplastic": True}
                 for key in variable_params.keys():
                     fixed_params.pop(key)
                 batch_run = set_up_batch_run(
@@ -360,7 +362,7 @@ if __name__ == '__main__':
             appended_data = pd.concat(appended_data)
             appended_data.to_csv("results\\SobolBatchRun.csv")
 
-    run_batch(sobol=True, number_steps=31, number_run=3, num_core=6)
+    run_batch(sobol=False, number_steps=31, number_run=10, num_core=6)
 
     t1 = time.time()
     print(t1 - t0)
