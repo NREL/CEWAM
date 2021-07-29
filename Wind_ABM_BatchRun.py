@@ -272,14 +272,14 @@ if __name__ == '__main__':
         if not sobol:
             variable_params = {
                 "seed": list(range(number_run)),
-                "calibration": [9],
-                "calibration_2": [1E-6],
-                "calibration_3": [1],  # -0.15
-                "calibration_4": [1],  # -0.26
-                "calibration_5": [0, 0.695],
-                "calibration_6": [0, 1],  # 0.29
-                "calibration_7": [0.2, 1],  # -0.29
-                "calibration_8": [0]
+                "calibration": [3],
+                "calibration_2": [0.54, 0.55, 0.56, 0.57],
+                "calibration_3": [-0.21],  # -0.15
+                "calibration_4": [-0.26],  # -0.26
+                "calibration_5": [0.19],
+                "calibration_6": [0.29],  # 0.29
+                "calibration_7": [0.19],  # -0.29
+                "calibration_8": [0.05, 0.1, 0.15]
             }  # 0.17
             fixed_params = all_fixed_params.copy()
             for key in variable_params.keys():
@@ -362,7 +362,7 @@ if __name__ == '__main__':
             appended_data = pd.concat(appended_data)
             appended_data.to_csv("results\\SobolBatchRun.csv")
 
-    run_batch(sobol=False, number_steps=31, number_run=10, num_core=6)
+    run_batch(sobol=False, number_steps=31, number_run=20, num_core=6)
 
     t1 = time.time()
     print(t1 - t0)

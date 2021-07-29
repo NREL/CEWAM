@@ -431,8 +431,8 @@ class WindABM(Model):
                 tpb_eol_coeff['w_pbc'] *= calibration_4
                 tpb_eol_coeff['w_sn'] *= calibration_5
                 tpb_eol_coeff['w_a'] *= calibration_6
-                tpb_eol_coeff['w_bi'] *= calibration_7
-                tpb_eol_coeff['w_p'] *= calibration_8
+                tpb_eol_coeff['w_dpbc'] *= calibration_4
+                tpb_eol_coeff['w_p'] *= calibration_7
             elif calibration == 3:
                 attitude_eol_parameters["mean"] = calibration_2
                 attitude_eol_parameters["standard_deviation"] = \
