@@ -70,12 +70,4 @@ class WindABMRun:
 # Add new values for the ABM parameters by writing parameter_name=value after
 # "number run"
 WindABMRun(
-    number_steps=31, number_run=10,
-    batch_run=True,
-    calibration=9,
-    calibration_2=1E-6,
-    calibration_3=1,
-    calibration_4=1,
-    calibration_5=0.695,
-    calibration_6=1,
-    calibration_7=0.2).run_model()
+    number_steps=31, number_run=1).run_model()

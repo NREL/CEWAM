@@ -477,28 +477,11 @@ class WindABM(Model):
                 eol_pathways_transport_mode['cement_co_processing'] = \
                     'transport_shreds'
                 eol_pathways_transport_mode['landfill'] = 'transport_segments'
-                # shred_cost_copy = transport_shreds['shredding_costs'][1]
                 transport_shreds['shredding_costs'] = [
                     calibration_2, 1E-6 + calibration_2]
                 transport_shreds['transport_cost_shreds'] = [
                     calibration_3, 1E-6 + calibration_3]
-                # if calibration_4 == 1:
-                # red_cost = shred_cost_copy - \
-                #           transport_shreds['shredding_costs'][0]
-                # for process, cost in rec_processes_costs.items():
-                #    reduced_costs = [
-                #        x - red_cost for x in cost]
-                #    reduced_costs.sort()
-                #    rec_processes_costs[process] = reduced_costs
-                # recyclers['mechanical_recycling'] = 7
-                # recyclers_states['mechanical_recycling'].extend(
-                #    ['Oregon', 'Utah', 'Pennsylvania', 'Nebraska'])
-                # tpb_eol_coeff['w_a'] *= calibration_4
-                # tpb_eol_coeff['w_pbc'] *= calibration_5
-                # tpb_eol_coeff['w_dpbc'] *= calibration_6
-                tpb_eol_coeff['w_sn'] *= calibration_7
                 tpb_eol_coeff['w_b'] *= calibration_8
-                # tpb_eol_coeff['w_p'] *= calibration_9
             elif calibration == 6:
                 attitude_bt_parameters['mean'] = calibration_2
                 attitude_bt_man_parameters['mean'] = calibration_3

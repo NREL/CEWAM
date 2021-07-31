@@ -298,18 +298,18 @@ if __name__ == '__main__':
             run_data.to_csv("results\\BatchRun.csv")
         else:
             list_variables = [
-                "calibration_2", "calibration_3", "calibration_4"]
+                "calibration_2", "calibration_3", "calibration_8"]
             problem = {'num_vars': 3,
                        'names': [
-                           "tp att mean", "tp att mean man",
-                           "dissolution revenues"],
-                       'bounds': [[0.7, 1], [0.7, 1], [0, 2080]]}
-            x = saltelli.sample(problem, 20)
-            baseline_row = np.array([0.8, 0.9, 658])
+                           "pre-process costs", "tr costs",
+                           "w_b"],
+                       'bounds': [[0, 132], [0, 0.53], [0, 1]]}
+            x = saltelli.sample(problem, 300)
+            baseline_row = np.array([27.56, 0.53, 1])
             x = np.vstack((x, baseline_row))
-            lower_bound_row = np.array([0.7, 0.7, 0])
+            lower_bound_row = np.array([0, 0, 0])
             x = np.vstack((x, lower_bound_row))
-            upper_bound_row = np.array([1, 1, 2080])
+            upper_bound_row = np.array([132, 0.53, 1])
             x = np.vstack((x, upper_bound_row))
             for x_i in range(x.shape[1]):
                 lower_bound = deepcopy(baseline_row)
@@ -347,9 +347,7 @@ if __name__ == '__main__':
                     'pre_simulation': 2000, 'simulation_start': 2020,
                     'simulation_end': (2020 + number_steps)}
                 # fixed_params["batch_run"] = False
-                fixed_params["calibration"] = 8
-                fixed_params["blade_types"] = {"thermoset": True,
-                                               "thermoplastic": True}
+                fixed_params["calibration"] = 5
                 for key in variable_params.keys():
                     fixed_params.pop(key)
                 batch_run = set_up_batch_run(
@@ -362,7 +360,7 @@ if __name__ == '__main__':
             appended_data = pd.concat(appended_data)
             appended_data.to_csv("results\\SobolBatchRun.csv")
 
-    run_batch(sobol=False, number_steps=31, number_run=20, num_core=6)
+    run_batch(sobol=True, number_steps=31, number_run=6, num_core=6)
 
     t1 = time.time()
     print(t1 - t0)
