@@ -120,7 +120,7 @@ class WindABM(Model):
                                 'w_pbc': -0.26, 'w_dpbc': -0.29, 'w_p': 0.04,
                                 'w_b': -0.21},
                  attitude_eol_parameters={
-                     "mean": 0.555, 'standard_deviation': 0.09, 'min': 0,
+                     "mean": 0.8, 'standard_deviation': 0.3, 'min': 0,
                      'max': 1},
                  choices_circularity={
                      "lifetime_extension": True, "dissolution": True,

@@ -71,7 +71,7 @@ if __name__ == '__main__':
         "tpb_eol_coeff": {'w_bi': 0.19, 'w_a': 0.29, 'w_sn': 0.19,
                           'w_pbc': -0.26, 'w_dpbc': -0.29, 'w_p': 0.04,
                           'w_b': -0.21},
-        "attitude_eol_parameters": {"mean": 0.555, 'standard_deviation': 0.09,
+        "attitude_eol_parameters": {"mean": 0.8, 'standard_deviation': 0.3,
                                     'min': 0, 'max': 1},
         "choices_circularity": {
             "lifetime_extension": True, "dissolution": True, "pyrolysis": True,
@@ -272,14 +272,14 @@ if __name__ == '__main__':
         if not sobol:
             variable_params = {
                 "seed": list(range(number_run)),
-                "calibration": [3],
-                "calibration_2": [0.54, 0.55, 0.56, 0.57],
-                "calibration_3": [-0.21],  # -0.15
-                "calibration_4": [-0.26],  # -0.26
-                "calibration_5": [0.19],
-                "calibration_6": [0.29],  # 0.29
-                "calibration_7": [0.19],  # -0.29
-                "calibration_8": [0.05, 0.1, 0.15]
+                "calibration": [2],
+                "calibration_2": [1E-6, 1],
+                "calibration_3": [0, 1],  # -0.15
+                "calibration_4": [0],  # -0.26
+                "calibration_5": [0, 1],
+                "calibration_6": [1],  # 0.29
+                "calibration_7": [1],  # -0.29
+                "calibration_8": [1]
             }  # 0.17
             fixed_params = all_fixed_params.copy()
             for key in variable_params.keys():
@@ -360,7 +360,7 @@ if __name__ == '__main__':
             appended_data = pd.concat(appended_data)
             appended_data.to_csv("results\\SobolBatchRun.csv")
 
-    run_batch(sobol=True, number_steps=31, number_run=6, num_core=6)
+    run_batch(sobol=False, number_steps=31, number_run=20, num_core=6)
 
     t1 = time.time()
     print(t1 - t0)
