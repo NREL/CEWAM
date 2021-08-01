@@ -275,7 +275,7 @@ if __name__ == '__main__':
                 "calibration": [2],
                 "calibration_2": [1E-6, 1],
                 "calibration_3": [0, 1],  # -0.15
-                "calibration_4": [0],  # -0.26
+                "calibration_4": [1],  # -0.26
                 "calibration_5": [0, 1],
                 "calibration_6": [1],  # 0.29
                 "calibration_7": [1],  # -0.29
