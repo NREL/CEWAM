@@ -293,6 +293,18 @@ class TestWindABM(TestCase):
         sum_test = round(uswtdb_test['p_cap'].sum())
         self.assertEqual(sum_test, result)
 
+    def test_landfill_data(self):
+        """Verify that the function select the filter the number of landfills
+        contained in external_files["detailed_distances"]"""
+        wbj_database_test = self.t_model_inst.landfill_data(
+            self.t_model_inst.external_files["wbj_database"],
+            self.t_model_inst.state_abrev, self.t_model_inst.temporal_scope,
+            self.t_model_inst.conversion_factors['metric_short_ton'],
+            self.t_model_inst.waste_volume_model)
+        result = 1294
+        test = wbj_database_test.shape()[0]
+        self.assertEqual(test, result)
+
     def test_p_install_growth_model(self):
         """Test that the agent linear growth is computed accordingly"""
         mock_up_database = pd.DataFrame(
@@ -522,6 +534,33 @@ class TestWindABM(TestCase):
         test = (test1, test2)
         self.assertEqual(result, test)
 
+    def test_total_tpb_scores(self):
+        dic_choices = {'a': True, 'b': False, 'c':True, 'd': True}
+        tpb_weights = {'w_bi': 1, 'w_sn': 0.3, 'w_a': 0.3, 'w_pbc': 0.3,
+                       'w_dpbc': 0.2, 'w_b': 0.1, 'w_p': 0.3}
+        scores_sn = {'a': 0, 'b': 35, 'c': 0, 'd': 1}
+        scores_a = {'a': 1, 'b': 0, 'c': 1, 'd': 1}
+        scores_pbc = {'a': 1, 'b': 0, 'c': 0, 'd': 0}
+        scores_b = {'a': 0.5, 'b': 0.5, 'c': 0.5, 'd': 0}
+        scores_p = {'a': 0, 'b': 35, 'c': 0, 'd': 0}
+        test = self.t_model_inst.total_tpb_scores(
+            dic_choices, tpb_weights, scores_sn, scores_a, scores_pbc,
+            scores_b, scores_p)
+        for key, value in test.items():
+            test[key] = round(value, 2)
+        result = {'a': 0.85, 'c': 0.35, 'd': 0.6}
+        self.assertEqual(result, test)
+
+    def test_select_highest_scores_in_dic(self):
+        """Test that function select highest scores even if second choice"""
+        dic = {'a': 0.6, 'b': 0.6, 'c': 0, 'd': 0.5}
+        first_choice = 'c'
+        first = False
+        test = self.t_model_inst.select_highest_scores_in_dic(
+            dic, first_choice, first)
+        result = 'a'
+        self.assertEqual(test, result)
+
     def test_lifetime_extension(self):
         """Test that years are added to initial lifetime and share of first
          choice is computed"""
@@ -546,6 +585,11 @@ class TestWindABM(TestCase):
             list_variables_to_assign, number_agent, number_agent_assigned,
             list_agent_assigned, exclusive_assignment)
         self.assertCountEqual(results, test)
+
+    def test_learning_effect(self):
+        """Test that the learning effect is correctly computed"""
+        # TODO: continue writing tests here
+        pass
 
     def test_assign_elements_from_list(self):
         """Test that elements are assigned depending on the Boolean value"""

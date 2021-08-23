@@ -360,7 +360,7 @@ if __name__ == '__main__':
             appended_data = pd.concat(appended_data)
             appended_data.to_csv("results\\SobolBatchRun.csv")
 
-    run_batch(sobol=False, number_steps=31, number_run=20, num_core=6)
+    run_batch(sobol=True, number_steps=31, number_run=6, num_core=6)
 
     t1 = time.time()
     print(t1 - t0)
