@@ -401,7 +401,12 @@ class WindABM(Model):
                     'transport_shreds'
                 eol_pathways_transport_mode['cement_co_processing'] = \
                     'transport_shreds'
-                eol_pathways_transport_mode['landfill'] = 'transport_segments'
+                if calibration_8 == 1:
+                    eol_pathways_transport_mode['landfill'] = \
+                        'transport_segments'
+                else:
+                    eol_pathways_transport_mode['landfill'] = \
+                        'transport_shreds'
                 # shred_cost_copy = copy.deepcopy(
                 #    transport_shreds['shredding_costs'])
                 transport_shreds['shredding_costs'] = [
@@ -457,19 +462,12 @@ class WindABM(Model):
                     transport_segments['transport_cost_segments'],
                     1E-6 + transport_segments['transport_cost_segments']]
                 transport_shreds['shredding_costs'] = [
-                    x * calibration_2 * 16.4 for x in
+                    x * calibration_2 for x in
                     transport_shreds['shredding_costs']]
                 transport_shreds['transport_cost_shreds'] = [
-                    x * calibration_2 for x in
+                    x * calibration_3 * 0.061 for x in
                     transport_shreds['transport_cost_shreds']]
-                tpb_eol_coeff['w_b'] = calibration_3
-                rec_processes_revenues['pyrolysis'] = [
-                    x * (1 + calibration_4) for x in
-                    rec_processes_revenues['pyrolysis']]
-                tpb_eol_coeff['w_sn'] = calibration_5
-                tpb_eol_coeff['w_a'] = calibration_6
-                tpb_eol_coeff['w_dpbc'] = calibration_7
-                tpb_eol_coeff['w_p'] = calibration_8
+                tpb_eol_coeff['w_b'] *= calibration_4
             elif calibration == 5:
                 eol_pathways_transport_mode['pyrolysis'] = 'transport_shreds'
                 eol_pathways_transport_mode['mechanical_recycling'] = \
