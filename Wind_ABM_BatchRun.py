@@ -15,9 +15,6 @@ from SALib.sample import saltelli
 from copy import deepcopy
 import time
 
-# TODO: Continue here:
-#  1) rewrite the sobol code
-
 
 if __name__ == '__main__':
     t0 = time.time()

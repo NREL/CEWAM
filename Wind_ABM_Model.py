@@ -10,7 +10,7 @@ module also defines inputs (default values can be changed by user) and collect
 outputs.
 """
 
-# TODO: Next steps - continue HERE
+# TODO: Next steps:
 #  1) Re-write all unittests and missing unittest for all agents
 #  2) More unittests:
 #    i) for recycler and other agents similar to recycler write
