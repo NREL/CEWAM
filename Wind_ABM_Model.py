@@ -23,21 +23,10 @@ outputs.
 #    95-by-35.Adv and 95-by-35+Elec.Adv+DR scenarios in: C:\Users\jwalzber\
 #    Documents\Winter21\Wind_ABM\Modeling\Data\ProjectedCapacity
 #    * Additional recycling facilities and/or lower recycling costs
-#    * Thermoplastic blade model:
-#      - Start by finding estimations for all the necessary parameters (contact
-#      Robynne Murray from NREL (author of:
-#      https://doi.org/10.1016/j.renene.2018.07.032) and ask her questions
-#      - Then I can launch simulations
 #  4) A reinforcement learning could be used in the future (long term)
-#  5) lifetime extension: use doi:10.1088/1757-899X/429/1/012024 to write about
-#  green procurement
 #  6) (Optional) Improving code:
 #    i) Find where the code is slow
-#    ii) Compile file before running - use: "python -m nuitka
-#    Wind_ABM_Run.py --include-module=Wind_ABM_Model
-#    --include-module=Wind_ABM_WindPlantOwner [and other modules]" in Anaconda
-#    prompt
-#    iii) generate documentation using Sphinx and autodoc or something else
+#    ii) generate documentation using Sphinx and autodoc or something else
 
 from mesa import Model
 from Wind_ABM_WindPlantOwner import WindPlantOwner
