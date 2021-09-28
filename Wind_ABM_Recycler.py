@@ -26,8 +26,12 @@ class Recycler(Agent):
         self.recycler_state = self.model.assign_elements_from_list(
             self.model.recyclers_states[self.recycler_type], True)
         if self.model.detailed_transport_model:
-            self.recycler_name = self.model.recyclers_names[
-                self.recycler_type][self.recycler_state]
+            if self.model.calibration == 11 and self.model.calibration_6 == 1:
+                self.recycler_name = self.model.recyclers_names[
+                    self.recycler_type][self.recycler_state].pop()
+            else:
+                self.recycler_name = self.model.recyclers_names[
+                    self.recycler_type][self.recycler_state]
         else:
             self.recycler_name = self.recycler_state
         self.rec_margin = self.model.symetric_triang_distrib_draw(

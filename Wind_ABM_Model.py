@@ -380,6 +380,7 @@ class WindABM(Model):
         self.seed = copy.deepcopy(seed)
         self.batch_run = copy.deepcopy(batch_run)
         self.calibration = calibration
+        self.calibration_6 = calibration_6
         self.calibration_7 = calibration_7
         if self.batch_run:
             # TODO: below we use calibration variable for the SA on
@@ -540,6 +541,116 @@ class WindABM(Model):
                 tpb_eol_coeff['w_sn'] = calibration_6
                 # tpb_eol_coeff['w_b'] *= calibration_7
             elif calibration == 10:
+                if calibration_2 == 0:
+                    eol_pathways = {
+                        "lifetime_extension": False, "dissolution": False,
+                        "pyrolysis": True, "mechanical_recycling": True,
+                        "cement_co_processing": True, "landfill": True}
+            elif calibration == 11:
+                if calibration_5 == 1:
+                    attitude_bt_parameters['mean'] = calibration_2
+                    attitude_bt_man_parameters['mean'] = calibration_3
+                    rec_processes_revenues['dissolution'] = [
+                        calibration_4, 1E-6 + calibration_4]
+                    blade_types = {"thermoset": True, "thermoplastic": True}
+                if calibration_6 == 1:
+                    recyclers = {
+                        "dissolution": 6, "pyrolysis": 4,
+                        "mechanical_recycling": 6, "cement_co_processing": 2}
+                    additional_locations = {
+                        'Texas': "City of Robert Lee Landfill",
+                        'Illinois': "Brickyard Disposal & Recycling Inc",
+                        'California': "Tehachapi Sanitary Landfill",
+                        'Pennsylvania': "Alliance Sanitary Landfill, Inc.",
+                        'Iowa': "Northwest Iowa Area Solid Waste Agency",
+                        'New York': "Clinton County Landfill / Schuyler Falls"}
+                    recyclers_names = {
+                        "dissolution": {
+                            "South Carolina":
+                                ['Carbon Conversions - dissolution'],
+                            "Tennessee": ['Carbon Rivers - dissolution'],
+                            "Iowa": ['GFS IA - dissolution'], "Texas":
+                                ['GFS TX - dissolution'], "Florida":
+                                ['EcoWolf - dissolution'], "Missouri":
+                                ['Veolia - dissolution']},
+                        "pyrolysis": {
+                            "South Carolina": ['Carbon Conversions'],
+                            "Tennessee":
+                                ['Carbon Rivers']}, "mechanical_recycling": {
+                            "Iowa": ['GFS IA'], "Texas": ['GFS TX'], "Florida":
+                                ['EcoWolf']}, "cement_co_processing": {
+                            "Missouri": ['Veolia']}}
+                    list_add_loc = list(additional_locations.items())
+                    random.shuffle(list_add_loc)
+                    # noinspection PyTypeChecker
+                    additional_locations = dict(list_add_loc)
+                    for rec_type in recyclers_states.keys():
+                        if rec_type != "dissolution":
+                            for iteration in range(
+                                    int(recyclers[rec_type] / 2)):
+                                add_state_list = \
+                                    list(additional_locations.keys())
+                                add_name_list = \
+                                    list(additional_locations.values())
+                                added_name = add_name_list.pop()
+                                added_state = add_state_list.pop()
+                                additional_locations.pop(added_state)
+                                new_state_list = recyclers_states[rec_type]
+                                new_state_list.append(added_state)
+                                recyclers_states[rec_type] = new_state_list
+                                if added_state in recyclers_names[rec_type]:
+                                    new_name_list = \
+                                        recyclers_names[rec_type][added_state]
+                                    new_name_list.append(added_name)
+                                    recyclers_names[rec_type][added_state] = \
+                                        new_name_list
+                                else:
+                                    recyclers_names[rec_type][added_state] = \
+                                        [added_name]
+                elif calibration_6 == 2:
+                    recyclers_names = {
+                        "dissolution": {
+                            "South Carolina": 'City of Robert Lee Landfill',
+                            "Tennessee": 'Brickyard Disposal & Recycling Inc',
+                            "Iowa":
+                                'Tehachapi Sanitary Landfill', "Texas":
+                                'Alliance Sanitary Landfill, Inc.',
+                            "Florida":
+                                'Northwest Iowa Area Solid Waste Agency',
+                            "Missouri":
+                                'Clinton County Landfill / Schuyler Falls'},
+                        "pyrolysis": {
+                            "South Carolina": 'Carbon Conversions',
+                            "Tennessee":
+                                'Carbon Rivers'}, "mechanical_recycling": {
+                            "Iowa": 'GFS IA', "Texas": 'GFS TX', "Florida":
+                                'EcoWolf'}, "cement_co_processing": {
+                            "Missouri": 'Veolia'}}
+                tpb_eol_coeff['w_b'] *= calibration_7
+            elif calibration == 12:
+                eol_pathways_transport_mode['pyrolysis'] = 'transport_shreds'
+                eol_pathways_transport_mode['mechanical_recycling'] = \
+                    'transport_shreds'
+                eol_pathways_transport_mode['cement_co_processing'] = \
+                    'transport_shreds'
+                eol_pathways_transport_mode['landfill'] = 'transport_segments'
+                transport_shreds['shredding_costs'] = [
+                    transport_segments['cutting_costs'],
+                    1E-6 + transport_segments['cutting_costs']]
+                transport_shreds['transport_cost_shreds'] = [
+                    transport_segments['transport_cost_segments'],
+                    1E-6 + transport_segments['transport_cost_segments']]
+                transport_shreds['shredding_costs'] = [
+                    x * calibration_2 for x in
+                    transport_shreds['shredding_costs']]
+                transport_shreds['transport_cost_shreds'] = [
+                    x * calibration_2 * 0.061 for x in
+                    transport_shreds['transport_cost_shreds']]
+                if calibration_3 == 0:
+                    detailed_transport_model = False
+                tpb_eol_coeff['w_b'] *= calibration_4
+                tpb_eol_coeff['w_sn'] *= calibration_5
+            elif calibration == 13:
                 attitude_bt_parameters['mean'] = calibration_9
             else:
                 pass
