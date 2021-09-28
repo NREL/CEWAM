@@ -19,4 +19,3 @@ Warnings
 
     The WBJ_Landfills_2020.csv file is proprietary, alternatively the code may be adpated to use the EPA 
     LMOP database which is publicly available
-    Some files are too big to be stored on github, they can be provided by authors upon request
